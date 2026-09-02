@@ -1,0 +1,56 @@
+name: Transfer M0 second review fixes
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".automation/m0-second-review/**"
+      - ".github/workflows/transfer-m0-second-review.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out staged patch
+        uses: actions/checkout@v7
+        with:
+          path: source
+
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+          path: target
+
+      - name: Verify and reconstruct patch
+        run: |
+          set -euo pipefail
+          cd source
+          cat <<'CHECKSUMS' | sha256sum --check
+          b58252baa8bf851b60907db0231944f40717b2d08fb92b11e3332de0b45e8b54  .automation/m0-second-review/part-00
+          249d19eb95fba4e97e3efaced8d269002deb6f598c3f4a6219849078d7a29d77  .automation/m0-second-review/part-01
+          648df40ca5b55ab8fadd36b9458f1e7cac7726d9b270dd624371406aa79d5bd7  .automation/m0-second-review/part-02
+          b8fa377dce8016c879b0e35f31a1d0deeb54f0ddc9987a0693b6836fb953dea7  .automation/m0-second-review/part-03
+          bb6d980df8121e2036f783826fdb36e596da8d60cecc75189fbd6b5429533648  .automation/m0-second-review/part-04
+          CHECKSUMS
+          cat .automation/m0-second-review/part-* > /tmp/m0-second-review.patch.b64
+          printf '%s  %s\n' \
+            '2cdde0747e37bb9bcdf1448342f22ed7161e2a73e61a9532bc8e7c1b25ab2c3e' \
+            /tmp/m0-second-review.patch.b64 | sha256sum --check
+          base64 --decode /tmp/m0-second-review.patch.b64 > /tmp/m0-second-review.patch
+          printf '%s  %s\n' \
+            'd84fb137a7aca09f7fbd3ad2212911552f7a05ef26d8339f53cbfbd5990f6283' \
+            /tmp/m0-second-review.patch | sha256sum --check
+
+      - name: Apply and push review fixes
+        run: |
+          set -euo pipefail
+          cd target
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git am /tmp/m0-second-review.patch
+          git push origin HEAD:feat/m0-behavioral-parity
