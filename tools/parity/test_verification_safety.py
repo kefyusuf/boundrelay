@@ -1,4 +1,5 @@
 # Regression coverage for open M0 certification review threads.
+# Review-specific tests intentionally precede the minimal verifier fix.
 
 from pathlib import Path
 import tempfile
