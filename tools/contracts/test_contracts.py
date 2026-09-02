@@ -60,6 +60,18 @@ class CanonicalAssetTests(unittest.TestCase):
             "trace_path": ".boundrelay/m0/trace.jsonl",
         })))
 
+    def test_m0_workflow_uses_documented_gate_and_current_actions(self) -> None:
+        workflow = (ROOT / ".github/workflows/m0.yml").read_text(encoding="utf-8")
+        for expected in (
+            "actions/checkout@v7",
+            "actions/setup-node@v7",
+            "actions/setup-python@v7",
+            "actions/upload-artifact@v7",
+            "python scripts/verify_m0.py",
+            ".boundrelay/m0/",
+        ):
+            self.assertIn(expected, workflow)
+
     def test_schema_declarations_and_scenario_expectations_are_valid(self) -> None:
         for schema_path in (ROUTE_SCHEMA, EVENT_SCHEMA, RESULT_SCHEMA):
             Draft202012Validator.check_schema(json.loads(schema_path.read_text(encoding="utf-8")))
