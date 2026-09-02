@@ -34,6 +34,7 @@ def main() -> int:
         "unittest",
         "tools.parity.test_normalize",
         "tools.parity.test_verification_safety",
+        "tools.parity.test_trace_contract",
         "-v",
     ])
     run([sys.executable, "-m", "tools.parity.verify_m0"], env)
