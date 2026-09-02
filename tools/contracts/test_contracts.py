@@ -67,10 +67,23 @@ class CanonicalAssetTests(unittest.TestCase):
             "actions/setup-node@v7",
             "actions/setup-python@v7",
             "actions/upload-artifact@v7",
+            "ref: ${{ github.event.pull_request.head.sha || github.sha }}",
+            "name: m0-verification-${{ github.event.pull_request.head.sha || github.sha }}",
+            "include-hidden-files: true",
             "python scripts/verify_m0.py",
             ".boundrelay/m0/",
         ):
             self.assertIn(expected, workflow)
+
+    def test_typescript_configuration_matches_the_tsx_runtime(self) -> None:
+        config = json.loads(
+            (ROOT / "lessons/00-workflow-or-agent/typescript/tsconfig.json").read_text(encoding="utf-8")
+        )["compilerOptions"]
+
+        self.assertEqual(config["module"], "ESNext")
+        self.assertEqual(config["moduleResolution"], "Bundler")
+        self.assertIs(config["esModuleInterop"], True)
+        self.assertIs(config["verbatimModuleSyntax"], True)
 
     def test_schema_declarations_and_scenario_expectations_are_valid(self) -> None:
         for schema_path in (ROUTE_SCHEMA, EVENT_SCHEMA, RESULT_SCHEMA):

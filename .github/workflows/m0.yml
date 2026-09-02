@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -33,7 +35,8 @@ jobs:
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: m0-verification-${{ github.sha }}
+          name: m0-verification-${{ github.event.pull_request.head.sha || github.sha }}
           path: .boundrelay/m0/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
