@@ -4,9 +4,25 @@
 
 ## Project status
 
-**Phase:** Foundation design and project identity accepted; the M0 implementation plan is ready for review. Implementation has not started.
+**Phase:** M0 behavioral parity vertical slice complete.
 
-The repository will begin with a deliberately small executable milestone rather than a broad framework. The first milestone will prove that one scenario can be implemented in TypeScript and Python while producing the same observable behavior and passing the same parity checks. Go follows after the curriculum and contracts are stable.
+M0 now provides canonical support-triage scenarios and contracts, offline deterministic and scripted-model routing, TypeScript/Python implementations, schema-valid JSONL traces, fail-closed invalid-route behavior, and normalized cross-language parity verification. The documented local gate binds evidence to the checked-out Git revision; GitHub Actions runs the same gate on Node.js 24 and Python 3.14 and uploads `.boundrelay/m0/` as `m0-verification-<revision>`.
+
+## Verify M0 locally
+
+Requirements: Node.js 24 and Python 3.14. From the repository root:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+python -m pip install -e lessons/00-workflow-or-agent/python
+npm ci --prefix lessons/00-workflow-or-agent/typescript
+python scripts/verify_m0.py
+```
+
+The gate runs contract tests, both language test suites, verification-safety tests, and seven parity cases. It validates requested case/mode binding, result-to-trace run IDs, terminal event/status consistency, specialist dispatch boundaries, and evidence metadata. Because the evidence is bound to `HEAD`, the certification gate requires a clean Git worktree; commit the candidate changes before running it. The command removes prior M0 evidence before its first check so a failed rerun cannot leave an older `PASSED` record behind. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
 
 ## Project identity
 

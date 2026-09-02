@@ -2,23 +2,49 @@
 
 ## Active phase
 
-Foundation design and BoundRelay identity accepted; M0 implementation plan prepared for review.
+M0 — Behavioral parity vertical slice complete and revision-verifiable.
 
-## Next executable milestone
+## Verification authority
 
-M0 — Behavioral parity vertical slice.
+- Local gate: `python scripts/verify_m0.py`
+- CI workflow: `.github/workflows/m0.yml`
+- Runtime floor: Node.js 24 and Python 3.14
+- CI artifact: `m0-verification-<revision>`
+- Evidence root: `.boundrelay/m0/`
 
-## M0 boundary
+The gate requires a clean Git worktree and binds its evidence to the checked-out revision. Each passing record includes `scenario_id`, revision, runtime versions, verification command, seven requested case/mode combinations, and fourteen language-specific traces. Any affected implementation, contract, fixture, dependency, test, verifier, or workflow change makes earlier evidence stale and requires a fresh run.
 
-- support triage scenario;
-- deterministic baseline;
-- TypeScript and Python;
-- scripted fake decision provider;
-- shared JSONL event contract;
-- invalid-route fault injection;
-- schema, scenario, and parity tests;
-- no real provider, Go, persistence, UI, MCP, queue, or framework adapter.
+## Completed controls
 
-## Completion authority
+- canonical route order and support-triage scenario validation;
+- deterministic baseline and bounded scripted-model decision;
+- complete decision-schema validation before dispatch;
+- non-finite and oversized Python confidence rejection without unsafe numeric conversion;
+- strict JSON event serialization without `NaN` or infinity literals;
+- invalid-route fail-closed behavior with no specialist invocation;
+- schema-valid JSONL events with monotonic sequences;
+- exact canonical lifecycle event sequence for deterministic success, model success, and model rejection;
+- `run.created`, `run.started`, model events, and classify lifecycle bound to the requested scenario/case/mode;
+- exactly one nonblank JSON result line from each verified CLI invocation;
+- exact TypeScript CLI option consumption with unknown, positional, and duplicate argument rejection;
+- result-to-trace `run_id` binding;
+- requested `case_id`, `mode`, and `trace_path` binding;
+- exactly one terminal event matching the reported result status;
+- `route.selected` and specialist step names bound to the selected route;
+- normalized TypeScript/Python result and trace parity;
+- prior evidence removal before the first local gate step;
+- exact PR-head checkout and hidden artifact upload in CI.
 
-M0 is complete only after current-revision verification evidence satisfies the requirements in `ROADMAP.md` and the foundation design.
+## Completed implementation boundary
+
+- support-triage scenario with `billing`, `technical`, and `general` routes;
+- TypeScript and Python implementations;
+- shared JSON Schema and JSONL event contracts;
+- offline scenario execution without API keys;
+- one documented local authority;
+- revision-bound GitHub Actions evidence;
+- no real provider, Go, persistence, UI, MCP, queue, framework adapter, plugin system, or reusable runtime extraction.
+
+## Completion semantics
+
+M0 completion is bounded to the implementation and verification scope defined in `ROADMAP.md`, the foundation design, and the accepted implementation plan. Repository merge and release remain separate governance decisions.

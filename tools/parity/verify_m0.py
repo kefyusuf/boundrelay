@@ -1,0 +1,574 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import platform
+import shutil
+import subprocess
+import sys
+from typing import Mapping
+
+from jsonschema import Draft202012Validator, FormatChecker
+import yaml
+
+from tools.parity.normalize import normalize_result, normalized_trace, read_jsonl
+
+ROOT = Path(__file__).resolve().parents[2]
+SCENARIO_ID = "support-triage"
+SCENARIO_PATH = ROOT / "fixtures/scenarios/support-triage.yaml"
+EVENT_SCHEMA_PATH = ROOT / "contracts/events/run-event.schema.json"
+RESULT_SCHEMA_PATH = ROOT / "contracts/results/run-result.schema.json"
+TS_ROOT = ROOT / "lessons/00-workflow-or-agent/typescript"
+PY_SRC = ROOT / "lessons/00-workflow-or-agent/python/src"
+OUTPUT_ROOT = ROOT / ".boundrelay/m0"
+TRACE_ROOT = OUTPUT_ROOT / "traces"
+EVIDENCE_PATH = OUTPUT_ROOT / "verification-evidence.json"
+TERMINAL_TYPES = {"run.completed", "run.failed"}
+EXPECTED_LIFECYCLE_SEQUENCES: dict[tuple[str, str], tuple[str, ...]] = {
+    ("deterministic", "SUCCEEDED"): (
+        "run.created",
+        "run.started",
+        "step.started",
+        "route.selected",
+        "step.completed",
+        "step.started",
+        "step.completed",
+        "run.completed",
+    ),
+    ("model", "SUCCEEDED"): (
+        "run.created",
+        "run.started",
+        "step.started",
+        "model.requested",
+        "model.completed",
+        "route.selected",
+        "step.completed",
+        "step.started",
+        "step.completed",
+        "run.completed",
+    ),
+    ("model", "FAILED"): (
+        "run.created",
+        "run.started",
+        "step.started",
+        "model.requested",
+        "model.completed",
+        "route.rejected",
+        "step.failed",
+        "run.failed",
+    ),
+}
+
+_FORMAT_CHECKER = FormatChecker()
+
+
+def _load_json(path: Path) -> dict[str, object]:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"Expected JSON object: {path}")
+    return value
+
+
+def _validator(path: Path) -> Draft202012Validator:
+    return Draft202012Validator(_load_json(path), format_checker=_FORMAT_CHECKER)
+
+
+def assert_clean_worktree() -> None:
+    changes = subprocess.check_output(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=ROOT,
+        text=True,
+    ).strip()
+    if changes:
+        raise RuntimeError(
+            "Revision-bound verification requires a clean Git worktree. "
+            "Commit or discard changes before running the M0 certification gate.\n"
+            + changes
+        )
+
+
+def _revision() -> str:
+    return subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
+
+
+def _runtime_version(command: list[str]) -> str:
+    return subprocess.check_output(command, cwd=ROOT, text=True).strip()
+
+
+def _run(command: list[str], *, env: Mapping[str, str] | None = None) -> dict[str, object]:
+    process = subprocess.run(
+        command,
+        cwd=ROOT,
+        env=dict(env) if env is not None else None,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    if process.returncode != 0:
+        raise RuntimeError(
+            f"Command failed ({process.returncode}): {' '.join(command)}\n"
+            f"stdout:\n{process.stdout}\nstderr:\n{process.stderr}"
+        )
+    lines = [line for line in process.stdout.splitlines() if line.strip()]
+    if len(lines) != 1:
+        raise RuntimeError(
+            f"Command must produce exactly one nonblank stdout line: {' '.join(command)}; "
+            f"got {len(lines)}"
+        )
+    try:
+        result = json.loads(lines[0])
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"CLI stdout was not JSON for {' '.join(command)}: {lines[0]}"
+        ) from error
+    if not isinstance(result, dict):
+        raise RuntimeError(f"CLI result must be a JSON object: {' '.join(command)}")
+    return result
+
+
+def _validate_document(
+    validator: Draft202012Validator,
+    value: dict[str, object],
+    *,
+    label: str,
+) -> None:
+    errors = sorted(
+        validator.iter_errors(value),
+        key=lambda error: (list(error.absolute_path), error.message),
+    )
+    if errors:
+        details = "; ".join(
+            f"/{'/'.join(str(part) for part in error.absolute_path)} {error.message}"
+            for error in errors
+        )
+        raise AssertionError(f"{label} failed schema validation: {details}")
+
+
+def _assert_result_context(
+    result: dict[str, object],
+    *,
+    expected_case_id: str,
+    expected_mode: str,
+    label: str,
+    expected_trace_path: str | None = None,
+) -> None:
+    if result.get("case_id") != expected_case_id:
+        raise AssertionError(
+            f"{label} has wrong case_id: {result.get('case_id')!r}; "
+            f"expected {expected_case_id!r}"
+        )
+    if result.get("mode") != expected_mode:
+        raise AssertionError(
+            f"{label} has wrong mode: {result.get('mode')!r}; "
+            f"expected {expected_mode!r}"
+        )
+    if expected_trace_path is not None and result.get("trace_path") != expected_trace_path:
+        raise AssertionError(
+            f"{label} has wrong trace_path: {result.get('trace_path')!r}; "
+            f"expected {expected_trace_path!r}"
+        )
+
+
+def _assert_trace(
+    events: list[dict[str, object]],
+    *,
+    source: str,
+    expected_run_id: str,
+    label: str,
+    event_validator: Draft202012Validator,
+) -> None:
+    for index, event in enumerate(events, start=1):
+        _validate_document(event_validator, event, label=f"{label} event {index}")
+        if event.get("source") != source:
+            raise AssertionError(f"{label} event {index} has wrong source: {event.get('source')}")
+        if event.get("run_id") != expected_run_id:
+            raise AssertionError(f"{label} event {index} has wrong run_id: {event.get('run_id')}")
+    sequences = [event.get("sequence") for event in events]
+    expected = list(range(1, len(events) + 1))
+    if sequences != expected:
+        raise AssertionError(f"{label} has non-monotonic sequences: {sequences}")
+    terminal = [event for event in events if event.get("type") in TERMINAL_TYPES]
+    if len(terminal) != 1:
+        raise AssertionError(f"{label} must contain exactly one terminal event")
+    if events[-1].get("type") not in TERMINAL_TYPES:
+        raise AssertionError(f"{label} terminal event must be last")
+
+
+def _assert_lifecycle_sequence(
+    events: list[dict[str, object]],
+    *,
+    mode: str,
+    expected_status: object,
+    label: str,
+) -> None:
+    key = (mode, str(expected_status))
+    expected = EXPECTED_LIFECYCLE_SEQUENCES.get(key)
+    if expected is None:
+        raise AssertionError(f"{label} has unsupported lifecycle path: {key}")
+    actual = tuple(str(event.get("type")) for event in events)
+    if actual != expected:
+        raise AssertionError(
+            f"{label} event sequence does not match the canonical M0 lifecycle: "
+            f"expected {list(expected)}, got {list(actual)}"
+        )
+
+
+def _assert_trace_context(
+    events: list[dict[str, object]],
+    *,
+    expected_case_id: str,
+    expected_mode: str,
+    label: str,
+) -> None:
+    if len(events) < 3:
+        raise AssertionError(f"{label} trace is too short for lifecycle context")
+
+    created_data = events[0].get("data")
+    expected_created = {
+        "scenario_id": SCENARIO_ID,
+        "case_id": expected_case_id,
+        "mode": expected_mode,
+    }
+    if not isinstance(created_data, dict) or any(
+        created_data.get(key) != value for key, value in expected_created.items()
+    ):
+        raise AssertionError(
+            f"{label} run.created context must match {expected_created}, got {created_data!r}"
+        )
+
+    started_data = events[1].get("data")
+    expected_started = {
+        "case_id": expected_case_id,
+        "mode": expected_mode,
+    }
+    if not isinstance(started_data, dict) or any(
+        started_data.get(key) != value for key, value in expected_started.items()
+    ):
+        raise AssertionError(
+            f"{label} run.started context must match {expected_started}, got {started_data!r}"
+        )
+
+    classify_started = [
+        event for event in events
+        if event.get("type") == "step.started"
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("step") == "classify"
+    ]
+    classify_finished = [
+        event for event in events
+        if event.get("type") in {"step.completed", "step.failed"}
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("step") == "classify"
+    ]
+    if len(classify_started) != 1 or len(classify_finished) != 1:
+        raise AssertionError(
+            f"{label} must contain exactly one classify start and one classify completion/failure"
+        )
+
+    if expected_mode == "model":
+        for event_type in ("model.requested", "model.completed"):
+            matching = [event for event in events if event.get("type") == event_type]
+            if len(matching) != 1:
+                raise AssertionError(f"{label} must contain exactly one {event_type} event")
+            data = matching[0].get("data")
+            if not isinstance(data, dict) or data.get("case_id") != expected_case_id:
+                raise AssertionError(
+                    f"{label} {event_type} context has wrong case_id: {data!r}"
+                )
+
+
+def _assert_terminal_status(
+    events: list[dict[str, object]],
+    *,
+    expected_status: object,
+    label: str,
+) -> None:
+    terminal_by_status = {
+        "SUCCEEDED": "run.completed",
+        "FAILED": "run.failed",
+    }
+    expected_terminal = terminal_by_status.get(expected_status)
+    if expected_terminal is None:
+        raise AssertionError(f"{label} has unsupported result status: {expected_status!r}")
+    actual_terminal = events[-1].get("type") if events else None
+    if actual_terminal != expected_terminal:
+        raise AssertionError(
+            f"{label} expected terminal event {expected_terminal} for "
+            f"status {expected_status}, got {actual_terminal!r}"
+        )
+
+
+def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
+    steps: list[str] = []
+    for event in events:
+        data = event.get("data")
+        if isinstance(data, dict):
+            step = str(data.get("step", ""))
+            if step.startswith("specialist."):
+                steps.append(step)
+    return steps
+
+
+def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+    return bool(_specialist_steps(events))
+
+
+def _assert_expected_behavior(
+    *,
+    case: dict[str, object],
+    result: dict[str, object],
+    events: list[dict[str, object]],
+    label: str,
+) -> None:
+    expected_route = case.get("expected_route")
+    expected_failure = case.get("expected_failure_code")
+    if expected_route is not None:
+        expected = {
+            "status": "SUCCEEDED",
+            "selected_route": expected_route,
+            "specialist_invoked": True,
+            "failure_code": None,
+        }
+        for key, value in expected.items():
+            if result.get(key) != value:
+                raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
+        expected_specialist_step = f"specialist.{expected_route}"
+        specialist_steps = _specialist_steps(events)
+        if not specialist_steps:
+            raise AssertionError(f"{label} did not emit a specialist step")
+        if any(step != expected_specialist_step for step in specialist_steps):
+            raise AssertionError(
+                f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
+            )
+        selected_events = [event for event in events if event.get("type") == "route.selected"]
+        if len(selected_events) != 1:
+            raise AssertionError(f"{label} must emit exactly one route.selected event")
+        selected_data = selected_events[0].get("data")
+        if not isinstance(selected_data, dict) or selected_data.get("route") != expected_route:
+            raise AssertionError(
+                f"{label} route.selected payload does not match expected route {expected_route!r}"
+            )
+        return
+
+    if expected_failure != "INVALID_ROUTE_DECISION":
+        raise AssertionError(f"Unsupported failure expectation in {label}: {expected_failure}")
+    expected = {
+        "status": "FAILED",
+        "selected_route": None,
+        "specialist_invoked": False,
+        "failure_code": "INVALID_ROUTE_DECISION",
+    }
+    for key, value in expected.items():
+        if result.get(key) != value:
+            raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
+    if _has_specialist_step(events):
+        raise AssertionError(f"{label} invoked a specialist after route rejection")
+    if not any(event.get("type") == "route.rejected" for event in events):
+        raise AssertionError(f"{label} did not emit route.rejected")
+
+
+def _scenario_cases() -> list[tuple[dict[str, object], str]]:
+    document = yaml.safe_load(SCENARIO_PATH.read_text(encoding="utf-8"))
+    if (
+        not isinstance(document, dict)
+        or document.get("scenario_id") != SCENARIO_ID
+        or not isinstance(document.get("cases"), list)
+    ):
+        raise ValueError("Canonical support-triage scenario is invalid")
+    combinations: list[tuple[dict[str, object], str]] = []
+    for raw_case in document["cases"]:
+        if not isinstance(raw_case, dict):
+            raise ValueError("Scenario cases must be objects")
+        case = dict(raw_case)
+        if "expected_route" in case:
+            combinations.append((case, "deterministic"))
+            combinations.append((case, "model"))
+        elif case.get("expected_failure_code") == "INVALID_ROUTE_DECISION":
+            combinations.append((case, "model"))
+        else:
+            raise ValueError(f"Unsupported scenario expectation: {case}")
+    if len(combinations) != 7:
+        raise AssertionError(f"M0 must contain seven verification combinations, got {len(combinations)}")
+    return combinations
+
+
+def verify() -> dict[str, object]:
+    assert_clean_worktree()
+    shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
+    TRACE_ROOT.mkdir(parents=True, exist_ok=True)
+
+    event_validator = _validator(EVENT_SCHEMA_PATH)
+    result_validator = _validator(RESULT_SCHEMA_PATH)
+    python_env = os.environ.copy()
+    existing_pythonpath = python_env.get("PYTHONPATH")
+    python_env["PYTHONPATH"] = str(PY_SRC) + (os.pathsep + existing_pythonpath if existing_pythonpath else "")
+
+    records: list[dict[str, object]] = []
+    for case, mode in _scenario_cases():
+        case_id = case.get("id")
+        if not isinstance(case_id, str):
+            raise ValueError("Scenario case id must be a string")
+        ts_trace = Path(".boundrelay/m0/traces") / f"{case_id}-{mode}-typescript.jsonl"
+        py_trace = Path(".boundrelay/m0/traces") / f"{case_id}-{mode}-python.jsonl"
+        ts_trace_path = str(ROOT / ts_trace)
+        py_trace_path = str(ROOT / py_trace)
+
+        ts_result = _run([
+            "npm",
+            "--silent",
+            "--prefix",
+            str(TS_ROOT),
+            "run",
+            "run",
+            "--",
+            "--mode",
+            mode,
+            "--case",
+            case_id,
+            "--trace",
+            ts_trace_path,
+        ])
+        py_result = _run([
+            sys.executable,
+            "-m",
+            "boundrelay_m0",
+            "--mode",
+            mode,
+            "--case",
+            case_id,
+            "--trace",
+            py_trace_path,
+        ], env=python_env)
+
+        ts_label = f"TypeScript {case_id}/{mode}"
+        py_label = f"Python {case_id}/{mode}"
+        _validate_document(result_validator, ts_result, label=f"{ts_label} result")
+        _validate_document(result_validator, py_result, label=f"{py_label} result")
+        _assert_result_context(
+            ts_result,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            expected_trace_path=ts_trace_path,
+            label=ts_label,
+        )
+        _assert_result_context(
+            py_result,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            expected_trace_path=py_trace_path,
+            label=py_label,
+        )
+
+        ts_events = read_jsonl(ROOT / ts_trace)
+        py_events = read_jsonl(ROOT / py_trace)
+        _assert_trace(
+            ts_events,
+            source="typescript",
+            expected_run_id=str(ts_result["run_id"]),
+            label=ts_label,
+            event_validator=event_validator,
+        )
+        _assert_trace(
+            py_events,
+            source="python",
+            expected_run_id=str(py_result["run_id"]),
+            label=py_label,
+            event_validator=event_validator,
+        )
+        _assert_lifecycle_sequence(
+            ts_events,
+            mode=mode,
+            expected_status=ts_result["status"],
+            label=ts_label,
+        )
+        _assert_lifecycle_sequence(
+            py_events,
+            mode=mode,
+            expected_status=py_result["status"],
+            label=py_label,
+        )
+        _assert_trace_context(
+            ts_events,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            label=ts_label,
+        )
+        _assert_trace_context(
+            py_events,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            label=py_label,
+        )
+        _assert_terminal_status(
+            ts_events,
+            expected_status=ts_result["status"],
+            label=ts_label,
+        )
+        _assert_terminal_status(
+            py_events,
+            expected_status=py_result["status"],
+            label=py_label,
+        )
+        _assert_expected_behavior(case=case, result=ts_result, events=ts_events, label=ts_label)
+        _assert_expected_behavior(case=case, result=py_result, events=py_events, label=py_label)
+
+        if normalize_result(ts_result) != normalize_result(py_result):
+            raise AssertionError(f"Result parity failed for {case_id}/{mode}")
+        if normalized_trace(ROOT / ts_trace) != normalized_trace(ROOT / py_trace):
+            raise AssertionError(f"Trace parity failed for {case_id}/{mode}")
+
+        records.append({
+            "case_id": case_id,
+            "mode": mode,
+            "status": ts_result["status"],
+            "typescript_trace": ts_trace.as_posix(),
+            "python_trace": py_trace.as_posix(),
+            "event_count": len(ts_events),
+        })
+
+    evidence: dict[str, object] = {
+        "schema_version": "1.0",
+        "scenario_id": SCENARIO_ID,
+        "revision": _revision(),
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "runtimes": {
+            "python": platform.python_version(),
+            "node": _runtime_version(["node", "--version"]),
+            "npm": _runtime_version(["npm", "--version"]),
+        },
+        "verification_command": "python -m tools.parity.verify_m0",
+        "status": "PASSED",
+        "cases": records,
+    }
+    EVIDENCE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EVIDENCE_PATH.write_text(json.dumps(evidence, indent=2) + "\n", encoding="utf-8")
+    return evidence
+
+
+def main() -> int:
+    try:
+        evidence = verify()
+    except Exception as error:
+        OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
+        failed = {
+            "schema_version": "1.0",
+            "scenario_id": SCENARIO_ID,
+            "revision": _revision(),
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
+            "verification_command": "python -m tools.parity.verify_m0",
+            "status": "FAILED",
+            "error": str(error),
+        }
+        EVIDENCE_PATH.write_text(json.dumps(failed, indent=2) + "\n", encoding="utf-8")
+        print(str(error), file=sys.stderr)
+        return 1
+    print(f"M0 parity verified for {len(evidence['cases'])} combinations.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
