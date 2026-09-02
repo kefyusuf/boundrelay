@@ -84,6 +84,11 @@ class TraceContractTests(unittest.TestCase):
                 "mode": "model",
             }),
             event("step.started", {"step": "classify"}),
+            event("model.requested", {"case_id": "billing-duplicate-charge"}),
+            event("model.completed", {
+                "case_id": "billing-duplicate-charge",
+                "decision": {"route": "billing", "confidence": 0.98},
+            }),
             event("step.completed", {"step": "classify", "route": "billing"}),
         ]
 
@@ -118,11 +123,23 @@ class TraceContractTests(unittest.TestCase):
                         label="Python billing/model",
                     )
 
-        for index in (2, 3):
+        for index in (2, 5):
             with self.subTest(classify_event=index):
                 invalid = deepcopy(valid)
                 invalid[index]["data"]["step"] = "specialist.billing"
                 with self.assertRaisesRegex(AssertionError, "classify"):
+                    assert_context(
+                        invalid,
+                        expected_case_id="billing-duplicate-charge",
+                        expected_mode="model",
+                        label="Python billing/model",
+                    )
+
+        for index in (3, 4):
+            with self.subTest(model_event=index):
+                invalid = deepcopy(valid)
+                invalid[index]["data"]["case_id"] = "wrong-case"
+                with self.assertRaisesRegex(AssertionError, "wrong case_id"):
                     assert_context(
                         invalid,
                         expected_case_id="billing-duplicate-charge",
