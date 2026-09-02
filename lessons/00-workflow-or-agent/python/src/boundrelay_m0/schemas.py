@@ -70,11 +70,10 @@ def _validate_mapping(
 def validate_route_decision(raw: object) -> ValidationSuccess[RouteDecision] | ValidationFailure:
     if isinstance(raw, Mapping):
         confidence = raw.get("confidence")
-        if (
-            isinstance(confidence, (int, float))
-            and not isinstance(confidence, bool)
-            and not math.isfinite(float(confidence))
-        ):
+        if isinstance(confidence, int) and not isinstance(confidence, bool):
+            if confidence < 0 or confidence > 1:
+                return ValidationFailure(("/confidence must be between 0 and 1",))
+        elif isinstance(confidence, float) and not math.isfinite(confidence):
             return ValidationFailure(("/confidence must be a finite number",))
 
     validated = _validate_mapping(_ROUTE_VALIDATOR, raw)
