@@ -19,10 +19,12 @@ The gate requires a clean Git worktree and binds its evidence to the checked-out
 - canonical route order and support-triage scenario validation;
 - deterministic baseline and bounded scripted-model decision;
 - complete decision-schema validation before dispatch;
-- non-finite Python confidence rejection;
+- non-finite and oversized Python confidence rejection without unsafe numeric conversion;
 - strict JSON event serialization without `NaN` or infinity literals;
 - invalid-route fail-closed behavior with no specialist invocation;
 - schema-valid JSONL events with monotonic sequences;
+- exact canonical lifecycle event sequence for deterministic success, model success, and model rejection;
+- `run.created`, `run.started`, model events, and classify lifecycle bound to the requested scenario/case/mode;
 - exactly one nonblank JSON result line from each verified CLI invocation;
 - exact TypeScript CLI option consumption with unknown, positional, and duplicate argument rejection;
 - result-to-trace `run_id` binding;
