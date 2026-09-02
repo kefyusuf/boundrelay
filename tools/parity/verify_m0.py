@@ -40,6 +40,20 @@ def _validator(path: Path) -> Draft202012Validator:
     return Draft202012Validator(_load_json(path), format_checker=_FORMAT_CHECKER)
 
 
+def assert_clean_worktree() -> None:
+    changes = subprocess.check_output(
+        ["git", "status", "--porcelain=v1", "--untracked-files=all"],
+        cwd=ROOT,
+        text=True,
+    ).strip()
+    if changes:
+        raise RuntimeError(
+            "Revision-bound verification requires a clean Git worktree. "
+            "Commit or discard changes before running the M0 certification gate.\n"
+            + changes
+        )
+
+
 def _revision() -> str:
     return subprocess.check_output(
         ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
@@ -190,6 +204,7 @@ def _scenario_cases() -> list[tuple[dict[str, object], str]]:
 
 
 def verify() -> dict[str, object]:
+    assert_clean_worktree()
     shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
     TRACE_ROOT.mkdir(parents=True, exist_ok=True)
 

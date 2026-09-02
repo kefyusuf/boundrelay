@@ -29,6 +29,13 @@ class SchemaAdapterTests(unittest.TestCase):
             "trace_path": ".boundrelay/m0/trace.jsonl",
         }).ok)
 
+    def test_rejects_non_finite_confidence(self) -> None:
+        for confidence in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(confidence=confidence):
+                result = validate_route_decision({"route": "billing", "confidence": confidence})
+                self.assertFalse(result.ok)
+                self.assertIn("finite", " ".join(result.errors))
+
     def test_rejects_invalid_route_and_inconsistent_result_values(self) -> None:
         self.assertFalse(validate_route_decision({"route": "unknown", "confidence": 0.9}).ok)
         self.assertFalse(validate_run_result({

@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import dataclass
 import json
+import math
 from typing import Generic, Literal, Mapping, TypeVar, cast
 
 from jsonschema import Draft202012Validator, FormatChecker
@@ -67,6 +68,15 @@ def _validate_mapping(
 
 
 def validate_route_decision(raw: object) -> ValidationSuccess[RouteDecision] | ValidationFailure:
+    if isinstance(raw, Mapping):
+        confidence = raw.get("confidence")
+        if (
+            isinstance(confidence, (int, float))
+            and not isinstance(confidence, bool)
+            and not math.isfinite(float(confidence))
+        ):
+            return ValidationFailure(("/confidence must be a finite number",))
+
     validated = _validate_mapping(_ROUTE_VALIDATOR, raw)
     if not validated.ok:
         return validated

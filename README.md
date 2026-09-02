@@ -22,7 +22,7 @@ npm ci --prefix lessons/00-workflow-or-agent/typescript
 python scripts/verify_m0.py
 ```
 
-The gate runs contract tests, both language test suites, seven parity cases, and writes ignored evidence under `.boundrelay/m0/`. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
+The gate runs contract tests, both language test suites, seven parity cases, and writes ignored evidence under `.boundrelay/m0/`. Because the evidence is bound to `HEAD`, the certification gate requires a clean Git worktree; commit the candidate changes before running it. The command removes prior M0 evidence before its first check so a failed rerun cannot leave an older `PASSED` record behind. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
 
 ## Project identity
 

@@ -113,6 +113,8 @@ Run the sole documented local M0 gate:
 python scripts/verify_m0.py
 ```
 
+The certification command requires a clean Git worktree so the tested filesystem content is identical to the revision recorded in evidence. It also removes prior M0 evidence before the first contract or test command.
+
 A passing run writes revision-bound evidence to:
 
 ```text

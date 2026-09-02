@@ -22,7 +22,7 @@ npm ci --prefix lessons/00-workflow-or-agent/typescript
 python scripts/verify_m0.py
 ```
 
-Bu komut contract testlerini, iki dilin testlerini ve yedi parity kombinasyonunu çalıştırır. Ayrıntılı anlatım için [Ders 00](lessons/00-workflow-or-agent/README.md) dosyasına bakın.
+Bu komut contract testlerini, iki dilin testlerini ve yedi parity kombinasyonunu çalıştırır. Evidence `HEAD` revision’ına bağlandığı için certification gate temiz bir Git worktree gerektirir; aday değişiklikleri commit ettikten sonra çalıştırın. Komut ilk kontrolden önce eski M0 evidence dizinini kaldırır; dolayısıyla başarısız bir yeniden çalıştırma önceki `PASSED` kaydını bırakamaz. Ayrıntılı anlatım için [Ders 00](lessons/00-workflow-or-agent/README.md) dosyasına bakın.
 
 ## Proje kimliği
 
