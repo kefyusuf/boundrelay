@@ -33,10 +33,17 @@ jobs:
           cat <<'CHECKSUMS' | sha256sum --check
           f64ea2811e5a3ce3689906d4e46fed6e55e5e4081392dafbd280dce5d8274bd7  .automation/m0-review/part-00
           e34b04eaa087ee3cb34cc733c03d6944f46a45eee0d56c3549ade61b5b356b93  .automation/m0-review/part-01
-          5922b1f9b8859ee7be5909af56e1b0e4e00c48bf53908d59e3ea7897507e4ce5  .automation/m0-review/part-02
+          30b3633bd617ebe90d7979e9313131e86397658579f994b184a567dda6381057  .automation/m0-review/part-02a
+          fdfa49bd165a7813c437b2129dd3a4d68a2408aedd5c1acc15a63b93a7664acb  .automation/m0-review/part-02b
           9629cb0a37cde282fefc64e146976d524eebd643a08874969103e4efa869a91e  .automation/m0-review/part-03
           CHECKSUMS
-          cat .automation/m0-review/part-* > /tmp/m0-review.patch.b64
+          cat \
+            .automation/m0-review/part-00 \
+            .automation/m0-review/part-01 \
+            .automation/m0-review/part-02a \
+            .automation/m0-review/part-02b \
+            .automation/m0-review/part-03 \
+            > /tmp/m0-review.patch.b64
           printf '%s  %s\n' \
             '754341f1aa62812cc2a359ec60b6ef42aa78cb0a8652f6775f7167e0d10c0e0c' \
             /tmp/m0-review.patch.b64 | sha256sum --check
