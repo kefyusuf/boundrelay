@@ -1,0 +1,164 @@
+name: Finalize M0 delivery metadata
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/finalize-m0-delivery-metadata-20260902.yml"
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+  statuses: read
+
+jobs:
+  finalize-metadata:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: "4"
+    steps:
+      - name: Check out current feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+
+      - name: Require current-head review and verification gates
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+          import json, os, urllib.parse, urllib.request
+
+          repo=os.environ['REPOSITORY']
+          owner,name=repo.split('/',1)
+          pr_number=int(os.environ['PR_NUMBER'])
+          token=os.environ['GH_TOKEN']
+          api='https://api.github.com'
+
+          def request(path, *, method='GET', payload=None):
+              data=None if payload is None else json.dumps(payload).encode()
+              req=urllib.request.Request(api+path,data=data,method=method,headers={
+                  'Accept':'application/vnd.github+json',
+                  'Authorization':f'Bearer {token}',
+                  'X-GitHub-Api-Version':'2022-11-28',
+                  'User-Agent':'boundrelay-m0-metadata-finalizer',
+              })
+              with urllib.request.urlopen(req,timeout=30) as response:
+                  raw=response.read()
+              return json.loads(raw) if raw else None
+
+          pr=request(f'/repos/{repo}/pulls/{pr_number}')
+          head=pr['head']['sha']
+          statuses=request(f'/repos/{repo}/commits/{head}/statuses?per_page=100')
+          final=next((item for item in statuses if item.get('context')=='M0 Final Review'),None)
+          if final is None or final.get('state')!='success':
+              raise RuntimeError('Current head does not have a successful M0 Final Review status.')
+
+          graph=request('/graphql',method='POST',payload={
+              'query':'''query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}''',
+              'variables':{'owner':owner,'name':name,'number':pr_number},
+          })
+          nodes=graph['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          unresolved=sum(1 for item in nodes if not item['isResolved'])
+          if unresolved:
+              raise RuntimeError(f'{unresolved} review thread(s) remain unresolved.')
+
+          runs=request(
+              f'/repos/{repo}/actions/runs?event=pull_request&branch='
+              + urllib.parse.quote(pr['head']['ref'],safe='')
+              + '&per_page=100'
+          )['workflow_runs']
+          ok=[item for item in runs if item.get('name')=='M0 Verification' and item.get('head_sha')==head and item.get('status')=='completed' and item.get('conclusion')=='success']
+          if not ok:
+              raise RuntimeError('No successful current-head M0 workflow was found.')
+          print(json.dumps({'head_sha':head,'open_threads':unresolved,'final_review':final['state']},indent=2))
+          PY
+
+      - name: Align public and delivery status
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_section(path: str, heading: str, replacement: str) -> None:
+              file=Path(path)
+              text=file.read_text(encoding='utf-8')
+              start=text.index(heading)
+              next_heading=text.find('\n## ', start + len(heading))
+              end=len(text) if next_heading == -1 else next_heading + 1
+              file.write_text(text[:start] + replacement.rstrip() + '\n\n' + text[end:], encoding='utf-8')
+
+          replace_section(
+              'README.md',
+              '## Project status',
+              '''## Project status
+
+**Phase:** M0 complete; M1 not started.
+
+The first behavioral-parity vertical slice is implemented and verified. It includes canonical support-triage contracts and fixtures, bounded deterministic and scripted-model routing in TypeScript and Python, strict-JSON traces, fail-closed invalid-route handling, and revision-bound cross-language evidence.
+
+The authoritative local gate remains:
+
+```bash
+python scripts/verify_m0.py
+```
+
+Completion is revision-sensitive: changes to implementation, contracts, fixtures, verification tooling, dependencies, or CI require fresh exact-head evidence.''',
+          )
+          replace_section(
+              'README.tr.md',
+              '## Proje durumu',
+              '''## Proje durumu
+
+**Aşama:** M0 tamamlandı; M1 henüz başlamadı.
+
+İlk behavioral-parity vertical slice uygulanmış ve doğrulanmıştır. Canonical support-triage sözleşmeleri ve fixture’ları, TypeScript/Python deterministic ve bounded scripted-model routing, strict-JSON trace’ler, invalid-route fail-closed davranışı ve revision-bound diller arası evidence bu kapsamdadır.
+
+Otoritatif yerel gate değişmemiştir:
+
+```bash
+python scripts/verify_m0.py
+```
+
+Tamamlanma revision’a bağlıdır: implementasyon, sözleşme, fixture, verifier, dependency veya CI değiştiğinde exact-head evidence yeniden üretilmelidir.''',
+          )
+          Path('.ai/delivery/current-scope.md').write_text('''# Current Delivery Scope
+
+## Active phase
+
+M0 — Behavioral parity vertical slice complete; M1 not started.
+
+## Completed implementation boundary
+
+- canonical support-triage scenario with `billing`, `technical`, and `general` routes;
+- deterministic baseline and bounded offline scripted-model decision;
+- idiomatic TypeScript and Python implementations;
+- shared Draft 2020-12 JSON Schema contracts and strict-JSON JSONL traces;
+- fail-closed invalid-route behavior with explicit rejection evidence and no specialist dispatch;
+- lifecycle, execution-context, terminal-result, run-identity, and cross-language parity verification;
+- one documented local authority: `python scripts/verify_m0.py`;
+- exact-head GitHub Actions evidence under `.boundrelay/m0/`;
+- no real provider, Go, persistence, UI, MCP, queue, framework adapter, plugin system, or reusable runtime extraction.
+
+## Verification rule
+
+M0 completion is revision-bound. Any affected implementation, contract, fixture, dependency, verifier, workflow, or delivery-status change must pass the same exact-head M0 workflow before it is treated as current evidence.
+
+## Integration state
+
+The implementation is carried by pull request #4. Merge remains a separate repository-owner decision; completion metadata does not authorize merging into `main`.
+''', encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- README.md README.tr.md .ai/delivery/current-scope.md
+
+      - name: Commit and push docs-only status alignment
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add README.md README.tr.md .ai/delivery/current-scope.md
+          git commit -m "docs: record M0 verification completion"
+          git push origin HEAD:feat/m0-behavioral-parity
