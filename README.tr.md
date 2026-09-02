@@ -2,6 +2,28 @@
 
 > TypeScript, Python ve Go üzerinde sınırlandırılmış, gözlemlenebilir agent orkestrasyonunu temelden öğren ve geliştir.
 
+## Proje durumu
+
+**Aşama:** M0 geliştiriliyor.
+
+Canonical senaryo ve sözleşmeler, TypeScript/Python implementasyonları, offline scripted decision provider, JSONL trace ve diller arası parity gate oluşturuldu. M0; aynı aday revision hem yerel doğrulamadan hem de GitHub Actions doğrulamasından geçmeden tamamlanmış sayılmaz.
+
+## M0'ı yerelde doğrulama
+
+Gereksinimler: Node.js 24 ve Python 3.14. Repository kökünde:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+python -m pip install -e lessons/00-workflow-or-agent/python
+npm ci --prefix lessons/00-workflow-or-agent/typescript
+python scripts/verify_m0.py
+```
+
+Bu komut contract testlerini, iki dilin testlerini ve yedi parity kombinasyonunu çalıştırır. Ayrıntılı anlatım için [Ders 00](lessons/00-workflow-or-agent/README.md) dosyasına bakın.
+
 ## Proje kimliği
 
 **BoundRelay** şemsiye proje adıdır; ilk repository slug’ı `boundrelay` olacaktır. İsim iki temel ilkeyi birleştirir:

@@ -4,9 +4,25 @@
 
 ## Project status
 
-**Phase:** Foundation design and project identity accepted; the M0 implementation plan is ready for review. Implementation has not started.
+**Phase:** M0 in implementation.
 
-The repository will begin with a deliberately small executable milestone rather than a broad framework. The first milestone will prove that one scenario can be implemented in TypeScript and Python while producing the same observable behavior and passing the same parity checks. Go follows after the curriculum and contracts are stable.
+The first vertical slice now has canonical scenarios and contracts, TypeScript and Python implementations, offline scripted decisions, JSONL traces, and a cross-language parity gate. M0 remains incomplete until the exact candidate revision passes both local verification and GitHub Actions.
+
+## Verify M0 locally
+
+Requirements: Node.js 24 and Python 3.14. From the repository root:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+python -m pip install -e lessons/00-workflow-or-agent/python
+npm ci --prefix lessons/00-workflow-or-agent/typescript
+python scripts/verify_m0.py
+```
+
+The gate runs contract tests, both language test suites, seven parity cases, and writes ignored evidence under `.boundrelay/m0/`. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
 
 ## Project identity
 
