@@ -1,0 +1,71 @@
+name: Diagnose exact M0 PR head
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/diagnose-m0-head.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact PR head
+        uses: actions/checkout@v7
+        with:
+          ref: 712b1b3c61d7d77b59b3408b7b226f9449c8484e
+          path: source
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: Install exact-head dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r source/requirements-dev.txt
+          python -m pip install -e source/lessons/00-workflow-or-agent/python
+          npm ci --prefix source/lessons/00-workflow-or-agent/typescript
+
+      - name: Capture source and verification output
+        run: |
+          set -u
+          mkdir -p diagnostics/source/tools/parity diagnostics/source/scripts diagnostics/source/.github/workflows
+          git -C source rev-parse HEAD > diagnostics/head.txt
+          git -C source show -s --format=fuller HEAD > diagnostics/commit.txt
+          git -C source status --porcelain=v1 --untracked-files=all > diagnostics/status-before.txt
+          cp source/tools/parity/verify_m0.py diagnostics/source/tools/parity/
+          cp source/tools/parity/test_verification_safety.py diagnostics/source/tools/parity/
+          cp source/scripts/verify_m0.py diagnostics/source/scripts/
+          cp source/.github/workflows/m0.yml diagnostics/source/.github/workflows/
+
+          set +e
+          (cd source && python -m unittest tools.parity.test_verification_safety -v) > diagnostics/safety-tests.log 2>&1
+          safety_status=$?
+          (cd source && python scripts/verify_m0.py) > diagnostics/full-gate.log 2>&1
+          gate_status=$?
+          set -e
+
+          printf '%s\n' "$safety_status" > diagnostics/safety-tests.exit-code
+          printf '%s\n' "$gate_status" > diagnostics/full-gate.exit-code
+          git -C source status --porcelain=v1 --untracked-files=all > diagnostics/status-after.txt
+          if test -d source/.boundrelay/m0; then
+            cp -R source/.boundrelay/m0 diagnostics/m0-output
+          fi
+
+      - name: Upload exact-head diagnostics
+        uses: actions/upload-artifact@v7
+        with:
+          name: m0-diagnostics-712b1b3c61d7d77b59b3408b7b226f9449c8484e
+          path: diagnostics/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 3
