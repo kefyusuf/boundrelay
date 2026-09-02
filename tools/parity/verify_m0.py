@@ -117,6 +117,7 @@ def _assert_result_context(
     expected_case_id: str,
     expected_mode: str,
     label: str,
+    expected_trace_path: str | None = None,
 ) -> None:
     if result.get("case_id") != expected_case_id:
         raise AssertionError(
@@ -127,6 +128,11 @@ def _assert_result_context(
         raise AssertionError(
             f"{label} has wrong mode: {result.get('mode')!r}; "
             f"expected {expected_mode!r}"
+        )
+    if expected_trace_path is not None and result.get("trace_path") != expected_trace_path:
+        raise AssertionError(
+            f"{label} has wrong trace_path: {result.get('trace_path')!r}; "
+            f"expected {expected_trace_path!r}"
         )
 
 
@@ -205,8 +211,14 @@ def _assert_expected_behavior(
                 raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
         if not _has_specialist_step(events):
             raise AssertionError(f"{label} did not emit a specialist step")
-        if not any(event.get("type") == "route.selected" for event in events):
-            raise AssertionError(f"{label} did not emit route.selected")
+        selected_events = [event for event in events if event.get("type") == "route.selected"]
+        if len(selected_events) != 1:
+            raise AssertionError(f"{label} must emit exactly one route.selected event")
+        selected_data = selected_events[0].get("data")
+        if not isinstance(selected_data, dict) or selected_data.get("route") != expected_route:
+            raise AssertionError(
+                f"{label} route.selected payload does not match expected route {expected_route!r}"
+            )
         return
 
     if expected_failure != "INVALID_ROUTE_DECISION":
@@ -269,6 +281,8 @@ def verify() -> dict[str, object]:
             raise ValueError("Scenario case id must be a string")
         ts_trace = Path(".boundrelay/m0/traces") / f"{case_id}-{mode}-typescript.jsonl"
         py_trace = Path(".boundrelay/m0/traces") / f"{case_id}-{mode}-python.jsonl"
+        ts_trace_path = str(ROOT / ts_trace)
+        py_trace_path = str(ROOT / py_trace)
 
         ts_result = _run([
             "npm",
@@ -282,7 +296,7 @@ def verify() -> dict[str, object]:
             "--case",
             case_id,
             "--trace",
-            str(ROOT / ts_trace),
+            ts_trace_path,
         ])
         py_result = _run([
             sys.executable,
@@ -293,7 +307,7 @@ def verify() -> dict[str, object]:
             "--case",
             case_id,
             "--trace",
-            str(ROOT / py_trace),
+            py_trace_path,
         ], env=python_env)
 
         ts_label = f"TypeScript {case_id}/{mode}"
@@ -304,12 +318,14 @@ def verify() -> dict[str, object]:
             ts_result,
             expected_case_id=case_id,
             expected_mode=mode,
+            expected_trace_path=ts_trace_path,
             label=ts_label,
         )
         _assert_result_context(
             py_result,
             expected_case_id=case_id,
             expected_mode=mode,
+            expected_trace_path=py_trace_path,
             label=py_label,
         )
 
