@@ -1,0 +1,170 @@
+name: Publish verified M0 PR status
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/publish-m0-final-status-20260902.yml"
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: write
+  statuses: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: "4"
+    steps:
+      - name: Require clean review gate, zero open threads, and exact-head evidence
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import json
+          import os
+          import urllib.parse
+          import urllib.request
+
+          repo = os.environ["REPOSITORY"]
+          owner, name = repo.split("/", 1)
+          pr_number = int(os.environ["PR_NUMBER"])
+          token = os.environ["GH_TOKEN"]
+          api = "https://api.github.com"
+
+          def request(path: str, *, method: str = "GET", payload: object | None = None):
+              body = None if payload is None else json.dumps(payload).encode("utf-8")
+              req = urllib.request.Request(
+                  api + path,
+                  data=body,
+                  method=method,
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                      "User-Agent": "boundrelay-m0-status-publisher",
+                  },
+              )
+              with urllib.request.urlopen(req, timeout=30) as response:
+                  raw = response.read()
+              return json.loads(raw) if raw else None
+
+          pr = request(f"/repos/{repo}/pulls/{pr_number}")
+          head_sha = pr["head"]["sha"]
+          head_ref = pr["head"]["ref"]
+
+          statuses = request(f"/repos/{repo}/commits/{head_sha}/statuses?per_page=100")
+          final_status = next(
+              (item for item in statuses if item.get("context") == "M0 Final Review"),
+              None,
+          )
+          if final_status is None or final_status.get("state") != "success":
+              raise RuntimeError("M0 Final Review status is not successful for the current head.")
+
+          graphql_query = '''
+          query($owner: String!, $name: String!, $number: Int!) {
+            repository(owner: $owner, name: $name) {
+              pullRequest(number: $number) {
+                reviewThreads(first: 100) {
+                  nodes { isResolved }
+                }
+              }
+            }
+          }
+          '''
+          graphql = request(
+              "/graphql",
+              method="POST",
+              payload={
+                  "query": graphql_query,
+                  "variables": {"owner": owner, "name": name, "number": pr_number},
+              },
+          )
+          nodes = graphql["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+          unresolved = sum(1 for item in nodes if not item["isResolved"])
+          if unresolved:
+              raise RuntimeError(f"{unresolved} review thread(s) remain unresolved.")
+
+          runs = request(
+              f"/repos/{repo}/actions/runs?event=pull_request&branch="
+              + urllib.parse.quote(head_ref, safe="")
+              + "&per_page=100"
+          )["workflow_runs"]
+          successful = [
+              item for item in runs
+              if item.get("name") == "M0 Verification"
+              and item.get("head_sha") == head_sha
+              and item.get("status") == "completed"
+              and item.get("conclusion") == "success"
+          ]
+          if not successful:
+              raise RuntimeError("No successful exact-head M0 workflow was found.")
+          run = max(successful, key=lambda item: item["created_at"])
+
+          artifacts = request(
+              f"/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100"
+          )["artifacts"]
+          expected_name = f"m0-verification-{head_sha}"
+          artifact = next(
+              (item for item in artifacts if item.get("name") == expected_name and not item.get("expired")),
+              None,
+          )
+          if artifact is None:
+              raise RuntimeError(f"Exact-head artifact {expected_name} was not found.")
+
+          body = f'''## Summary
+
+- add canonical support-triage scenarios, schemas, fixtures, and invariants
+- implement bounded deterministic and scripted-model routing in TypeScript and Python
+- emit strict-JSON, schema-valid JSONL traces and fail closed on invalid routes
+- verify lifecycle, execution context, terminal outcomes, rejection payloads, and normalized cross-language behavior
+- bind success and failure evidence to one exact execution identity
+- provide one documented local gate and exact-head GitHub Actions evidence
+- add Lesson 00 and English/Turkish setup documentation
+
+## Final verification
+
+| Evidence | Result |
+|---|---|
+| Exact PR head | `{head_sha}` |
+| M0 workflow run | `{run['id']}` — `success` |
+| Evidence artifact | `{artifact['name']}` |
+| Artifact digest | `{artifact.get('digest')}` |
+| Open review threads | `0` |
+| Final Codex re-review gate | `CLEAN` |
+
+The authoritative local command is:
+
+```text
+python scripts/verify_m0.py
+```
+
+The exact-head workflow validates contracts, TypeScript type checking/tests, Python tests, verification-safety tests, seven scenario/mode combinations, fourteen traces, strict JSON serialization, fail-closed rejection behavior, and revision-bound evidence identity.
+
+## Scope exclusions
+
+No real model provider, Go implementation, persistence, MCP, framework adapter, queue, web UI, plugin system, or reusable runtime extraction is included.
+
+`main` remains unchanged. This pull request is intentionally left open for the repository owner’s merge decision.
+
+Closes #3
+'''
+          request(
+              f"/repos/{repo}/pulls/{pr_number}",
+              method="PATCH",
+              payload={"body": body},
+          )
+          print(json.dumps({
+              "head_sha": head_sha,
+              "workflow_run_id": run["id"],
+              "artifact_name": artifact["name"],
+              "artifact_digest": artifact.get("digest"),
+              "unresolved_threads": unresolved,
+              "final_review": final_status["state"],
+          }, indent=2))
+          PY
