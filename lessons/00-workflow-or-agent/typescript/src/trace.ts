@@ -12,6 +12,53 @@ export interface EventSinkOptions {
   idFactory?: (() => string) | undefined;
 }
 
+type JsonValue = string | number | boolean | null | JsonValue[] | {[key: string]: JsonValue};
+
+function jsonSafeValue(value: unknown, seen: WeakSet<object>): JsonValue {
+  if (value === null || typeof value === "string" || typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (
+    typeof value === "undefined"
+    || typeof value === "bigint"
+    || typeof value === "symbol"
+    || typeof value === "function"
+  ) {
+    return null;
+  }
+  if (seen.has(value)) {
+    return null;
+  }
+  seen.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item) => jsonSafeValue(item, seen));
+    }
+    const prototype = Object.getPrototypeOf(value) as object | null;
+    if (prototype !== Object.prototype && prototype !== null) {
+      return null;
+    }
+    const result: {[key: string]: JsonValue} = {};
+    for (const [key, item] of Object.entries(value)) {
+      result[key] = jsonSafeValue(item, seen);
+    }
+    return result;
+  } finally {
+    seen.delete(value);
+  }
+}
+
+function jsonSafeData(data: Record<string, unknown>): Record<string, JsonValue> {
+  const value = jsonSafeValue(data, new WeakSet<object>());
+  if (value === null || Array.isArray(value) || typeof value !== "object") {
+    throw new Error("Event data must be a JSON object");
+  }
+  return value;
+}
+
 export class MemoryEventSink {
   readonly #runId: string;
   readonly #source: EventSource;
@@ -32,6 +79,7 @@ export class MemoryEventSink {
   }
 
   emit(type: EventType, data: Record<string, unknown>): RunEvent {
+    const safeData = jsonSafeData(data);
     this.#sequence += 1;
     const event: RunEvent = {
       schema_version: "1.0",
@@ -41,7 +89,7 @@ export class MemoryEventSink {
       type,
       timestamp: this.#clock().toISOString(),
       source: this.#source,
-      data: structuredClone(data),
+      data: safeData,
     };
     const validation = validateRunEvent(event);
     if (!validation.ok) {
