@@ -1,3 +1,5 @@
+# Regression coverage for open M0 certification review threads.
+
 from pathlib import Path
 import subprocess
 import tempfile
