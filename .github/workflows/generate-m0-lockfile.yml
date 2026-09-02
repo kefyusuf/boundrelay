@@ -5,7 +5,7 @@ on:
     branches: [automation/m0-lockfile]
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate:
@@ -13,13 +13,23 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - id: lock
+        run: |
+          if test -f lessons/00-workflow-or-agent/typescript/package-lock.json; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.lock.outputs.exists == 'false'
+        uses: actions/setup-node@v7
         with:
           node-version: 24
-      - run: npm install --package-lock-only --ignore-scripts --prefix lessons/00-workflow-or-agent/typescript
-      - uses: actions/upload-artifact@v7
-        with:
-          name: m0-package-lock
-          path: lessons/00-workflow-or-agent/typescript/package-lock.json
-          if-no-files-found: error
-          retention-days: 1
+      - if: steps.lock.outputs.exists == 'false'
+        run: npm install --package-lock-only --ignore-scripts --prefix lessons/00-workflow-or-agent/typescript
+      - if: steps.lock.outputs.exists == 'false'
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add lessons/00-workflow-or-agent/typescript/package-lock.json
+          git commit -m "chore: persist M0 npm lockfile [skip ci]"
+          git push
