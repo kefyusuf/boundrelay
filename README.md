@@ -4,9 +4,9 @@
 
 ## Project status
 
-**Phase:** M0 in implementation.
+**Phase:** M0 behavioral parity vertical slice complete.
 
-The first vertical slice now has canonical scenarios and contracts, TypeScript and Python implementations, offline scripted decisions, JSONL traces, and a cross-language parity gate. M0 remains incomplete until the exact candidate revision passes both local verification and GitHub Actions.
+M0 now provides canonical support-triage scenarios and contracts, offline deterministic and scripted-model routing, TypeScript/Python implementations, schema-valid JSONL traces, fail-closed invalid-route behavior, and normalized cross-language parity verification. The documented local gate binds evidence to the checked-out Git revision; GitHub Actions runs the same gate on Node.js 24 and Python 3.14 and uploads `.boundrelay/m0/` as `m0-verification-<revision>`.
 
 ## Verify M0 locally
 
@@ -22,7 +22,7 @@ npm ci --prefix lessons/00-workflow-or-agent/typescript
 python scripts/verify_m0.py
 ```
 
-The gate runs contract tests, both language test suites, seven parity cases, and writes ignored evidence under `.boundrelay/m0/`. Because the evidence is bound to `HEAD`, the certification gate requires a clean Git worktree; commit the candidate changes before running it. The command removes prior M0 evidence before its first check so a failed rerun cannot leave an older `PASSED` record behind. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
+The gate runs contract tests, both language test suites, verification-safety tests, and seven parity cases. It validates requested case/mode binding, result-to-trace run IDs, terminal event/status consistency, specialist dispatch boundaries, and evidence metadata. Because the evidence is bound to `HEAD`, the certification gate requires a clean Git worktree; commit the candidate changes before running it. The command removes prior M0 evidence before its first check so a failed rerun cannot leave an older `PASSED` record behind. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
 
 ## Project identity
 

@@ -4,9 +4,9 @@
 
 ## Proje durumu
 
-**Aşama:** M0 geliştiriliyor.
+**Aşama:** M0 behavioral parity vertical slice tamamlandı.
 
-Canonical senaryo ve sözleşmeler, TypeScript/Python implementasyonları, offline scripted decision provider, JSONL trace ve diller arası parity gate oluşturuldu. M0; aynı aday revision hem yerel doğrulamadan hem de GitHub Actions doğrulamasından geçmeden tamamlanmış sayılmaz.
+M0; canonical support-triage senaryosu ve sözleşmeleri, offline deterministic/scripted-model routing, TypeScript ve Python implementasyonları, şemaya uygun JSONL trace’ler, invalid-route için fail-closed davranış ve normalize edilmiş diller arası parity doğrulaması sunuyor. Belgelenmiş yerel gate, evidence’i checkout edilen Git revision’ına bağlar; GitHub Actions aynı gate’i Node.js 24 ve Python 3.14 üzerinde çalıştırır ve `.boundrelay/m0/` çıktısını `m0-verification-<revision>` adıyla yükler.
 
 ## M0'ı yerelde doğrulama
 
@@ -22,7 +22,7 @@ npm ci --prefix lessons/00-workflow-or-agent/typescript
 python scripts/verify_m0.py
 ```
 
-Bu komut contract testlerini, iki dilin testlerini ve yedi parity kombinasyonunu çalıştırır. Evidence `HEAD` revision’ına bağlandığı için certification gate temiz bir Git worktree gerektirir; aday değişiklikleri commit ettikten sonra çalıştırın. Komut ilk kontrolden önce eski M0 evidence dizinini kaldırır; dolayısıyla başarısız bir yeniden çalıştırma önceki `PASSED` kaydını bırakamaz. Ayrıntılı anlatım için [Ders 00](lessons/00-workflow-or-agent/README.md) dosyasına bakın.
+Bu komut contract testlerini, iki dilin testlerini, verification-safety testlerini ve yedi parity kombinasyonunu çalıştırır. İstenen case/mode bağını, result–trace `run_id` tutarlılığını, terminal event–status eşleşmesini, specialist dispatch sınırlarını ve evidence metadata’sını doğrular. Evidence `HEAD` revision’ına bağlandığı için certification gate temiz bir Git worktree gerektirir; aday değişiklikleri commit ettikten sonra çalıştırın. Komut ilk kontrolden önce eski M0 evidence dizinini kaldırır; dolayısıyla başarısız bir yeniden çalıştırma önceki `PASSED` kaydını bırakamaz. Ayrıntılı anlatım için [Ders 00](lessons/00-workflow-or-agent/README.md) dosyasına bakın.
 
 ## Proje kimliği
 
@@ -72,6 +72,6 @@ Dil implementasyonları aynı davranışı korur fakat kendi ekosistemlerine uyg
 
 ## İlk teslimat
 
-İlk çalıştırılabilir milestone olan **M0**, tek bir destek talebi yönlendirme senaryosunu TypeScript ve Python ile offline çalıştıracak, ortak JSONL trace üretecek ve parity kontrolünden geçirecektir. Gerçek LLM veya API anahtarı gerektirmeyecektir.
+İlk çalıştırılabilir milestone olan **M0**, tek bir destek talebi yönlendirme senaryosunu TypeScript ve Python ile offline çalıştırır, ortak JSONL trace üretir ve parity kontrolünden geçirir. Gerçek LLM veya API anahtarı gerektirmez.
 
 Detaylar için [foundation design](docs/design/2026-09-02-foundation-design.md) ve [roadmap](ROADMAP.md) dosyalarına bakın.

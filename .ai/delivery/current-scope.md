@@ -2,28 +2,43 @@
 
 ## Active phase
 
-M0 — Post-review verification corrections implemented; fresh evidence pending.
+M0 — Behavioral parity vertical slice complete and revision-verifiable.
 
-## Review corrections in scope
+## Verification authority
 
-- reject non-finite Python route confidence before specialist dispatch;
-- require a clean Git worktree before revision-bound local certification;
-- remove prior M0 evidence before the first local gate command;
-- preserve exact PR-head checkout and hidden artifact upload behavior.
+- Local gate: `python scripts/verify_m0.py`
+- CI workflow: `.github/workflows/m0.yml`
+- Runtime floor: Node.js 24 and Python 3.14
+- CI artifact: `m0-verification-<revision>`
+- Evidence root: `.boundrelay/m0/`
 
-The earlier `78d91bdf9935d88752fdb938d81c6d4215aa3e99` evidence is superseded for completion purposes because verification-affecting source changed after that run.
+The gate requires a clean Git worktree and binds its evidence to the checked-out revision. Each passing record includes `scenario_id`, revision, runtime versions, verification command, seven requested case/mode combinations, and fourteen language-specific traces. Any affected implementation, contract, fixture, dependency, test, verifier, or workflow change makes earlier evidence stale and requires a fresh run.
 
-## Current implementation boundary
+## Completed controls
+
+- canonical route order and support-triage scenario validation;
+- deterministic baseline and bounded scripted-model decision;
+- complete decision-schema validation before dispatch;
+- non-finite Python confidence rejection;
+- invalid-route fail-closed behavior with no specialist invocation;
+- schema-valid JSONL events with monotonic sequences;
+- result-to-trace `run_id` binding;
+- requested `case_id` and `mode` binding;
+- exactly one terminal event matching the reported result status;
+- normalized TypeScript/Python result and trace parity;
+- prior evidence removal before the first local gate step;
+- exact PR-head checkout and hidden artifact upload in CI.
+
+## Completed implementation boundary
 
 - support-triage scenario with `billing`, `technical`, and `general` routes;
-- deterministic baseline and bounded scripted-model decision;
 - TypeScript and Python implementations;
 - shared JSON Schema and JSONL event contracts;
-- invalid-route fail-closed behavior;
-- normalized cross-language parity verification;
-- one documented local gate: `python scripts/verify_m0.py`;
-- no real provider, Go, persistence, UI, MCP, queue, or framework adapter.
+- offline scenario execution without API keys;
+- one documented local authority;
+- revision-bound GitHub Actions evidence;
+- no real provider, Go, persistence, UI, MCP, queue, framework adapter, plugin system, or reusable runtime extraction.
 
-## Current gate
+## Completion semantics
 
-M0 completion must be re-recorded only after the exact corrected candidate revision has passing GitHub Actions evidence and the addressed review threads are rechecked.
+M0 completion is bounded to the implementation and verification scope defined in `ROADMAP.md`, the foundation design, and the accepted implementation plan. Repository merge and release remain separate governance decisions.
