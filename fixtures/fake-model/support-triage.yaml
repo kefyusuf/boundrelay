@@ -1,0 +1,11 @@
+schema_version: "1.0"
+scenario_id: support-triage
+responses:
+  billing-duplicate-charge:
+    return: {route: billing, confidence: 0.98}
+  technical-login-error:
+    return: {route: technical, confidence: 0.97}
+  general-opening-hours:
+    return: {route: general, confidence: 0.94}
+  invalid-model-route:
+    return: {route: unknown-specialist, confidence: 0.99}
