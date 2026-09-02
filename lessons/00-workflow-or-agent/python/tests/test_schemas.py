@@ -36,6 +36,12 @@ class SchemaAdapterTests(unittest.TestCase):
                 self.assertFalse(result.ok)
                 self.assertIn("finite", " ".join(result.errors))
 
+    def test_rejects_oversized_integer_confidence_without_raising(self) -> None:
+        result = validate_route_decision({"route": "billing", "confidence": 10**10000})
+
+        self.assertFalse(result.ok)
+        self.assertIn("confidence", " ".join(result.errors))
+
     def test_rejects_invalid_route_and_inconsistent_result_values(self) -> None:
         self.assertFalse(validate_route_decision({"route": "unknown", "confidence": 0.9}).ok)
         self.assertFalse(validate_run_result({
