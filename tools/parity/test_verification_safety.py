@@ -2,6 +2,7 @@
 # Review-specific tests intentionally precede the minimal verifier fix.
 
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -47,6 +48,18 @@ class VerificationSafetyTests(unittest.TestCase):
             clear_previous_evidence(output_root)
 
             self.assertFalse(output_root.exists())
+
+    @patch("tools.parity.verify_m0.subprocess.run")
+    def test_cli_stdout_must_contain_exactly_one_json_result(self, run_process) -> None:
+        run_process.return_value = subprocess.CompletedProcess(
+            ["fake-cli"],
+            0,
+            stdout='diagnostic line\n{"status":"SUCCEEDED"}\n',
+            stderr="",
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "exactly one nonblank stdout line"):
+            verifier._run(["fake-cli"])
 
     def test_trace_events_must_match_the_result_run_id(self) -> None:
         events = [
@@ -148,6 +161,24 @@ class VerificationSafetyTests(unittest.TestCase):
                 events=[
                     {"type": "route.selected", "data": {"route": "billing"}},
                     {"type": "step.started", "data": {"step": "specialist.technical"}},
+                ],
+                label="TypeScript technical/model",
+            )
+
+    def test_specialist_steps_must_match_the_selected_route(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "specialist.technical"):
+            _assert_expected_behavior(
+                case={"expected_route": "technical"},
+                result={
+                    "status": "SUCCEEDED",
+                    "selected_route": "technical",
+                    "specialist_invoked": True,
+                    "failure_code": None,
+                },
+                events=[
+                    {"type": "route.selected", "data": {"route": "technical"}},
+                    {"type": "step.started", "data": {"step": "specialist.billing"}},
+                    {"type": "step.completed", "data": {"step": "specialist.billing"}},
                 ],
                 label="TypeScript technical/model",
             )
