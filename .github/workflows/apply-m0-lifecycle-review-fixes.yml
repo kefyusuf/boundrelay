@@ -1,0 +1,40 @@
+name: Apply M0 lifecycle review fixes
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".automation/apply-m0-lifecycle-review-fixes.py"
+      - ".github/workflows/apply-m0-lifecycle-review-fixes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out automation source
+        uses: actions/checkout@v7
+        with:
+          path: source
+
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+          path: target
+
+      - name: Apply deterministic patch
+        run: python source/.automation/apply-m0-lifecycle-review-fixes.py target
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          cd target
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/parity/verify_m0.py
+          git commit -m "fix(review): enforce M0 lifecycle contracts"
+          git push origin HEAD:feat/m0-behavioral-parity
