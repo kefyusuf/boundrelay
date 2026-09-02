@@ -28,88 +28,82 @@ jobs:
           path = Path("target/tools/parity/verify_m0.py")
           text = path.read_text(encoding="utf-8")
 
-          replacements = [
-              (
-                  '''    lines = [line for line in process.stdout.splitlines() if line.strip()]
-              if not lines:
-                  raise RuntimeError(f"Command produced no JSON result: {' '.join(command)}")
-              try:
-                  result = json.loads(lines[-1])
-              except json.JSONDecodeError as error:
-                  raise RuntimeError(
-                      f"Last stdout line was not JSON for {' '.join(command)}: {lines[-1]}"
-                  ) from error
-              ''',
-                  '''    lines = [line for line in process.stdout.splitlines() if line.strip()]
-              if len(lines) != 1:
-                  raise RuntimeError(
-                      f"Command must produce exactly one nonblank stdout line: {' '.join(command)}; "
-                      f"got {len(lines)}"
-                  )
-              try:
-                  result = json.loads(lines[0])
-              except json.JSONDecodeError as error:
-                  raise RuntimeError(
-                      f"CLI stdout was not JSON for {' '.join(command)}: {lines[0]}"
-                  ) from error
-              ''',
-              ),
-              (
-                  '''def _has_specialist_step(events: list[dict[str, object]]) -> bool:
-              for event in events:
-                  data = event.get("data")
-                  if isinstance(data, dict) and str(data.get("step", "")).startswith("specialist."):
-                      return True
-              return False
-              ''',
-                  '''def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
-              steps: list[str] = []
-              for event in events:
-                  data = event.get("data")
-                  if isinstance(data, dict):
-                      step = str(data.get("step", ""))
-                      if step.startswith("specialist."):
-                          steps.append(step)
-              return steps
+          def replace_section(start: str, end: str, replacement: str, label: str) -> None:
+              global text
+              if text.count(start) != 1:
+                  raise SystemExit(f"{label}: expected one start marker, got {text.count(start)}")
+              start_index = text.index(start)
+              end_index = text.find(end, start_index + len(start))
+              if end_index < 0:
+                  raise SystemExit(f"{label}: end marker not found")
+              text = text[:start_index] + replacement + text[end_index:]
+
+          replace_section(
+              '    lines = [line for line in process.stdout.splitlines() if line.strip()]\n',
+              '    if not isinstance(result, dict):\n',
+              '''    lines = [line for line in process.stdout.splitlines() if line.strip()]
+          if len(lines) != 1:
+              raise RuntimeError(
+                  f"Command must produce exactly one nonblank stdout line: {' '.join(command)}; "
+                  f"got {len(lines)}"
+              )
+          try:
+              result = json.loads(lines[0])
+          except json.JSONDecodeError as error:
+              raise RuntimeError(
+                  f"CLI stdout was not JSON for {' '.join(command)}: {lines[0]}"
+              ) from error
+          ''',
+              "stdout contract",
+          )
+
+          replace_section(
+              'def _has_specialist_step(events: list[dict[str, object]]) -> bool:\n',
+              '\n\ndef _assert_expected_behavior(\n',
+              '''def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
+          steps: list[str] = []
+          for event in events:
+              data = event.get("data")
+              if isinstance(data, dict):
+                  step = str(data.get("step", ""))
+                  if step.startswith("specialist."):
+                      steps.append(step)
+          return steps
 
 
-              def _has_specialist_step(events: list[dict[str, object]]) -> bool:
-                  return bool(_specialist_steps(events))
-              ''',
-              ),
-              (
-                  '''        if not _has_specialist_step(events):
-                      raise AssertionError(f"{label} did not emit a specialist step")
-                  selected_events = [event for event in events if event.get("type") == "route.selected"]
-              ''',
-                  '''        expected_specialist_step = f"specialist.{expected_route}"
-                  specialist_steps = _specialist_steps(events)
-                  if not specialist_steps:
-                      raise AssertionError(f"{label} did not emit a specialist step")
-                  if any(step != expected_specialist_step for step in specialist_steps):
-                      raise AssertionError(
-                          f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
-                      )
-                  selected_events = [event for event in events if event.get("type") == "route.selected"]
-              ''',
-              ),
-              (
-                  '''        ts_result = _run([
-                      "npm",
-                      "--prefix",
-              ''',
-                  '''        ts_result = _run([
-                      "npm",
-                      "--silent",
-                      "--prefix",
-              ''',
-              ),
-          ]
+def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+          return bool(_specialist_steps(events))
+          ''',
+              "specialist helper",
+          )
 
-          for old, new in replacements:
-              if text.count(old) != 1:
-                  raise SystemExit(f"Expected exactly one verifier replacement target, got {text.count(old)}")
-              text = text.replace(old, new)
+          replace_section(
+              '        if not _has_specialist_step(events):\n',
+              '        selected_events = [event for event in events if event.get("type") == "route.selected"]\n',
+              '''        expected_specialist_step = f"specialist.{expected_route}"
+          specialist_steps = _specialist_steps(events)
+          if not specialist_steps:
+              raise AssertionError(f"{label} did not emit a specialist step")
+          if any(step != expected_specialist_step for step in specialist_steps):
+              raise AssertionError(
+                  f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
+              )
+          ''',
+              "specialist route binding",
+          )
+
+          npm_start = '''        ts_result = _run([
+              "npm",
+              "--prefix",
+          '''
+          npm_replacement = '''        ts_result = _run([
+              "npm",
+              "--silent",
+              "--prefix",
+          '''
+          if text.count(npm_start) != 1:
+              raise SystemExit(f"silent npm: expected one target, got {text.count(npm_start)}")
+          text = text.replace(npm_start, npm_replacement)
 
           path.write_text(text, encoding="utf-8")
           PY
