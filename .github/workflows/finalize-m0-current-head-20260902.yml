@@ -1,0 +1,241 @@
+name: Finalize current M0 head
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/finalize-m0-current-head-20260902.yml"
+
+permissions:
+  actions: read
+  contents: read
+  issues: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: "4"
+    steps:
+      - name: Evaluate and publish exact-head M0 status
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import datetime as dt
+          import json
+          import os
+          import time
+          import urllib.parse
+          import urllib.request
+          from pathlib import Path
+
+          repo=os.environ['REPOSITORY']
+          owner,name=repo.split('/',1)
+          pr_number=int(os.environ['PR_NUMBER'])
+          token=os.environ['GH_TOKEN']
+          api='https://api.github.com'
+          out=Path('finalization')
+          out.mkdir()
+
+          def request(path, *, method='GET', payload=None):
+              data=None if payload is None else json.dumps(payload).encode('utf-8')
+              req=urllib.request.Request(api+path,data=data,method=method,headers={
+                  'Accept':'application/vnd.github+json',
+                  'Authorization':f'Bearer {token}',
+                  'X-GitHub-Api-Version':'2022-11-28',
+                  'User-Agent':'boundrelay-current-head-finalizer',
+              })
+              with urllib.request.urlopen(req,timeout=30) as response:
+                  raw=response.read()
+              return json.loads(raw) if raw else None
+
+          def iso(value):
+              return dt.datetime.fromisoformat(value.replace('Z','+00:00'))
+
+          def codex(login):
+              value=(login or '').lower()
+              return 'codex' in value or value=='chatgpt-codex-connector'
+
+          pr=request(f'/repos/{repo}/pulls/{pr_number}')
+          head_sha=pr['head']['sha']
+          head_ref=pr['head']['ref']
+          commit=request(f'/repos/{repo}/commits/{head_sha}')
+          commit_time=iso(commit['commit']['committer']['date'])
+
+          issue_comments=request(f'/repos/{repo}/issues/{pr_number}/comments?per_page=100')
+          review_request=next((item for item in reversed(issue_comments) if '@codex review' in (item.get('body') or '').lower()),None)
+          if review_request is None:
+              raise RuntimeError('No Codex review request exists.')
+          request_time=iso(review_request['created_at'])
+          if commit_time > request_time:
+              raise RuntimeError(f'Review request is stale for current head {head_sha}.')
+
+          review_signal=None
+          reviews_after=[]
+          inline_after=[]
+          reactions_after=[]
+          exact_run=None
+          for _ in range(32):
+              reviews=request(f'/repos/{repo}/pulls/{pr_number}/reviews?per_page=100')
+              inline=request(f'/repos/{repo}/pulls/{pr_number}/comments?per_page=100')
+              reactions=request(f"/repos/{repo}/issues/comments/{review_request['id']}/reactions?per_page=100")
+              reviews_after=[item for item in reviews if codex(item.get('user',{}).get('login')) and item.get('submitted_at') and iso(item['submitted_at'])>=request_time and item.get('commit_id')==head_sha]
+              inline_after=[item for item in inline if codex(item.get('user',{}).get('login')) and item.get('created_at') and iso(item['created_at'])>=request_time and (item.get('commit_id')==head_sha or item.get('original_commit_id')==head_sha)]
+              reactions_after=[item for item in reactions if codex(item.get('user',{}).get('login')) and item.get('content')=='+1']
+
+              runs=request(
+                  f'/repos/{repo}/actions/runs?event=pull_request&branch='
+                  + urllib.parse.quote(head_ref,safe='')
+                  + '&per_page=100'
+              )['workflow_runs']
+              successful=[item for item in runs if item.get('name')=='M0 Verification' and item.get('head_sha')==head_sha and item.get('status')=='completed' and item.get('conclusion')=='success']
+              if successful:
+                  exact_run=max(successful,key=lambda item:item['created_at'])
+
+              if inline_after:
+                  review_signal='FINDINGS'
+                  break
+              if (reviews_after or reactions_after) and exact_run is not None:
+                  review_signal='CLEAN'
+                  break
+              time.sleep(15)
+
+          graph=request('/graphql',method='POST',payload={
+              'query':'''query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved comments(first:20){nodes{databaseId path body author{login} createdAt commit{oid}}}}}}}}''',
+              'variables':{'owner':owner,'name':name,'number':pr_number},
+          })
+          threads=graph['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          unresolved=[item for item in threads if not item['isResolved']]
+
+          artifact=None
+          if exact_run is not None:
+              artifacts=request(f"/repos/{repo}/actions/runs/{exact_run['id']}/artifacts?per_page=100")['artifacts']
+              artifact=next((item for item in artifacts if item.get('name')==f'm0-verification-{head_sha}' and not item.get('expired')),None)
+
+          if review_signal=='CLEAN' and unresolved:
+              review_signal='FINDINGS'
+          if review_signal=='CLEAN' and artifact is None:
+              review_signal='PENDING'
+          status=review_signal or 'PENDING'
+
+          current_findings=[]
+          for thread in unresolved:
+              comments=thread['comments']['nodes']
+              latest=comments[-1] if comments else {}
+              current_findings.append({
+                  'comment_id':latest.get('databaseId'),
+                  'path':latest.get('path'),
+                  'body':latest.get('body',''),
+                  'author':(latest.get('author') or {}).get('login'),
+                  'created_at':latest.get('createdAt'),
+                  'commit_id':(latest.get('commit') or {}).get('oid'),
+              })
+
+          report={
+              'status':status,
+              'pull_request':pr_number,
+              'head_sha':head_sha,
+              'review_request_comment_id':review_request['id'],
+              'review_request_created_at':review_request['created_at'],
+              'codex_reviews_after_request':len(reviews_after),
+              'codex_clean_reactions':len(reactions_after),
+              'new_current_head_inline_comments':len(inline_after),
+              'unresolved_review_threads':current_findings,
+              'm0_workflow_run_id':None if exact_run is None else exact_run['id'],
+              'm0_artifact_id':None if artifact is None else artifact['id'],
+              'm0_artifact_name':None if artifact is None else artifact['name'],
+              'm0_artifact_digest':None if artifact is None else artifact.get('digest'),
+              'evaluated_at':dt.datetime.now(dt.timezone.utc).isoformat(),
+          }
+          (out/'current-head-finalization.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+
+          description={
+              'CLEAN':'Codex re-review clean; exact-head M0 evidence verified',
+              'FINDINGS':f'{len(unresolved) or len(inline_after)} review finding(s) require action',
+              'PENDING':'Current-head review or exact-head evidence is pending',
+          }[status]
+          request(f'/repos/{repo}/statuses/{head_sha}',method='POST',payload={
+              'state':'success' if status=='CLEAN' else ('failure' if status=='FINDINGS' else 'pending'),
+              'context':'M0 Final Review',
+              'description':description[:140],
+              'target_url':pr['html_url'] if exact_run is None else exact_run['html_url'],
+          })
+
+          lines=[
+              '## M0 current-head final gate','',
+              f'- **Status:** `{status}`',
+              f'- **Exact PR head:** `{head_sha}`',
+              f'- **M0 workflow run:** `{None if exact_run is None else exact_run["id"]}`',
+              f'- **Evidence artifact:** `{None if artifact is None else artifact["name"]}`',
+              f'- **Artifact digest:** `{None if artifact is None else artifact.get("digest")}`',
+              f'- **Codex reviews after request:** `{len(reviews_after)}`',
+              f'- **Codex clean reactions:** `{len(reactions_after)}`',
+              f'- **New current-head inline comments:** `{len(inline_after)}`',
+              f'- **Unresolved review threads:** `{len(unresolved)}`',
+          ]
+          if current_findings:
+              lines.extend(['','### Unresolved findings'])
+              for item in current_findings:
+                  lines.append(f"- `{item['path']}` — " + ' '.join(item['body'].split())[:600])
+          lines.extend(['','`main` was not modified. This gate does not merge the pull request.'])
+          request(f'/repos/{repo}/issues/{pr_number}/comments',method='POST',payload={'body':'\n'.join(lines)})
+
+          if status=='CLEAN':
+              body=f'''## Summary
+
+- add canonical support-triage scenarios, schemas, fixtures, and invariants
+- implement bounded deterministic and scripted-model routing in TypeScript and Python
+- emit strict-JSON, schema-valid JSONL traces and fail closed on invalid routes
+- verify lifecycle, execution context, terminal outcomes, rejection payloads, and normalized cross-language behavior
+- bind both success and failure evidence to one exact execution identity
+- provide one documented local gate and exact-head GitHub Actions evidence
+- align Lesson 00 plus English/Turkish public status documentation
+
+## Final verification
+
+| Evidence | Result |
+|---|---|
+| Exact PR head | `{head_sha}` |
+| M0 workflow run | `{exact_run['id']}` — `success` |
+| Evidence artifact | `{artifact['name']}` |
+| Artifact digest | `{artifact.get('digest')}` |
+| Open review threads | `0` |
+| Final Codex re-review gate | `CLEAN` |
+
+The authoritative local command is:
+
+```text
+python scripts/verify_m0.py
+```
+
+The exact-head workflow validates shared contracts, TypeScript type checking/tests, Python tests, verification-safety tests, seven scenario/mode combinations, fourteen strict-JSON traces, fail-closed rejection behavior, and revision-bound evidence identity.
+
+## Scope exclusions
+
+No real model provider, Go implementation, persistence, MCP, framework adapter, queue, web UI, plugin system, or reusable runtime extraction is included.
+
+`main` remains unchanged. This pull request is intentionally left open for the repository owner’s merge decision.
+
+Closes #3
+'''
+              request(f'/repos/{repo}/pulls/{pr_number}',method='PATCH',payload={'body':body})
+
+          print(json.dumps(report,indent=2))
+          if status!='CLEAN':
+              raise SystemExit(1)
+          PY
+
+      - name: Upload current-head finalization report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m0-current-head-finalization
+          path: finalization/
+          if-no-files-found: error
+          retention-days: 3
