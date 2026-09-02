@@ -114,6 +114,7 @@ def _assert_trace(
     events: list[dict[str, object]],
     *,
     source: str,
+    expected_run_id: str,
     label: str,
     event_validator: Draft202012Validator,
 ) -> None:
@@ -121,6 +122,8 @@ def _assert_trace(
         _validate_document(event_validator, event, label=f"{label} event {index}")
         if event.get("source") != source:
             raise AssertionError(f"{label} event {index} has wrong source: {event.get('source')}")
+        if event.get("run_id") != expected_run_id:
+            raise AssertionError(f"{label} event {index} has wrong run_id: {event.get('run_id')}")
     sequences = [event.get("sequence") for event in events]
     expected = list(range(1, len(events) + 1))
     if sequences != expected:
@@ -255,12 +258,14 @@ def verify() -> dict[str, object]:
         _assert_trace(
             ts_events,
             source="typescript",
+            expected_run_id=str(ts_result["run_id"]),
             label=f"TypeScript {case_id}/{mode}",
             event_validator=event_validator,
         )
         _assert_trace(
             py_events,
             source="python",
+            expected_run_id=str(py_result["run_id"]),
             label=f"Python {case_id}/{mode}",
             event_validator=event_validator,
         )

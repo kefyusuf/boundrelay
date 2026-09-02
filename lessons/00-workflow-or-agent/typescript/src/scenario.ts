@@ -38,7 +38,11 @@ export function loadScenario(path: string = SCENARIO_PATH): ScenarioDefinition {
   if (!isRecord(raw) || raw.schema_version !== "1.0" || raw.scenario_id !== "support-triage") {
     throw new Error("Unsupported support-triage scenario document.");
   }
-  if (!Array.isArray(raw.routes) || raw.routes.length !== ROUTES.length || !raw.routes.every(isRoute)) {
+  const hasCanonicalRoutes =
+    Array.isArray(raw.routes) &&
+    raw.routes.length === ROUTES.length &&
+    raw.routes.every((route, index) => route === ROUTES[index]);
+  if (!hasCanonicalRoutes) {
     throw new Error("Scenario routes must match the canonical M0 routes.");
   }
   if (!Array.isArray(raw.cases)) {
@@ -48,7 +52,7 @@ export function loadScenario(path: string = SCENARIO_PATH): ScenarioDefinition {
   return {
     schema_version: "1.0",
     scenario_id: "support-triage",
-    routes: [...raw.routes],
+    routes: [...ROUTES],
     cases: raw.cases.map(parseCase),
   };
 }

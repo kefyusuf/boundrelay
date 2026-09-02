@@ -5,7 +5,12 @@ import unittest
 from unittest.mock import patch
 
 from scripts.verify_m0 import clear_previous_evidence, main
-from tools.parity.verify_m0 import assert_clean_worktree
+from tools.parity.verify_m0 import (
+    EVENT_SCHEMA_PATH,
+    _assert_trace,
+    _validator,
+    assert_clean_worktree,
+)
 
 
 class VerificationSafetyTests(unittest.TestCase):
@@ -38,6 +43,40 @@ class VerificationSafetyTests(unittest.TestCase):
             clear_previous_evidence(output_root)
 
             self.assertFalse(output_root.exists())
+
+
+    def test_trace_events_must_match_the_result_run_id(self) -> None:
+        events = [
+            {
+                "schema_version": "1.0",
+                "event_id": "evt-1",
+                "run_id": "run-result",
+                "sequence": 1,
+                "type": "run.created",
+                "timestamp": "2026-09-02T00:00:00Z",
+                "source": "python",
+                "data": {},
+            },
+            {
+                "schema_version": "1.0",
+                "event_id": "evt-2",
+                "run_id": "run-other",
+                "sequence": 2,
+                "type": "run.completed",
+                "timestamp": "2026-09-02T00:00:01Z",
+                "source": "python",
+                "data": {},
+            },
+        ]
+
+        with self.assertRaisesRegex(AssertionError, "wrong run_id"):
+            _assert_trace(
+                events,
+                source="python",
+                expected_run_id="run-result",
+                label="Python sample",
+                event_validator=_validator(EVENT_SCHEMA_PATH),
+            )
 
     @patch("scripts.verify_m0.run")
     @patch("scripts.verify_m0.clear_previous_evidence")
