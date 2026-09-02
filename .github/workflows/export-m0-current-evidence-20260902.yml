@@ -1,0 +1,192 @@
+name: Export current M0 evidence
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/export-m0-current-evidence-20260902.yml"
+
+permissions:
+  actions: read
+  contents: write
+  pull-requests: read
+  statuses: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPOSITORY: ${{ github.repository }}
+      PR_NUMBER: "4"
+    steps:
+      - name: Export and independently validate exact-head evidence
+        run: |
+          python - <<'PY'
+          from __future__ import annotations
+
+          import base64
+          import hashlib
+          import io
+          import json
+          import os
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+          import zipfile
+          from pathlib import Path
+
+          repo=os.environ['REPOSITORY']
+          owner,name=repo.split('/',1)
+          pr_number=int(os.environ['PR_NUMBER'])
+          token=os.environ['GH_TOKEN']
+          api='https://api.github.com'
+          out=Path('export')
+          out.mkdir()
+
+          def request(path, *, method='GET', payload=None, accept='application/vnd.github+json'):
+              data=None if payload is None else json.dumps(payload).encode('utf-8')
+              req=urllib.request.Request(api+path,data=data,method=method,headers={
+                  'Accept':accept,
+                  'Authorization':f'Bearer {token}',
+                  'X-GitHub-Api-Version':'2022-11-28',
+                  'User-Agent':'boundrelay-m0-evidence-exporter',
+              })
+              try:
+                  with urllib.request.urlopen(req,timeout=60) as response:
+                      raw=response.read()
+                      final_url=response.geturl()
+                      content_type=response.headers.get('content-type','')
+              except urllib.error.HTTPError as exc:
+                  if exc.code == 404:
+                      return None
+                  raise
+              if accept == 'application/octet-stream':
+                  return raw
+              return json.loads(raw) if raw else None
+
+          pr=request(f'/repos/{repo}/pulls/{pr_number}')
+          head=pr['head']['sha']
+          statuses=request(f'/repos/{repo}/commits/{head}/statuses?per_page=100')
+          final=next((item for item in statuses if item.get('context')=='M0 Final Review'),None)
+          if final is None or final.get('state')!='success':
+              raise RuntimeError('Current head lacks successful M0 Final Review status.')
+
+          graph=request('/graphql',method='POST',payload={
+              'query':'''query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){pullRequest(number:$number){reviewThreads(first:100){nodes{isResolved}}}}}''',
+              'variables':{'owner':owner,'name':name,'number':pr_number},
+          })
+          threads=graph['data']['repository']['pullRequest']['reviewThreads']['nodes']
+          unresolved=sum(1 for item in threads if not item['isResolved'])
+          if unresolved:
+              raise RuntimeError(f'{unresolved} review thread(s) remain unresolved.')
+
+          runs=request(
+              f'/repos/{repo}/actions/runs?event=pull_request&branch='
+              + urllib.parse.quote(pr['head']['ref'],safe='')
+              + '&per_page=100'
+          )['workflow_runs']
+          successful=[item for item in runs if item.get('name')=='M0 Verification' and item.get('head_sha')==head and item.get('status')=='completed' and item.get('conclusion')=='success']
+          if not successful:
+              raise RuntimeError('No successful exact-head M0 workflow exists.')
+          run=max(successful,key=lambda item:item['created_at'])
+
+          artifacts=request(f"/repos/{repo}/actions/runs/{run['id']}/artifacts?per_page=100")['artifacts']
+          artifact=next((item for item in artifacts if item.get('name')==f'm0-verification-{head}' and not item.get('expired')),None)
+          if artifact is None:
+              raise RuntimeError('Exact-head M0 artifact was not found.')
+          zip_bytes=request(f"/repos/{repo}/actions/artifacts/{artifact['id']}/zip",accept='application/octet-stream')
+          if not isinstance(zip_bytes,(bytes,bytearray)):
+              raise RuntimeError('Artifact download did not return bytes.')
+
+          digest='sha256:'+hashlib.sha256(zip_bytes).hexdigest()
+          if artifact.get('digest') and digest != artifact['digest']:
+              raise AssertionError(f"Artifact digest mismatch: {digest} != {artifact['digest']}")
+
+          archive=zipfile.ZipFile(io.BytesIO(zip_bytes))
+          bad=archive.testzip()
+          if bad is not None:
+              raise AssertionError(f'Corrupt ZIP member: {bad}')
+          names=archive.namelist()
+          evidence_names=[item for item in names if item.endswith('verification-evidence.json')]
+          if len(evidence_names)!=1:
+              raise AssertionError(f'Expected one verification evidence document, found {len(evidence_names)}')
+          evidence=json.loads(archive.read(evidence_names[0]))
+          if evidence.get('schema_version')!='1.0' or evidence.get('scenario_id')!='support-triage' or evidence.get('status')!='PASSED':
+              raise AssertionError('Evidence header is invalid.')
+          if evidence.get('revision')!=head:
+              raise AssertionError('Evidence revision does not match current PR head.')
+          identity=evidence.get('execution_identity') or {}
+          for field in ('revision','pull_request_head_sha','workflow_sha'):
+              if identity.get(field)!=head:
+                  raise AssertionError(f'Execution identity {field} does not match current head.')
+          if identity.get('event_name')!='pull_request':
+              raise AssertionError('Evidence was not produced by a pull_request workflow.')
+          records=evidence.get('records')
+          if not isinstance(records,list) or len(records)!=7:
+              raise AssertionError('Expected seven scenario/mode records.')
+
+          trace_names=[item for item in names if item.endswith('.jsonl')]
+          if len(trace_names)!=14:
+              raise AssertionError(f'Expected fourteen traces, found {len(trace_names)}')
+          trace_summaries=[]
+          for trace_name in sorted(trace_names):
+              raw=archive.read(trace_name).decode('utf-8')
+              events=[json.loads(line) for line in raw.splitlines() if line]
+              if not events:
+                  raise AssertionError(f'Empty trace: {trace_name}')
+              if [event.get('sequence') for event in events] != list(range(1,len(events)+1)):
+                  raise AssertionError(f'Non-monotonic sequence: {trace_name}')
+              run_ids={event.get('run_id') for event in events}
+              if len(run_ids)!=1:
+                  raise AssertionError(f'Multiple run IDs: {trace_name}')
+              types=[event.get('type') for event in events]
+              if types[:2]!=['run.created','run.started']:
+                  raise AssertionError(f'Invalid lifecycle prefix: {trace_name}')
+              terminals=[event for event in events if event.get('type') in {'run.completed','run.failed'}]
+              if len(terminals)!=1 or events[-1] is not terminals[0]:
+                  raise AssertionError(f'Invalid terminal lifecycle: {trace_name}')
+              if json.dumps(events,allow_nan=False) is None:
+                  raise AssertionError('unreachable')
+              trace_summaries.append({'path':trace_name,'events':len(events),'terminal':terminals[0]['type']})
+
+          validation={
+              'status':'PASSED',
+              'repository':repo,
+              'pull_request':pr_number,
+              'head_sha':head,
+              'base_sha':pr['base']['sha'],
+              'm0_workflow_run_id':run['id'],
+              'artifact_id':artifact['id'],
+              'artifact_name':artifact['name'],
+              'artifact_sha256':digest,
+              'artifact_api_digest':artifact.get('digest'),
+              'review_status':final['state'],
+              'unresolved_review_threads':unresolved,
+              'evidence_runtime':evidence.get('runtime'),
+              'records':len(records),
+              'traces':len(trace_names),
+              'trace_summaries':trace_summaries,
+          }
+          (out/'m0-current-evidence.zip').write_bytes(zip_bytes)
+          (out/'m0-current-validation.json').write_text(json.dumps(validation,indent=2)+'\n',encoding='utf-8')
+
+          target_branch='automation/m0-final-evidence'
+          ref=request(f'/repos/{repo}/git/ref/heads/{urllib.parse.quote(target_branch,safe="")}')
+          if ref is None:
+              source_ref=request(f'/repos/{repo}/git/ref/heads/{urllib.parse.quote("automation/m0-lockfile",safe="")}')
+              request(f'/repos/{repo}/git/refs',method='POST',payload={'ref':f'refs/heads/{target_branch}','sha':source_ref['object']['sha']})
+
+          for path,data,message in (
+              ('final-evidence/m0-current-evidence.zip',zip_bytes,'chore: publish current M0 evidence'),
+              ('final-evidence/m0-current-validation.json',(json.dumps(validation,indent=2)+'\n').encode(),'chore: publish current M0 validation'),
+          ):
+              existing=request(f'/repos/{repo}/contents/{path}?ref='+urllib.parse.quote(target_branch,safe=''))
+              payload={'message':message,'content':base64.b64encode(data).decode(),'branch':target_branch}
+              if existing is not None:
+                  payload['sha']=existing['sha']
+              request(f'/repos/{repo}/contents/{path}',method='PUT',payload=payload)
+
+          print(json.dumps(validation,indent=2))
+          PY
