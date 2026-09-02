@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/routing/route-decision.schema.json",
+  "title": "M0 Route Decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["route", "confidence"],
+  "properties": {
+    "route": {
+      "type": "string",
+      "enum": ["billing", "technical", "general"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    }
+  }
+}
