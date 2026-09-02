@@ -1,0 +1,47 @@
+name: Transfer M0 task patches
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/transfer-m0-patches.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out staged patches
+        uses: actions/checkout@v7
+        with:
+          path: source
+
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+          path: target
+
+      - name: Reconstruct and verify patch bundle
+        run: |
+          set -euo pipefail
+          cat source/.automation/m0-patches/part-* \
+            | base64 --decode \
+            | gzip --decompress \
+            > /tmp/tasks3-5.patch
+          printf '%s  %s\n' \
+            '0282524d6bd315c6ae1eb39994e145f173599bee6442d426e0f7402e6b007d16' \
+            /tmp/tasks3-5.patch \
+            | sha256sum --check
+
+      - name: Apply task commits to feature branch
+        run: |
+          set -euo pipefail
+          cd target
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git am /tmp/tasks3-5.patch
+          git push origin HEAD:feat/m0-behavioral-parity
