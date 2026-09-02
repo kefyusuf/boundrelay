@@ -1,0 +1,57 @@
+name: Transfer M0 review fixes
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".automation/m0-review/**"
+      - ".github/workflows/transfer-m0-review.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  transfer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out staged patch
+        uses: actions/checkout@v7
+        with:
+          path: source
+
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+          path: target
+
+      - name: Verify and reconstruct patch
+        run: |
+          set -euo pipefail
+          cd source
+          cat <<'CHECKSUMS' | sha256sum --check
+          f64ea2811e5a3ce3689906d4e46fed6e55e5e4081392dafbd280dce5d8274bd7  .automation/m0-review/part-00
+          e34b04eaa087ee3cb34cc733c03d6944f46a45eee0d56c3549ade61b5b356b93  .automation/m0-review/part-01
+          5922b1f9b8859ee7be5909af56e1b0e4e00c48bf53908d59e3ea7897507e4ce5  .automation/m0-review/part-02
+          9629cb0a37cde282fefc64e146976d524eebd643a08874969103e4efa869a91e  .automation/m0-review/part-03
+          CHECKSUMS
+          cat .automation/m0-review/part-* > /tmp/m0-review.patch.b64
+          printf '%s  %s\n' \
+            '754341f1aa62812cc2a359ec60b6ef42aa78cb0a8652f6775f7167e0d10c0e0c' \
+            /tmp/m0-review.patch.b64 | sha256sum --check
+          base64 --decode /tmp/m0-review.patch.b64 > /tmp/m0-review.patch
+          printf '%s  %s\n' \
+            '45b063fade00d405b6dcc703a2e5c440582443718c0c87002f6d1f0e00dd6223' \
+            /tmp/m0-review.patch | sha256sum --check
+
+      - name: Apply and push review fixes
+        run: |
+          set -euo pipefail
+          cd target
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git apply --check --exclude=.ai/delivery/current-scope.md /tmp/m0-review.patch
+          git apply --index --exclude=.ai/delivery/current-scope.md /tmp/m0-review.patch
+          git commit -m "fix(review): harden M0 verification evidence"
+          git push origin HEAD:feat/m0-behavioral-parity
