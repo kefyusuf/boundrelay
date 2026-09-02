@@ -1,0 +1,66 @@
+name: Apply M0 failure identity fix
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/apply-m0-failure-identity-fix.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+
+      - name: Apply minimal failure-evidence identity fix
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "712b1b3c61d7d77b59b3408b7b226f9449c8484e"
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("tools/parity/verify_m0.py")
+          content = path.read_text(encoding="utf-8")
+
+          old_header = '''        failed = {
+              "schema_version": "1.0",
+              "scenario_id": SCENARIO_ID,
+              "revision": _revision(),
+          '''
+          new_header = '''        execution_identity = _execution_identity()
+              failed = {
+              "schema_version": "1.0",
+              "scenario_id": SCENARIO_ID,
+              "revision": execution_identity["revision"],
+          '''
+          old_identity = '            "execution_identity": _execution_identity(),\n'
+          new_identity = '            "execution_identity": execution_identity,\n'
+
+          if content.count(old_header) != 1:
+              raise SystemExit(f"Expected one failure-evidence header, found {content.count(old_header)}")
+          if content.count(old_identity) != 1:
+              raise SystemExit(f"Expected one nested identity call, found {content.count(old_identity)}")
+
+          content = content.replace(old_header, new_header, 1)
+          content = content.replace(old_identity, new_identity, 1)
+          path.write_text(content, encoding="utf-8")
+          PY
+          python -m py_compile tools/parity/verify_m0.py
+          git diff --check
+          git diff -- tools/parity/verify_m0.py
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/parity/verify_m0.py
+          git commit -m "fix(verification): reuse failure execution identity"
+          git push origin HEAD:feat/m0-behavioral-parity
