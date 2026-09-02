@@ -28,6 +28,22 @@ def read_events(path: Path) -> list[dict[str, object]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
 
 
+def read_events_strict(path: Path) -> list[dict[str, object]]:
+    def reject_constant(value: str) -> object:
+        raise ValueError(f"Non-standard JSON constant: {value}")
+
+    return [
+        json.loads(line, parse_constant=reject_constant)
+        for line in path.read_text(encoding="utf-8").splitlines()
+        if line
+    ]
+
+
+class NonFiniteDecisionProvider:
+    def classify(self, *, case_id: str, request: str) -> object:
+        return {"route": "billing", "confidence": float("nan")}
+
+
 class RunnerTests(unittest.TestCase):
     def test_runs_a_valid_model_route_with_one_terminal_event_offline(self) -> None:
         with tempfile.TemporaryDirectory() as directory, patch.object(
@@ -69,6 +85,27 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(result.failure_code, "INVALID_ROUTE_DECISION")
         self.assertTrue(any(event["type"] == "route.rejected" for event in events))
         self.assertEqual(sum(event["type"] in {"run.completed", "run.failed"} for event in events), 1)
+        self.assertEqual(events[-1]["type"], "run.failed")
+        self.assertFalse(any(str(event["data"].get("step", "")).startswith("specialist.") for event in events))
+
+    def test_non_finite_model_output_is_recorded_as_strict_json_without_dispatch(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            trace_path = Path(directory) / "trace.jsonl"
+            result = run_scenario_case(
+                mode="model",
+                case_id="billing-duplicate-charge",
+                trace_path=str(trace_path),
+                decision_provider=NonFiniteDecisionProvider(),
+                clock=fixed_clock,
+                id_factory=fixed_ids("non-finite"),
+            )
+            events = read_events_strict(trace_path)
+
+        self.assertEqual(result.status, "FAILED")
+        self.assertFalse(result.specialist_invoked)
+        model_completed = next(event for event in events if event["type"] == "model.completed")
+        decision = model_completed["data"]["decision"]
+        self.assertIsNone(decision["confidence"])
         self.assertEqual(events[-1]["type"], "run.failed")
         self.assertFalse(any(str(event["data"].get("step", "")).startswith("specialist.") for event in events))
 

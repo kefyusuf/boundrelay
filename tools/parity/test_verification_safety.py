@@ -1,7 +1,6 @@
 # Regression coverage for open M0 certification review threads.
 
 from pathlib import Path
-import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -10,6 +9,7 @@ from scripts.verify_m0 import clear_previous_evidence, main
 import tools.parity.verify_m0 as verifier
 from tools.parity.verify_m0 import (
     EVENT_SCHEMA_PATH,
+    _assert_expected_behavior,
     _assert_trace,
     _validator,
     assert_clean_worktree,
@@ -101,6 +101,20 @@ class VerificationSafetyTests(unittest.TestCase):
                 label="TypeScript sample",
             )
 
+    def test_result_is_bound_to_the_requested_trace_path(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "wrong trace_path"):
+            verifier._assert_result_context(
+                {
+                    "case_id": "billing-duplicate-charge",
+                    "mode": "model",
+                    "trace_path": "/tmp/stale.jsonl",
+                },
+                expected_case_id="billing-duplicate-charge",
+                expected_mode="model",
+                expected_trace_path="/tmp/generated.jsonl",
+                label="TypeScript sample",
+            )
+
     def test_terminal_event_must_match_reported_status(self) -> None:
         helper = getattr(verifier, "_assert_terminal_status", None)
         if not callable(helper):
@@ -118,6 +132,23 @@ class VerificationSafetyTests(unittest.TestCase):
                 [{"type": "run.completed"}],
                 expected_status="FAILED",
                 label="Python sample",
+            )
+
+    def test_route_selected_payload_must_match_the_result_route(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "route.selected"):
+            _assert_expected_behavior(
+                case={"expected_route": "technical"},
+                result={
+                    "status": "SUCCEEDED",
+                    "selected_route": "technical",
+                    "specialist_invoked": True,
+                    "failure_code": None,
+                },
+                events=[
+                    {"type": "route.selected", "data": {"route": "billing"}},
+                    {"type": "step.started", "data": {"step": "specialist.technical"}},
+                ],
+                label="TypeScript technical/model",
             )
 
     def test_evidence_records_the_scenario_identifier(self) -> None:
