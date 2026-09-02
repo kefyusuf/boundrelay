@@ -1,30 +1,61 @@
+import {resolve} from "node:path";
+import {pathToFileURL} from "node:url";
+
 import {runScenarioCase} from "./runner.js";
 import type {RunMode} from "./types.js";
 
-interface CliOptions {
+export interface CliOptions {
   mode: RunMode;
   caseId: string;
   tracePath: string;
 }
 
-function readOption(args: string[], name: string): string {
-  const index = args.indexOf(name);
-  const value = index >= 0 ? args[index + 1] : undefined;
-  if (value === undefined || value.startsWith("--")) {
-    throw new Error(`Missing required option ${name}`);
+const OPTION_NAMES = ["--mode", "--case", "--trace"] as const;
+type OptionName = (typeof OPTION_NAMES)[number];
+
+function isOptionName(value: string): value is OptionName {
+  return OPTION_NAMES.includes(value as OptionName);
+}
+
+function parseArgumentMap(args: string[]): Map<OptionName, string> {
+  const values = new Map<OptionName, string>();
+
+  for (let index = 0; index < args.length; index += 2) {
+    const option = args[index];
+    if (option === undefined || !isOptionName(option)) {
+      throw new Error(`Unexpected argument ${option ?? "<end>"}`);
+    }
+    if (values.has(option)) {
+      throw new Error(`Duplicate option ${option}`);
+    }
+
+    const value = args[index + 1];
+    if (value === undefined || value.startsWith("--")) {
+      throw new Error(`Missing required option ${option}`);
+    }
+    values.set(option, value);
   }
-  return value;
+
+  for (const option of OPTION_NAMES) {
+    if (!values.has(option)) {
+      throw new Error(`Missing required option ${option}`);
+    }
+  }
+
+  return values;
 }
 
 export function parseCliOptions(args: string[]): CliOptions {
-  const mode = readOption(args, "--mode");
+  const values = parseArgumentMap(args);
+  const mode = values.get("--mode");
   if (mode !== "deterministic" && mode !== "model") {
     throw new Error("--mode must be deterministic or model");
   }
+
   return {
     mode,
-    caseId: readOption(args, "--case"),
-    tracePath: readOption(args, "--trace"),
+    caseId: values.get("--case") as string,
+    tracePath: values.get("--trace") as string,
   };
 }
 
@@ -34,8 +65,15 @@ async function main(): Promise<void> {
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 
-main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : String(error);
-  process.stderr.write(`${message}\n`);
-  process.exitCode = 2;
-});
+function isEntrypoint(): boolean {
+  const entrypoint = process.argv[1];
+  return entrypoint !== undefined && import.meta.url === pathToFileURL(resolve(entrypoint)).href;
+}
+
+if (isEntrypoint()) {
+  void main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`${message}\n`);
+    process.exitCode = 2;
+  });
+}
