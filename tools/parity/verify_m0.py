@@ -80,13 +80,16 @@ def _run(command: list[str], *, env: Mapping[str, str] | None = None) -> dict[st
             f"stdout:\n{process.stdout}\nstderr:\n{process.stderr}"
         )
     lines = [line for line in process.stdout.splitlines() if line.strip()]
-    if not lines:
-        raise RuntimeError(f"Command produced no JSON result: {' '.join(command)}")
+    if len(lines) != 1:
+        raise RuntimeError(
+            f"Command must produce exactly one nonblank stdout line: {' '.join(command)}; "
+            f"got {len(lines)}"
+        )
     try:
-        result = json.loads(lines[-1])
+        result = json.loads(lines[0])
     except json.JSONDecodeError as error:
         raise RuntimeError(
-            f"Last stdout line was not JSON for {' '.join(command)}: {lines[-1]}"
+            f"CLI stdout was not JSON for {' '.join(command)}: {lines[0]}"
         ) from error
     if not isinstance(result, dict):
         raise RuntimeError(f"CLI result must be a JSON object: {' '.join(command)}")
@@ -182,12 +185,19 @@ def _assert_terminal_status(
         )
 
 
-def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
+    steps: list[str] = []
     for event in events:
         data = event.get("data")
-        if isinstance(data, dict) and str(data.get("step", "")).startswith("specialist."):
-            return True
-    return False
+        if isinstance(data, dict):
+            step = str(data.get("step", ""))
+            if step.startswith("specialist."):
+                steps.append(step)
+    return steps
+
+
+def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+    return bool(_specialist_steps(events))
 
 
 def _assert_expected_behavior(
@@ -209,8 +219,14 @@ def _assert_expected_behavior(
         for key, value in expected.items():
             if result.get(key) != value:
                 raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
-        if not _has_specialist_step(events):
+        expected_specialist_step = f"specialist.{expected_route}"
+        specialist_steps = _specialist_steps(events)
+        if not specialist_steps:
             raise AssertionError(f"{label} did not emit a specialist step")
+        if any(step != expected_specialist_step for step in specialist_steps):
+            raise AssertionError(
+                f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
+            )
         selected_events = [event for event in events if event.get("type") == "route.selected"]
         if len(selected_events) != 1:
             raise AssertionError(f"{label} must emit exactly one route.selected event")
@@ -286,6 +302,7 @@ def verify() -> dict[str, object]:
 
         ts_result = _run([
             "npm",
+            "--silent",
             "--prefix",
             str(TS_ROOT),
             "run",
