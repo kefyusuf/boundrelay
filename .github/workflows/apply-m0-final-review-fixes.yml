@@ -1,0 +1,125 @@
+name: Apply M0 final review fixes
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/apply-m0-final-review-fixes.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out feature branch
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+          path: target
+
+      - name: Apply verifier fixes
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("target/tools/parity/verify_m0.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  '''    lines = [line for line in process.stdout.splitlines() if line.strip()]
+              if not lines:
+                  raise RuntimeError(f"Command produced no JSON result: {' '.join(command)}")
+              try:
+                  result = json.loads(lines[-1])
+              except json.JSONDecodeError as error:
+                  raise RuntimeError(
+                      f"Last stdout line was not JSON for {' '.join(command)}: {lines[-1]}"
+                  ) from error
+              ''',
+                  '''    lines = [line for line in process.stdout.splitlines() if line.strip()]
+              if len(lines) != 1:
+                  raise RuntimeError(
+                      f"Command must produce exactly one nonblank stdout line: {' '.join(command)}; "
+                      f"got {len(lines)}"
+                  )
+              try:
+                  result = json.loads(lines[0])
+              except json.JSONDecodeError as error:
+                  raise RuntimeError(
+                      f"CLI stdout was not JSON for {' '.join(command)}: {lines[0]}"
+                  ) from error
+              ''',
+              ),
+              (
+                  '''def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+              for event in events:
+                  data = event.get("data")
+                  if isinstance(data, dict) and str(data.get("step", "")).startswith("specialist."):
+                      return True
+              return False
+              ''',
+                  '''def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
+              steps: list[str] = []
+              for event in events:
+                  data = event.get("data")
+                  if isinstance(data, dict):
+                      step = str(data.get("step", ""))
+                      if step.startswith("specialist."):
+                          steps.append(step)
+              return steps
+
+
+              def _has_specialist_step(events: list[dict[str, object]]) -> bool:
+                  return bool(_specialist_steps(events))
+              ''',
+              ),
+              (
+                  '''        if not _has_specialist_step(events):
+                      raise AssertionError(f"{label} did not emit a specialist step")
+                  selected_events = [event for event in events if event.get("type") == "route.selected"]
+              ''',
+                  '''        expected_specialist_step = f"specialist.{expected_route}"
+                  specialist_steps = _specialist_steps(events)
+                  if not specialist_steps:
+                      raise AssertionError(f"{label} did not emit a specialist step")
+                  if any(step != expected_specialist_step for step in specialist_steps):
+                      raise AssertionError(
+                          f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
+                      )
+                  selected_events = [event for event in events if event.get("type") == "route.selected"]
+              ''',
+              ),
+              (
+                  '''        ts_result = _run([
+                      "npm",
+                      "--prefix",
+              ''',
+                  '''        ts_result = _run([
+                      "npm",
+                      "--silent",
+                      "--prefix",
+              ''',
+              ),
+          ]
+
+          for old, new in replacements:
+              if text.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one verifier replacement target, got {text.count(old)}")
+              text = text.replace(old, new)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+
+      - name: Commit and push
+        run: |
+          set -euo pipefail
+          cd target
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/parity/verify_m0.py
+          git commit -m "fix(review): enforce CLI and specialist contracts"
+          git push origin HEAD:feat/m0-behavioral-parity
