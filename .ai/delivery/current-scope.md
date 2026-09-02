@@ -20,11 +20,15 @@ The gate requires a clean Git worktree and binds its evidence to the checked-out
 - deterministic baseline and bounded scripted-model decision;
 - complete decision-schema validation before dispatch;
 - non-finite Python confidence rejection;
+- strict JSON event serialization without `NaN` or infinity literals;
 - invalid-route fail-closed behavior with no specialist invocation;
 - schema-valid JSONL events with monotonic sequences;
+- exactly one nonblank JSON result line from each verified CLI invocation;
+- exact TypeScript CLI option consumption with unknown, positional, and duplicate argument rejection;
 - result-to-trace `run_id` binding;
-- requested `case_id` and `mode` binding;
+- requested `case_id`, `mode`, and `trace_path` binding;
 - exactly one terminal event matching the reported result status;
+- `route.selected` and specialist step names bound to the selected route;
 - normalized TypeScript/Python result and trace parity;
 - prior evidence removal before the first local gate step;
 - exact PR-head checkout and hidden artifact upload in CI.
