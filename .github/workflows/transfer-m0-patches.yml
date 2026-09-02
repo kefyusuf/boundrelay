@@ -4,6 +4,7 @@ on:
   push:
     branches: [automation/m0-lockfile]
     paths:
+      - ".automation/m0-patches/**"
       - ".github/workflows/transfer-m0-patches.yml"
 
 permissions:
