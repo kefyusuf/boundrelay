@@ -65,4 +65,35 @@ describe("runScenarioCase", () => {
       return typeof step === "string" && step.startsWith("specialist.");
     })).toBe(false);
   });
+
+  it("records a BigInt model decision as strict JSON and fails closed", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "boundrelay-ts-bigint-"));
+    const tracePath = join(directory, "trace.jsonl");
+
+    const result = await runScenarioCase({
+      mode: "model",
+      caseId: "billing-duplicate-charge",
+      tracePath,
+      decisionProvider: {
+        classify: async () => ({route: "billing", confidence: 2n}),
+      },
+      clock: () => new Date("2026-09-02T00:00:00Z"),
+      idFactory: fixedIds("bigint"),
+    });
+    const events = await readEvents(tracePath);
+    const modelCompleted = events.find((event) => event.type === "model.completed");
+
+    expect(result).toMatchObject({
+      status: "FAILED",
+      selected_route: null,
+      specialist_invoked: false,
+      failure_code: "INVALID_ROUTE_DECISION",
+    });
+    expect(modelCompleted?.data.decision).toEqual({route: "billing", confidence: null});
+    expect(events.at(-1)?.type).toBe("run.failed");
+    expect(events.some((event) => {
+      const step = event.data.step;
+      return typeof step === "string" && step.startsWith("specialist.");
+    })).toBe(false);
+  });
 });
