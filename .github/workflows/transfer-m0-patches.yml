@@ -25,11 +25,29 @@ jobs:
           ref: feat/m0-behavioral-parity
           path: target
 
+      - name: Verify staged chunks
+        run: |
+          set -euo pipefail
+          cd source
+          test "$(find .automation/m0-patches -maxdepth 1 -type f -name 'part-*' | wc -l)" -eq 6
+          cat <<'CHECKSUMS' | sha256sum --check
+          9777c2da6a0fca8611a11b2786af736fa82b1ae859fd0dbf46524be6fbbf984c  .automation/m0-patches/part-00
+          30a178c018a2a53f873131264b9c3af786fe5605eb6e1d8922ca3e6c391e3d78  .automation/m0-patches/part-01
+          bc9b00770d251fb2afc2812541db0fd2ebf5dea106b1fec3b95d5aa363bc03e3  .automation/m0-patches/part-02
+          7793f11b1152617dbddf88aa6280127cef24b5dfdcc355a195a6ad75031a2c69  .automation/m0-patches/part-03
+          05cb2dee98f1d42512008bed3379d164e0072df3c510cb315822fc8a0bb3ea58  .automation/m0-patches/part-04
+          f9a57ba9ea908a9ff575a556cd66ebb9643a5139657780d6cdc7056e782d17b5  .automation/m0-patches/part-05
+          CHECKSUMS
+
       - name: Reconstruct and verify patch bundle
         run: |
           set -euo pipefail
-          cat source/.automation/m0-patches/part-* \
-            | base64 --decode \
+          cat source/.automation/m0-patches/part-* > /tmp/tasks3-5.patch.gz.b64
+          printf '%s  %s\n' \
+            '900b5e1d6a3dc26b456b6cad56f3faba97133f33bb7b97cf4b9ff9f596702a57' \
+            /tmp/tasks3-5.patch.gz.b64 \
+            | sha256sum --check
+          base64 --decode /tmp/tasks3-5.patch.gz.b64 \
             | gzip --decompress \
             > /tmp/tasks3-5.patch
           printf '%s  %s\n' \
