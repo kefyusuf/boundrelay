@@ -16,6 +16,7 @@ import yaml
 from tools.parity.normalize import normalize_result, normalized_trace, read_jsonl
 
 ROOT = Path(__file__).resolve().parents[2]
+SCENARIO_ID = "support-triage"
 SCENARIO_PATH = ROOT / "fixtures/scenarios/support-triage.yaml"
 EVENT_SCHEMA_PATH = ROOT / "contracts/events/run-event.schema.json"
 RESULT_SCHEMA_PATH = ROOT / "contracts/results/run-result.schema.json"
@@ -110,6 +111,25 @@ def _validate_document(
         raise AssertionError(f"{label} failed schema validation: {details}")
 
 
+def _assert_result_context(
+    result: dict[str, object],
+    *,
+    expected_case_id: str,
+    expected_mode: str,
+    label: str,
+) -> None:
+    if result.get("case_id") != expected_case_id:
+        raise AssertionError(
+            f"{label} has wrong case_id: {result.get('case_id')!r}; "
+            f"expected {expected_case_id!r}"
+        )
+    if result.get("mode") != expected_mode:
+        raise AssertionError(
+            f"{label} has wrong mode: {result.get('mode')!r}; "
+            f"expected {expected_mode!r}"
+        )
+
+
 def _assert_trace(
     events: list[dict[str, object]],
     *,
@@ -133,6 +153,27 @@ def _assert_trace(
         raise AssertionError(f"{label} must contain exactly one terminal event")
     if events[-1].get("type") not in TERMINAL_TYPES:
         raise AssertionError(f"{label} terminal event must be last")
+
+
+def _assert_terminal_status(
+    events: list[dict[str, object]],
+    *,
+    expected_status: object,
+    label: str,
+) -> None:
+    terminal_by_status = {
+        "SUCCEEDED": "run.completed",
+        "FAILED": "run.failed",
+    }
+    expected_terminal = terminal_by_status.get(expected_status)
+    if expected_terminal is None:
+        raise AssertionError(f"{label} has unsupported result status: {expected_status!r}")
+    actual_terminal = events[-1].get("type") if events else None
+    if actual_terminal != expected_terminal:
+        raise AssertionError(
+            f"{label} expected terminal event {expected_terminal} for "
+            f"status {expected_status}, got {actual_terminal!r}"
+        )
 
 
 def _has_specialist_step(events: list[dict[str, object]]) -> bool:
@@ -187,7 +228,11 @@ def _assert_expected_behavior(
 
 def _scenario_cases() -> list[tuple[dict[str, object], str]]:
     document = yaml.safe_load(SCENARIO_PATH.read_text(encoding="utf-8"))
-    if not isinstance(document, dict) or not isinstance(document.get("cases"), list):
+    if (
+        not isinstance(document, dict)
+        or document.get("scenario_id") != SCENARIO_ID
+        or not isinstance(document.get("cases"), list)
+    ):
         raise ValueError("Canonical support-triage scenario is invalid")
     combinations: list[tuple[dict[str, object], str]] = []
     for raw_case in document["cases"]:
@@ -251,26 +296,51 @@ def verify() -> dict[str, object]:
             str(ROOT / py_trace),
         ], env=python_env)
 
-        _validate_document(result_validator, ts_result, label=f"TypeScript {case_id}/{mode} result")
-        _validate_document(result_validator, py_result, label=f"Python {case_id}/{mode} result")
+        ts_label = f"TypeScript {case_id}/{mode}"
+        py_label = f"Python {case_id}/{mode}"
+        _validate_document(result_validator, ts_result, label=f"{ts_label} result")
+        _validate_document(result_validator, py_result, label=f"{py_label} result")
+        _assert_result_context(
+            ts_result,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            label=ts_label,
+        )
+        _assert_result_context(
+            py_result,
+            expected_case_id=case_id,
+            expected_mode=mode,
+            label=py_label,
+        )
+
         ts_events = read_jsonl(ROOT / ts_trace)
         py_events = read_jsonl(ROOT / py_trace)
         _assert_trace(
             ts_events,
             source="typescript",
             expected_run_id=str(ts_result["run_id"]),
-            label=f"TypeScript {case_id}/{mode}",
+            label=ts_label,
             event_validator=event_validator,
         )
         _assert_trace(
             py_events,
             source="python",
             expected_run_id=str(py_result["run_id"]),
-            label=f"Python {case_id}/{mode}",
+            label=py_label,
             event_validator=event_validator,
         )
-        _assert_expected_behavior(case=case, result=ts_result, events=ts_events, label=f"TypeScript {case_id}/{mode}")
-        _assert_expected_behavior(case=case, result=py_result, events=py_events, label=f"Python {case_id}/{mode}")
+        _assert_terminal_status(
+            ts_events,
+            expected_status=ts_result["status"],
+            label=ts_label,
+        )
+        _assert_terminal_status(
+            py_events,
+            expected_status=py_result["status"],
+            label=py_label,
+        )
+        _assert_expected_behavior(case=case, result=ts_result, events=ts_events, label=ts_label)
+        _assert_expected_behavior(case=case, result=py_result, events=py_events, label=py_label)
 
         if normalize_result(ts_result) != normalize_result(py_result):
             raise AssertionError(f"Result parity failed for {case_id}/{mode}")
@@ -288,6 +358,7 @@ def verify() -> dict[str, object]:
 
     evidence: dict[str, object] = {
         "schema_version": "1.0",
+        "scenario_id": SCENARIO_ID,
         "revision": _revision(),
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "runtimes": {
@@ -311,6 +382,7 @@ def main() -> int:
         OUTPUT_ROOT.mkdir(parents=True, exist_ok=True)
         failed = {
             "schema_version": "1.0",
+            "scenario_id": SCENARIO_ID,
             "revision": _revision(),
             "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
             "verification_command": "python -m tools.parity.verify_m0",
