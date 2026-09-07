@@ -162,7 +162,7 @@ class TraceContractTests(unittest.TestCase):
                 },
                 events=[
                     event("model.completed", {"decision": {"route": "billing", "confidence": 0.98}}),
-                    event("route.selected", {"route": "billing"}),
+                    event("route.selected", {"route": "billing", "confidence": 0.98}),
                     event("step.completed", {"step": "classify", "route": "general"}),
                     event("step.started", {"step": "specialist.billing"}),
                 ],
@@ -181,10 +181,24 @@ class TraceContractTests(unittest.TestCase):
                 },
                 events=[
                     event("model.completed", {"decision": {"route": "general", "confidence": 0.98}}),
-                    event("route.selected", {"route": "billing"}),
+                    event("route.selected", {"route": "billing", "confidence": 0.98}),
                     event("step.completed", {"step": "classify", "route": "billing"}),
                     event("step.started", {"step": "specialist.billing"}),
                 ],
+                label="TypeScript billing/model",
+            )
+
+    def test_terminal_payload_fields_must_match_the_result(self) -> None:
+        result = {
+            "status": "SUCCEEDED",
+            "selected_route": "billing",
+            "failure_code": None,
+        }
+        with self.assertRaisesRegex(AssertionError, "terminal payload"):
+            verifier._assert_terminal_status(
+                [event("run.completed", {"status": "FAILED", "route": "general"})],
+                expected_status="SUCCEEDED",
+                result=result,
                 label="TypeScript billing/model",
             )
 
