@@ -19,14 +19,15 @@ def _reject_nonstandard_constant(value: str) -> object:
 
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     source = Path(path)
-    content = source.read_text(encoding="utf-8")
+    content = source.read_bytes().decode("utf-8")
     if not content:
         raise ValueError(f"JSONL trace is empty: {source}")
 
-    # JSONL records are delimited by LF only. Preserve Unicode characters such
-    # as U+0085/U+2028/U+2029 when they occur inside JSON strings. Accept the
-    # single terminal LF emitted by both runtimes and normalize CRLF records.
-    if content.endswith("\n"):
+    # JSONL records are delimited by LF only. Read raw UTF-8 bytes so Python's
+    # universal-newline layer cannot convert bare CR into LF before validation.
+    # A CR is accepted only when it is immediately followed by a real LF.
+    had_terminal_lf = content.endswith("\n")
+    if had_terminal_lf:
         content = content[:-1]
     if not content:
         raise ValueError(f"JSONL trace is empty: {source}")
@@ -34,7 +35,14 @@ def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     lines = content.split("\n")
     events: list[dict[str, object]] = []
     for number, raw_line in enumerate(lines, start=1):
-        line = raw_line[:-1] if raw_line.endswith("\r") else raw_line
+        terminated_by_lf = number < len(lines) or had_terminal_lf
+        line = raw_line
+        if line.endswith("\r"):
+            if not terminated_by_lf:
+                raise ValueError(f"bare CR record separator on line {number} of {source}")
+            line = line[:-1]
+        if "\r" in line:
+            raise ValueError(f"bare CR record separator on line {number} of {source}")
         if not line.strip():
             raise ValueError(f"blank JSONL record on line {number} of {source}")
         try:
