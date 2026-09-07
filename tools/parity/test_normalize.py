@@ -96,6 +96,16 @@ class NormalizeTests(unittest.TestCase):
                     self.assertEqual(len(events), 1)
                     self.assertEqual(events[0]["data"]["message"], message)
 
+    def test_jsonl_reader_rejects_cr_only_record_separators(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_bytes(
+                b'{"type":"run.created","data":{}}\r'
+                b'{"type":"run.completed","data":{}}\n'
+            )
+            with self.assertRaisesRegex(ValueError, "Invalid JSON|bare CR"):
+                read_jsonl(path)
+
 
 if __name__ == "__main__":
     unittest.main()
