@@ -4,46 +4,45 @@ import {MemoryEventSink} from "../src/trace.js";
 
 describe("MemoryEventSink", () => {
   it("assigns monotonic sequence numbers and validates each event", () => {
-    let now = 0;
     let id = 0;
-    const sink = new MemoryEventSink(
-      "typescript",
-      "run-1",
-      () => new Date(now++).toISOString(),
-      () => `evt-${++id}`,
-    );
+    const sink = new MemoryEventSink({
+      runId: "run-1",
+      source: "typescript",
+      clock: () => new Date("2026-09-02T00:00:00.000Z"),
+      idFactory: () => `evt-${++id}`,
+    });
 
     sink.emit("run.created", {case_id: "billing-duplicate-charge"});
     sink.emit("run.started", {mode: "model"});
     sink.emit("run.completed", {status: "SUCCEEDED"});
 
-    expect(sink.all().map((event) => event.sequence)).toEqual([1, 2, 3]);
+    expect(sink.events.map((event) => event.sequence)).toEqual([1, 2, 3]);
   });
 
   it("returns defensive copies of stored events", () => {
     let id = 0;
-    const sink = new MemoryEventSink(
-      "typescript",
-      "run-1",
-      () => "2026-09-02T00:00:00.000Z",
-      () => `evt-${++id}`,
-    );
+    const sink = new MemoryEventSink({
+      runId: "run-1",
+      source: "typescript",
+      clock: () => new Date("2026-09-02T00:00:00.000Z"),
+      idFactory: () => `evt-${++id}`,
+    });
 
     sink.emit("run.created", {case_id: "billing-duplicate-charge"});
-    const firstRead = sink.all();
+    const firstRead = sink.events;
     firstRead[0]!.data.case_id = "mutated";
 
-    expect(sink.all()[0]!.data).toEqual({case_id: "billing-duplicate-charge"});
+    expect(sink.events[0]!.data).toEqual({case_id: "billing-duplicate-charge"});
   });
 
   it("canonicalizes arbitrary event data to strict JSON values", () => {
     let id = 0;
-    const sink = new MemoryEventSink(
-      "typescript",
-      "run-1",
-      () => "2026-09-02T00:00:00.000Z",
-      () => `evt-${++id}`,
-    );
+    const sink = new MemoryEventSink({
+      runId: "run-1",
+      source: "typescript",
+      clock: () => new Date("2026-09-02T00:00:00.000Z"),
+      idFactory: () => `evt-${++id}`,
+    });
     const cycle: Record<string, unknown> = {};
     cycle.self = cycle;
 

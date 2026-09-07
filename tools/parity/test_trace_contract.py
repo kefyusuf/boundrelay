@@ -1,5 +1,8 @@
 from copy import deepcopy
+from pathlib import Path
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import tools.parity.verify_m0 as verifier
 
@@ -146,6 +149,71 @@ class TraceContractTests(unittest.TestCase):
                         expected_mode="model",
                         label="Python billing/model",
                     )
+
+    def test_success_classify_completion_route_must_match_the_result(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "classify"):
+            verifier._assert_expected_behavior(
+                case={"expected_route": "billing"},
+                result={
+                    "status": "SUCCEEDED",
+                    "selected_route": "billing",
+                    "specialist_invoked": True,
+                    "failure_code": None,
+                },
+                events=[
+                    event("model.completed", {"decision": {"route": "billing", "confidence": 0.98}}),
+                    event("route.selected", {"route": "billing"}),
+                    event("step.completed", {"step": "classify", "route": "general"}),
+                    event("step.started", {"step": "specialist.billing"}),
+                ],
+                label="TypeScript billing/model",
+            )
+
+    def test_model_completed_route_must_match_the_selected_outcome(self) -> None:
+        with self.assertRaisesRegex(AssertionError, "model.completed"):
+            verifier._assert_expected_behavior(
+                case={"expected_route": "billing"},
+                result={
+                    "status": "SUCCEEDED",
+                    "selected_route": "billing",
+                    "specialist_invoked": True,
+                    "failure_code": None,
+                },
+                events=[
+                    event("model.completed", {"decision": {"route": "general", "confidence": 0.98}}),
+                    event("route.selected", {"route": "billing"}),
+                    event("step.completed", {"step": "classify", "route": "billing"}),
+                    event("step.started", {"step": "specialist.billing"}),
+                ],
+                label="TypeScript billing/model",
+            )
+
+    def test_scenario_requires_exactly_one_success_case_per_route(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            scenario_path = Path(directory) / "support-triage.yaml"
+            scenario_path.write_text(
+                """schema_version: \"1.0\"
+scenario_id: support-triage
+routes: [billing, technical, general]
+cases:
+  - id: billing-a
+    request: A
+    expected_route: billing
+  - id: billing-b
+    request: B
+    expected_route: billing
+  - id: general-a
+    request: C
+    expected_route: general
+  - id: invalid-model-route
+    request: D
+    expected_failure_code: INVALID_ROUTE_DECISION
+""",
+                encoding="utf-8",
+            )
+            with patch.object(verifier, "SCENARIO_PATH", scenario_path):
+                with self.assertRaisesRegex(AssertionError, "one success case per route"):
+                    verifier._scenario_cases()
 
 
 if __name__ == "__main__":

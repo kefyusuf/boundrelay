@@ -1,10 +1,12 @@
 import {mkdtemp, readFile} from "node:fs/promises";
+import net from "node:net";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 
-import {describe, expect, it} from "vitest";
+import {describe, expect, it, vi} from "vitest";
 
 import {runScenarioCase} from "../src/runner.js";
+import {RecordingSpecialistDispatcher} from "../src/specialists.js";
 import type {RunEvent} from "../src/types.js";
 
 function fixedIds(prefix: string): () => string {
@@ -17,15 +19,27 @@ async function readEvents(path: string): Promise<RunEvent[]> {
   return content.trim().split("\n").map((line) => JSON.parse(line) as RunEvent);
 }
 
+const canonicalRuns = [
+  ["billing-duplicate-charge", "deterministic"],
+  ["billing-duplicate-charge", "model"],
+  ["technical-login-error", "deterministic"],
+  ["technical-login-error", "model"],
+  ["general-opening-hours", "deterministic"],
+  ["general-opening-hours", "model"],
+  ["invalid-model-route", "model"],
+] as const;
+
 describe("runScenarioCase", () => {
-  it("runs a valid model route with one terminal event", async () => {
+  it("runs a valid model route with one terminal event and one real dispatch", async () => {
     const directory = await mkdtemp(join(tmpdir(), "boundrelay-ts-valid-"));
     const tracePath = join(directory, "trace.jsonl");
+    const dispatcher = new RecordingSpecialistDispatcher();
 
     const result = await runScenarioCase({
       mode: "model",
       caseId: "billing-duplicate-charge",
       tracePath,
+      specialistDispatcher: dispatcher,
       clock: () => new Date("2026-09-02T00:00:00Z"),
       idFactory: fixedIds("valid"),
     });
@@ -33,19 +47,24 @@ describe("runScenarioCase", () => {
 
     expect(result.status).toBe("SUCCEEDED");
     expect(result.selected_route).toBe("billing");
+    expect(dispatcher.invocations).toEqual([
+      {route: "billing", request: "I was charged twice for the same invoice."},
+    ]);
     expect(events.map((event) => event.sequence)).toEqual(events.map((_, index) => index + 1));
     expect(events.filter((event) => ["run.completed", "run.failed"].includes(event.type))).toHaveLength(1);
     expect(events.at(-1)?.type).toBe("run.completed");
   });
 
-  it("fails closed for an invalid model route without a specialist step", async () => {
+  it("fails closed for an invalid model route without a specialist step or dispatch", async () => {
     const directory = await mkdtemp(join(tmpdir(), "boundrelay-ts-invalid-"));
     const tracePath = join(directory, "trace.jsonl");
+    const dispatcher = new RecordingSpecialistDispatcher();
 
     const result = await runScenarioCase({
       mode: "model",
       caseId: "invalid-model-route",
       tracePath,
+      specialistDispatcher: dispatcher,
       clock: () => new Date("2026-09-02T00:00:00Z"),
       idFactory: fixedIds("invalid"),
     });
@@ -57,6 +76,7 @@ describe("runScenarioCase", () => {
       specialist_invoked: false,
       failure_code: "INVALID_ROUTE_DECISION",
     });
+    expect(dispatcher.invocations).toEqual([]);
     expect(events.some((event) => event.type === "route.rejected")).toBe(true);
     expect(events.filter((event) => ["run.completed", "run.failed"].includes(event.type))).toHaveLength(1);
     expect(events.at(-1)?.type).toBe("run.failed");
@@ -95,5 +115,29 @@ describe("runScenarioCase", () => {
       const step = event.data.step;
       return typeof step === "string" && step.startsWith("specialist.");
     })).toBe(false);
+  });
+
+  it.each(canonicalRuns)("keeps canonical %s/%s execution offline", async (caseId, mode) => {
+    const directory = await mkdtemp(join(tmpdir(), "boundrelay-ts-offline-"));
+    const tracePath = join(directory, `${caseId}-${mode}.jsonl`);
+    const socketConnect = vi.spyOn(net.Socket.prototype, "connect").mockImplementation(() => {
+      throw new Error("network access is forbidden");
+    });
+    vi.stubGlobal("fetch", async () => {
+      throw new Error("network access is forbidden");
+    });
+
+    try {
+      await runScenarioCase({
+        mode,
+        caseId,
+        tracePath,
+        clock: () => new Date("2026-09-02T00:00:00Z"),
+        idFactory: fixedIds(`offline-${caseId}-${mode}`),
+      });
+    } finally {
+      socketConnect.mockRestore();
+      vi.unstubAllGlobals();
+    }
   });
 });

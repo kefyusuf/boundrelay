@@ -55,6 +55,18 @@ class NormalizeTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "object"):
                 normalized_trace(path)
 
+    def test_jsonl_reader_rejects_nonstandard_numeric_constants(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            for constant in ("NaN", "Infinity", "-Infinity"):
+                with self.subTest(constant=constant):
+                    path.write_text(
+                        '{"type":"model.completed","data":{"confidence":' + constant + '}}\n',
+                        encoding="utf-8",
+                    )
+                    with self.assertRaisesRegex(ValueError, "non-standard JSON constant"):
+                        read_jsonl(path)
+
 
 if __name__ == "__main__":
     unittest.main()
