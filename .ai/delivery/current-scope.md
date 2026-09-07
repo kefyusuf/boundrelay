@@ -12,7 +12,7 @@ M0 — Behavioral parity vertical slice complete and revision-verifiable.
 - CI artifact: `m0-verification-<revision>`
 - Evidence root: `.boundrelay/m0/`
 
-The gate requires a clean Git worktree and binds its evidence to the checked-out revision. Each passing record includes `scenario_id`, revision, runtime versions, verification command, seven requested case/mode combinations, and fourteen language-specific traces. Any affected implementation, contract, fixture, dependency, test, verifier, or workflow change makes earlier evidence stale and requires a fresh run.
+The gate requires a clean Git worktree and binds its evidence to the checked-out revision. It captures the starting revision, reruns the clean-worktree check immediately before publishing PASSED evidence, and refuses certification if `HEAD` moved during verification. Each passing record includes `scenario_id`, revision, runtime versions, verification command, seven requested case/mode combinations, and fourteen language-specific traces. Any affected implementation, contract, fixture, dependency, test, verifier, or workflow change makes earlier evidence stale and requires a fresh run.
 
 ## Completed controls
 
@@ -23,10 +23,14 @@ The gate requires a clean Git worktree and binds its evidence to the checked-out
 - non-finite and oversized Python confidence rejection without unsafe numeric conversion;
 - strict JSON event serialization without `NaN` or infinity literals;
 - oversized Python integers canonicalized before event storage so traces remain serializable;
+- lone-surrogate code points remain writable as escaped JSON during UTF-8 trace output;
 - JSONL verification rejects non-standard `NaN`, `Infinity`, and `-Infinity` constants;
+- JSONL records are split only on LF, preserving U+0085/U+2028/U+2029 inside JSON strings while still rejecting blank physical records;
 - invalid-route fail-closed behavior with no specialist invocation;
 - successful runs prove one actual specialist dispatcher invocation for the selected route, while rejection proves zero dispatches;
 - all seven canonical scenario/mode executions are exercised with network access denied;
+- TypeScript network guards are installed before application module import and proved by an import-time network probe;
+- Python network guards are installed before runner import and independently proved in a fresh interpreter;
 - schema-valid JSONL events with monotonic sequences;
 - exact canonical lifecycle event sequence for deterministic success, model success, and model rejection;
 - `run.created`, `run.started`, model events, and classify lifecycle bound to the requested scenario/case/mode;
@@ -40,6 +44,7 @@ The gate requires a clean Git worktree and binds its evidence to the checked-out
 - `route.selected`, `route.rejected`, and specialist step payloads bound to the selected route or failure code;
 - normalized TypeScript/Python result and trace parity;
 - prior evidence removal before the first local gate step;
+- starting revision captured before execution and rechecked with a clean worktree immediately before PASSED evidence publication;
 - exact PR-head checkout and hidden artifact upload in CI.
 
 ## Completed implementation boundary
