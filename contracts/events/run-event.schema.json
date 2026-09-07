@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/events/run-event.schema.json",
+  "title": "M0 Run Event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "run_id",
+    "sequence",
+    "type",
+    "timestamp",
+    "source",
+    "data"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "event_id": {"type": "string", "minLength": 1},
+    "run_id": {"type": "string", "minLength": 1},
+    "sequence": {"type": "integer", "minimum": 1},
+    "type": {
+      "type": "string",
+      "enum": [
+        "run.created",
+        "run.started",
+        "run.completed",
+        "run.failed",
+        "step.started",
+        "step.completed",
+        "step.failed",
+        "model.requested",
+        "model.completed",
+        "model.failed",
+        "route.selected",
+        "route.rejected"
+      ]
+    },
+    "timestamp": {"type": "string", "format": "date-time"},
+    "source": {"type": "string", "enum": ["typescript", "python"]},
+    "data": {"type": "object"}
+  }
+}

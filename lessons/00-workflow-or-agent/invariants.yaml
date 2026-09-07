@@ -1,0 +1,23 @@
+schema_version: "1.0"
+scenario_id: support-triage
+invariants:
+  - id: M0-I01
+    description: A billing fixture resolves to billing.
+  - id: M0-I02
+    description: A technical fixture resolves to technical.
+  - id: M0-I03
+    description: A general fixture resolves to general.
+  - id: M0-I04
+    description: An unknown route never invokes a specialist.
+  - id: M0-I05
+    description: An unknown route emits route.rejected and returns a non-success result.
+  - id: M0-I06
+    description: Every run emits exactly one terminal run event.
+  - id: M0-I07
+    description: Event sequence numbers are monotonic within a run.
+  - id: M0-I08
+    description: Every event validates against the shared event schema.
+  - id: M0-I09
+    description: TypeScript and Python produce equivalent normalized traces for deterministic fixtures.
+  - id: M0-I10
+    description: Offline mode makes no network request.

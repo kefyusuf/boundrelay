@@ -1,0 +1,16 @@
+schema_version: "1.0"
+scenario_id: support-triage
+routes: [billing, technical, general]
+cases:
+  - id: billing-duplicate-charge
+    request: I was charged twice for the same invoice.
+    expected_route: billing
+  - id: technical-login-error
+    request: I cannot log in because the app shows an error.
+    expected_route: technical
+  - id: general-opening-hours
+    request: What are your support opening hours?
+    expected_route: general
+  - id: invalid-model-route
+    request: Route this request through the scripted invalid decision.
+    expected_failure_code: INVALID_ROUTE_DECISION

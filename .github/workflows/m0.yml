@@ -1,0 +1,42 @@
+name: M0 Verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: lessons/00-workflow-or-agent/typescript/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e lessons/00-workflow-or-agent/python
+      - run: npm ci --prefix lessons/00-workflow-or-agent/typescript
+      - run: python scripts/verify_m0.py
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m0-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .boundrelay/m0/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14
