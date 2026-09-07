@@ -281,11 +281,13 @@ def _assert_trace_context(
                 )
 
 
+
 def _assert_terminal_status(
     events: list[dict[str, object]],
     *,
     expected_status: object,
     label: str,
+    result: dict[str, object] | None = None,
 ) -> None:
     terminal_by_status = {
         "SUCCEEDED": "run.completed",
@@ -300,7 +302,20 @@ def _assert_terminal_status(
             f"{label} expected terminal event {expected_terminal} for "
             f"status {expected_status}, got {actual_terminal!r}"
         )
-
+    if result is None:
+        return
+    terminal_data = events[-1].get("data")
+    expected_payload = {
+        "status": result.get("status"),
+        "route": result.get("selected_route"),
+        "failure_code": result.get("failure_code"),
+    }
+    if not isinstance(terminal_data, dict) or any(
+        terminal_data.get(key) != value for key, value in expected_payload.items()
+    ):
+        raise AssertionError(
+            f"{label} terminal payload must match {expected_payload}, got {terminal_data!r}"
+        )
 
 def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
     steps: list[str] = []
@@ -315,6 +330,7 @@ def _specialist_steps(events: list[dict[str, object]]) -> list[str]:
 
 def _has_specialist_step(events: list[dict[str, object]]) -> bool:
     return bool(_specialist_steps(events))
+
 
 
 def _assert_expected_behavior(
@@ -335,23 +351,67 @@ def _assert_expected_behavior(
         }
         for key, value in expected.items():
             if result.get(key) != value:
-                raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
+                raise AssertionError(
+                    f"{label} expected {key}={value!r}, got {result.get(key)!r}"
+                )
+
         expected_specialist_step = f"specialist.{expected_route}"
         specialist_steps = _specialist_steps(events)
         if not specialist_steps:
             raise AssertionError(f"{label} did not emit a specialist step")
         if any(step != expected_specialist_step for step in specialist_steps):
             raise AssertionError(
-                f"{label} specialist steps must match {expected_specialist_step}: {specialist_steps}"
+                f"{label} specialist steps must match {expected_specialist_step}: "
+                f"{specialist_steps}"
             )
-        selected_events = [event for event in events if event.get("type") == "route.selected"]
+
+        selected_events = [
+            event for event in events if event.get("type") == "route.selected"
+        ]
         if len(selected_events) != 1:
             raise AssertionError(f"{label} must emit exactly one route.selected event")
         selected_data = selected_events[0].get("data")
         if not isinstance(selected_data, dict) or selected_data.get("route") != expected_route:
             raise AssertionError(
-                f"{label} route.selected payload does not match expected route {expected_route!r}"
+                f"{label} route.selected payload does not match expected route "
+                f"{expected_route!r}"
             )
+
+        classify_completed = [
+            event for event in events
+            if event.get("type") == "step.completed"
+            and isinstance(event.get("data"), dict)
+            and event["data"].get("step") == "classify"
+        ]
+        if len(classify_completed) != 1:
+            raise AssertionError(
+                f"{label} must emit exactly one classify step.completed event"
+            )
+        classify_data = classify_completed[0].get("data")
+        if not isinstance(classify_data, dict) or classify_data.get("route") != expected_route:
+            raise AssertionError(
+                f"{label} classify completion route must match {expected_route!r}, "
+                f"got {classify_data!r}"
+            )
+
+        model_completed = [
+            event for event in events if event.get("type") == "model.completed"
+        ]
+        if model_completed:
+            if len(model_completed) != 1:
+                raise AssertionError(
+                    f"{label} must emit at most one model.completed event"
+                )
+            model_data = model_completed[0].get("data")
+            decision = model_data.get("decision") if isinstance(model_data, dict) else None
+            if not isinstance(decision, dict) or any(
+                decision.get(key) != selected_data.get(key)
+                for key in ("route", "confidence")
+            ):
+                raise AssertionError(
+                    f"{label} model.completed decision must match route.selected, "
+                    f"got {decision!r} versus {selected_data!r}"
+                )
         return
 
     if expected_failure != "INVALID_ROUTE_DECISION":
@@ -364,11 +424,61 @@ def _assert_expected_behavior(
     }
     for key, value in expected.items():
         if result.get(key) != value:
-            raise AssertionError(f"{label} expected {key}={value!r}, got {result.get(key)!r}")
+            raise AssertionError(
+                f"{label} expected {key}={value!r}, got {result.get(key)!r}"
+            )
     if _has_specialist_step(events):
         raise AssertionError(f"{label} invoked a specialist after route rejection")
-    if not any(event.get("type") == "route.rejected" for event in events):
-        raise AssertionError(f"{label} did not emit route.rejected")
+
+    rejected_events = [
+        event for event in events if event.get("type") == "route.rejected"
+    ]
+    if len(rejected_events) != 1:
+        raise AssertionError(f"{label} must emit exactly one route.rejected event")
+    rejected_data = rejected_events[0].get("data")
+    if (
+        not isinstance(rejected_data, dict)
+        or rejected_data.get("failure_code") != expected_failure
+    ):
+        raise AssertionError(
+            f"{label} route.rejected payload must use failure code "
+            f"{expected_failure!r}, got {rejected_data!r}"
+        )
+
+    classify_failed = [
+        event for event in events
+        if event.get("type") == "step.failed"
+        and isinstance(event.get("data"), dict)
+        and event["data"].get("step") == "classify"
+    ]
+    if len(classify_failed) != 1:
+        raise AssertionError(f"{label} must emit exactly one classify step.failed event")
+    classify_data = classify_failed[0].get("data")
+    if (
+        not isinstance(classify_data, dict)
+        or classify_data.get("failure_code") != expected_failure
+    ):
+        raise AssertionError(
+            f"{label} classify failure code must match {expected_failure!r}, "
+            f"got {classify_data!r}"
+        )
+
+    model_completed = [
+        event for event in events if event.get("type") == "model.completed"
+    ]
+    if model_completed:
+        if len(model_completed) != 1:
+            raise AssertionError(f"{label} must emit at most one model.completed event")
+        model_data = model_completed[0].get("data")
+        decision = model_data.get("decision") if isinstance(model_data, dict) else None
+        if (
+            not isinstance(decision, dict)
+            or decision.get("route") != rejected_data.get("route")
+        ):
+            raise AssertionError(
+                f"{label} model.completed rejected route must match route.rejected, "
+                f"got {decision!r} versus {rejected_data!r}"
+            )
 
 
 def _scenario_cases() -> list[tuple[dict[str, object], str]]:
@@ -379,22 +489,39 @@ def _scenario_cases() -> list[tuple[dict[str, object], str]]:
         or not isinstance(document.get("cases"), list)
     ):
         raise ValueError("Canonical support-triage scenario is invalid")
+
     combinations: list[tuple[dict[str, object], str]] = []
+    success_routes: list[object] = []
+    failure_cases = 0
     for raw_case in document["cases"]:
         if not isinstance(raw_case, dict):
             raise ValueError("Scenario cases must be objects")
         case = dict(raw_case)
         if "expected_route" in case:
+            success_routes.append(case.get("expected_route"))
             combinations.append((case, "deterministic"))
             combinations.append((case, "model"))
         elif case.get("expected_failure_code") == "INVALID_ROUTE_DECISION":
+            failure_cases += 1
             combinations.append((case, "model"))
         else:
             raise ValueError(f"Unsupported scenario expectation: {case}")
-    if len(combinations) != 7:
-        raise AssertionError(f"M0 must contain seven verification combinations, got {len(combinations)}")
-    return combinations
 
+    required_routes = {"billing", "technical", "general"}
+    if len(success_routes) != len(required_routes) or set(success_routes) != required_routes:
+        raise AssertionError(
+            "M0 requires exactly one success case per route: "
+            "billing, technical, general"
+        )
+    if failure_cases != 1:
+        raise AssertionError(
+            f"M0 requires exactly one invalid-route failure case, got {failure_cases}"
+        )
+    if len(combinations) != 7:
+        raise AssertionError(
+            f"M0 must contain seven verification combinations, got {len(combinations)}"
+        )
+    return combinations
 
 def verify() -> dict[str, object]:
     assert_clean_worktree()
@@ -506,11 +633,13 @@ def verify() -> dict[str, object]:
         _assert_terminal_status(
             ts_events,
             expected_status=ts_result["status"],
+            result=ts_result,
             label=ts_label,
         )
         _assert_terminal_status(
             py_events,
             expected_status=py_result["status"],
+            result=py_result,
             label=py_label,
         )
         _assert_expected_behavior(case=case, result=ts_result, events=ts_events, label=ts_label)
