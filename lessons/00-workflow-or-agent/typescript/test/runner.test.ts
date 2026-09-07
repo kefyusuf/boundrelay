@@ -3,11 +3,16 @@ import net from "node:net";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 
-import {describe, expect, it, vi} from "vitest";
+import {afterAll, beforeAll, describe, expect, it, vi} from "vitest";
 
-import {runScenarioCase} from "../src/runner.js";
-import {RecordingSpecialistDispatcher} from "../src/specialists.js";
 import type {RunEvent} from "../src/types.js";
+
+type RunScenarioCase = typeof import("../src/runner.js").runScenarioCase;
+type RecordingDispatcher = typeof import("../src/specialists.js").RecordingSpecialistDispatcher;
+
+let runScenarioCase: RunScenarioCase;
+let RecordingSpecialistDispatcher: RecordingDispatcher;
+let restoreSocketConnect: (() => void) | undefined;
 
 function fixedIds(prefix: string): () => string {
   let sequence = 0;
@@ -28,6 +33,26 @@ const canonicalRuns = [
   ["general-opening-hours", "model"],
   ["invalid-model-route", "model"],
 ] as const;
+
+beforeAll(async () => {
+  const socketConnect = vi.spyOn(net.Socket.prototype, "connect").mockImplementation(() => {
+    throw new Error("network access is forbidden");
+  });
+  restoreSocketConnect = () => socketConnect.mockRestore();
+  vi.stubGlobal("fetch", async () => {
+    throw new Error("network access is forbidden");
+  });
+
+  await expect(import("./offline-import-probe.js")).rejects.toThrow("network access is forbidden");
+
+  ({runScenarioCase} = await import("../src/runner.js"));
+  ({RecordingSpecialistDispatcher} = await import("../src/specialists.js"));
+});
+
+afterAll(() => {
+  restoreSocketConnect?.();
+  vi.unstubAllGlobals();
+});
 
 describe("runScenarioCase", () => {
   it("runs a valid model route with one terminal event and one real dispatch", async () => {
@@ -120,24 +145,13 @@ describe("runScenarioCase", () => {
   it.each(canonicalRuns)("keeps canonical %s/%s execution offline", async (caseId, mode) => {
     const directory = await mkdtemp(join(tmpdir(), "boundrelay-ts-offline-"));
     const tracePath = join(directory, `${caseId}-${mode}.jsonl`);
-    const socketConnect = vi.spyOn(net.Socket.prototype, "connect").mockImplementation(() => {
-      throw new Error("network access is forbidden");
-    });
-    vi.stubGlobal("fetch", async () => {
-      throw new Error("network access is forbidden");
-    });
 
-    try {
-      await runScenarioCase({
-        mode,
-        caseId,
-        tracePath,
-        clock: () => new Date("2026-09-02T00:00:00Z"),
-        idFactory: fixedIds(`offline-${caseId}-${mode}`),
-      });
-    } finally {
-      socketConnect.mockRestore();
-      vi.unstubAllGlobals();
-    }
+    await runScenarioCase({
+      mode,
+      caseId,
+      tracePath,
+      clock: () => new Date("2026-09-02T00:00:00Z"),
+      idFactory: fixedIds(`offline-${caseId}-${mode}`),
+    });
   });
 });
