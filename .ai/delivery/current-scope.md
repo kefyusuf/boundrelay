@@ -17,20 +17,27 @@ The gate requires a clean Git worktree and binds its evidence to the checked-out
 ## Completed controls
 
 - canonical route order and support-triage scenario validation;
+- exactly one canonical success fixture for each `billing`, `technical`, and `general` route plus one invalid-route failure fixture;
 - deterministic baseline and bounded scripted-model decision;
 - complete decision-schema validation before dispatch;
 - non-finite and oversized Python confidence rejection without unsafe numeric conversion;
 - strict JSON event serialization without `NaN` or infinity literals;
+- oversized Python integers canonicalized before event storage so traces remain serializable;
+- JSONL verification rejects non-standard `NaN`, `Infinity`, and `-Infinity` constants;
 - invalid-route fail-closed behavior with no specialist invocation;
+- successful runs prove one actual specialist dispatcher invocation for the selected route, while rejection proves zero dispatches;
+- all seven canonical scenario/mode executions are exercised with network access denied;
 - schema-valid JSONL events with monotonic sequences;
 - exact canonical lifecycle event sequence for deterministic success, model success, and model rejection;
 - `run.created`, `run.started`, model events, and classify lifecycle bound to the requested scenario/case/mode;
+- `model.completed` decision data bound to the routed outcome;
+- classify completion/failure payloads bound to the selected route or failure code;
 - exactly one nonblank JSON result line from each verified CLI invocation;
 - exact TypeScript CLI option consumption with unknown, positional, and duplicate argument rejection;
 - result-to-trace `run_id` binding;
 - requested `case_id`, `mode`, and `trace_path` binding;
-- exactly one terminal event matching the reported result status;
-- `route.selected` and specialist step names bound to the selected route;
+- exactly one terminal event whose type and payload match the reported result;
+- `route.selected`, `route.rejected`, and specialist step payloads bound to the selected route or failure code;
 - normalized TypeScript/Python result and trace parity;
 - prior evidence removal before the first local gate step;
 - exact PR-head checkout and hidden artifact upload in CI.
