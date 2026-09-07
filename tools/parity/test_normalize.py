@@ -67,6 +67,17 @@ class NormalizeTests(unittest.TestCase):
                     with self.assertRaisesRegex(ValueError, "non-standard JSON constant"):
                         read_jsonl(path)
 
+    def test_jsonl_reader_rejects_blank_physical_records(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            path.write_text(
+                '{"type":"run.created","data":{}}\n\n'
+                '{"type":"run.completed","data":{}}\n',
+                encoding="utf-8",
+            )
+            with self.assertRaisesRegex(ValueError, "blank.*line 2"):
+                read_jsonl(path)
+
 
 if __name__ == "__main__":
     unittest.main()
