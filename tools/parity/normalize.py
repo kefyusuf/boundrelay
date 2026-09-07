@@ -19,11 +19,13 @@ def _reject_nonstandard_constant(value: str) -> object:
 
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     source = Path(path)
-    lines = [line for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    lines = source.read_text(encoding="utf-8").splitlines()
     if not lines:
         raise ValueError(f"JSONL trace is empty: {source}")
     events: list[dict[str, object]] = []
     for number, line in enumerate(lines, start=1):
+        if not line.strip():
+            raise ValueError(f"blank JSONL record on line {number} of {source}")
         try:
             value = json.loads(line, parse_constant=_reject_nonstandard_constant)
         except json.JSONDecodeError as error:
