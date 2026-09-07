@@ -1,13 +1,17 @@
 from datetime import datetime, timezone
+import importlib
 import json
 from pathlib import Path
 import socket
+import subprocess
+import sys
 import tempfile
+import textwrap
 import unittest
 from unittest.mock import patch
 
-from boundrelay_m0.runner import run_scenario_case
-from boundrelay_m0.specialists import RecordingSpecialistDispatcher
+run_scenario_case = None
+RecordingSpecialistDispatcher = None
 
 
 def fixed_ids(prefix: str):
@@ -26,7 +30,7 @@ def fixed_clock() -> datetime:
 
 
 def read_events(path: Path) -> list[dict[str, object]]:
-    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").split("\n") if line]
 
 
 def read_events_strict(path: Path) -> list[dict[str, object]]:
@@ -35,7 +39,7 @@ def read_events_strict(path: Path) -> list[dict[str, object]]:
 
     return [
         json.loads(line, parse_constant=reject_constant)
-        for line in path.read_text(encoding="utf-8").splitlines()
+        for line in path.read_text(encoding="utf-8").split("\n")
         if line
     ]
 
@@ -46,11 +50,81 @@ class NonFiniteDecisionProvider:
 
 
 class RunnerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls) -> None:
+        global run_scenario_case, RecordingSpecialistDispatcher
+        cls._create_connection_patch = patch.object(
+            socket,
+            "create_connection",
+            side_effect=AssertionError("network access is forbidden"),
+        )
+        cls._socket_patch = patch.object(
+            socket,
+            "socket",
+            side_effect=AssertionError("network access is forbidden"),
+        )
+        cls._create_connection_patch.start()
+        cls._socket_patch.start()
+        try:
+            try:
+                socket.create_connection(("127.0.0.1", 9), timeout=0.01)
+            except AssertionError as error:
+                if str(error) != "network access is forbidden":
+                    raise
+            else:
+                raise AssertionError("network guard probe did not block socket access")
+
+            runner_module = importlib.import_module("boundrelay_m0.runner")
+            specialists_module = importlib.import_module("boundrelay_m0.specialists")
+            run_scenario_case = runner_module.run_scenario_case
+            RecordingSpecialistDispatcher = specialists_module.RecordingSpecialistDispatcher
+        except Exception:
+            cls._socket_patch.stop()
+            cls._create_connection_patch.stop()
+            raise
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls._socket_patch.stop()
+        cls._create_connection_patch.stop()
+
+    def test_runner_import_is_network_denied_in_a_fresh_interpreter(self) -> None:
+        code = textwrap.dedent(
+            """
+            import socket
+
+            class NetworkAccessForbidden(RuntimeError):
+                pass
+
+            def blocked(*args, **kwargs):
+                raise NetworkAccessForbidden("network access is forbidden")
+
+            socket.create_connection = blocked
+            socket.socket = blocked
+
+            try:
+                socket.create_connection(("127.0.0.1", 9), timeout=0.01)
+            except NetworkAccessForbidden:
+                pass
+            else:
+                raise SystemExit("network guard probe did not fire")
+
+            import boundrelay_m0.runner
+            print("runner-imported-under-network-guard")
+            """
+        )
+        process = subprocess.run(
+            [sys.executable, "-c", code],
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(process.stdout.strip(), "runner-imported-under-network-guard")
+
     def test_runs_a_valid_model_route_with_one_terminal_event_offline_and_one_dispatch(self) -> None:
         dispatcher = RecordingSpecialistDispatcher()
-        with tempfile.TemporaryDirectory() as directory, patch.object(
-            socket, "create_connection", side_effect=AssertionError("network access is forbidden")
-        ):
+        with tempfile.TemporaryDirectory() as directory:
             trace_path = Path(directory) / "trace.jsonl"
             result = run_scenario_case(
                 mode="model",
@@ -73,9 +147,7 @@ class RunnerTests(unittest.TestCase):
 
     def test_fails_closed_for_an_invalid_model_route_without_a_specialist_step_or_dispatch(self) -> None:
         dispatcher = RecordingSpecialistDispatcher()
-        with tempfile.TemporaryDirectory() as directory, patch.object(
-            socket, "create_connection", side_effect=AssertionError("network access is forbidden")
-        ):
+        with tempfile.TemporaryDirectory() as directory:
             trace_path = Path(directory) / "trace.jsonl"
             result = run_scenario_case(
                 mode="model",
@@ -130,9 +202,7 @@ class RunnerTests(unittest.TestCase):
         )
 
         for case_id, mode in canonical_runs:
-            with self.subTest(case_id=case_id, mode=mode), tempfile.TemporaryDirectory() as directory, patch.object(
-                socket, "create_connection", side_effect=AssertionError("network access is forbidden")
-            ), patch.object(socket, "socket", side_effect=AssertionError("network access is forbidden")):
+            with self.subTest(case_id=case_id, mode=mode), tempfile.TemporaryDirectory() as directory:
                 run_scenario_case(
                     mode=mode,
                     case_id=case_id,

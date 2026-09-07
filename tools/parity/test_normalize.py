@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -77,6 +78,23 @@ class NormalizeTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "blank.*line 2"):
                 read_jsonl(path)
+
+    def test_jsonl_reader_preserves_unicode_line_separators_inside_json_strings(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            for separator in ("\u0085", "\u2028", "\u2029"):
+                with self.subTest(separator=hex(ord(separator))):
+                    message = f"before{separator}after"
+                    path.write_text(
+                        json.dumps(
+                            {"type": "run.created", "data": {"message": message}},
+                            ensure_ascii=False,
+                        ) + "\n",
+                        encoding="utf-8",
+                    )
+                    events = read_jsonl(path)
+                    self.assertEqual(len(events), 1)
+                    self.assertEqual(events[0]["data"]["message"], message)
 
 
 if __name__ == "__main__":

@@ -200,6 +200,24 @@ class VerificationSafetyTests(unittest.TestCase):
 
         self.assertEqual(evidence.get("scenario_id"), "support-triage")
 
+    def test_passing_evidence_rechecks_the_same_clean_revision_before_publish(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            output_root = Path(directory) / ".boundrelay/m0"
+            with (
+                patch.object(verifier, "OUTPUT_ROOT", output_root),
+                patch.object(verifier, "TRACE_ROOT", output_root / "traces"),
+                patch.object(verifier, "EVIDENCE_PATH", output_root / "verification-evidence.json"),
+                patch.object(verifier, "assert_clean_worktree") as clean_worktree,
+                patch.object(verifier, "_scenario_cases", return_value=[]),
+                patch.object(verifier, "_revision", side_effect=["candidate-sha", "changed-sha"]),
+                patch.object(verifier, "_runtime_version", side_effect=["v24.0.0", "11.0.0"]),
+                patch.object(verifier.platform, "python_version", return_value="3.14.0"),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "revision changed"):
+                    verifier.verify()
+
+        self.assertEqual(clean_worktree.call_count, 2)
+
     @patch("scripts.verify_m0.run")
     @patch("scripts.verify_m0.clear_previous_evidence")
     def test_gate_clears_evidence_before_first_command(self, clear_evidence, run_command) -> None:
