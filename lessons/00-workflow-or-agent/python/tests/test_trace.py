@@ -49,6 +49,30 @@ class TraceTests(unittest.TestCase):
 
         self.assertIsNone(parsed["data"]["decision"]["confidence"])
 
+    def test_lone_surrogate_is_escaped_before_utf8_trace_write(self) -> None:
+        sink = MemoryEventSink(
+            run_id="run-fixed",
+            source="python",
+            clock=lambda: datetime(2026, 9, 2, tzinfo=timezone.utc),
+            id_factory=lambda: "evt-1",
+        )
+        sink.emit(
+            "model.completed",
+            {
+                "case_id": "invalid-model-route",
+                "decision": {"route": "\ud800", "confidence": 0.9},
+            },
+        )
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.jsonl"
+            write_jsonl(path, sink.events)
+            raw = path.read_text(encoding="utf-8")
+            parsed = json.loads(raw)
+
+        self.assertIn("\\ud800", raw)
+        self.assertEqual(parsed["data"]["decision"]["route"], "\ud800")
+
 
 if __name__ == "__main__":
     unittest.main()
