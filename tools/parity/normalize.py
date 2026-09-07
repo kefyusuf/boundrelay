@@ -19,11 +19,22 @@ def _reject_nonstandard_constant(value: str) -> object:
 
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     source = Path(path)
-    lines = source.read_text(encoding="utf-8").splitlines()
-    if not lines:
+    content = source.read_text(encoding="utf-8")
+    if not content:
         raise ValueError(f"JSONL trace is empty: {source}")
+
+    # JSONL records are delimited by LF only. Preserve Unicode characters such
+    # as U+0085/U+2028/U+2029 when they occur inside JSON strings. Accept the
+    # single terminal LF emitted by both runtimes and normalize CRLF records.
+    if content.endswith("\n"):
+        content = content[:-1]
+    if not content:
+        raise ValueError(f"JSONL trace is empty: {source}")
+
+    lines = content.split("\n")
     events: list[dict[str, object]] = []
-    for number, line in enumerate(lines, start=1):
+    for number, raw_line in enumerate(lines, start=1):
+        line = raw_line[:-1] if raw_line.endswith("\r") else raw_line
         if not line.strip():
             raise ValueError(f"blank JSONL record on line {number} of {source}")
         try:
