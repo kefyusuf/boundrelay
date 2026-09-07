@@ -1,0 +1,321 @@
+name: Apply M0 verifier green patch
+
+on:
+  push:
+    branches: [automation/m0-lockfile]
+    paths:
+      - ".github/workflows/apply-m0-verifier-green.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out exact feature head
+        uses: actions/checkout@v7
+        with:
+          ref: feat/m0-behavioral-parity
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: lessons/00-workflow-or-agent/typescript/package-lock.json
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e lessons/00-workflow-or-agent/python
+          npm ci --prefix lessons/00-workflow-or-agent/typescript
+
+      - name: Apply verifier fixes
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "c8608f363b924e35484615251d02eb3ca58f4a53"
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          path = Path("tools/parity/verify_m0.py")
+          content = path.read_text(encoding="utf-8")
+
+          def replace_function(source: str, name: str, replacement: str) -> str:
+              pattern = rf"(?ms)^def {re.escape(name)}\(.*?(?=^def [A-Za-z_])"
+              updated, count = re.subn(pattern, replacement.rstrip() + "\n\n", source, count=1)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one {name} function, replaced {count}")
+              return updated
+
+          content = replace_function(content, "_assert_terminal_status", '''
+          def _assert_terminal_status(
+              events: list[dict[str, object]],
+              *,
+              expected_status: object,
+              label: str,
+              result: dict[str, object] | None = None,
+          ) -> None:
+              terminal_by_status = {
+                  "SUCCEEDED": "run.completed",
+                  "FAILED": "run.failed",
+              }
+              expected_terminal = terminal_by_status.get(expected_status)
+              if expected_terminal is None:
+                  raise AssertionError(f"{label} has unsupported result status: {expected_status!r}")
+              actual_terminal = events[-1].get("type") if events else None
+              if actual_terminal != expected_terminal:
+                  raise AssertionError(
+                      f"{label} expected terminal event {expected_terminal} for "
+                      f"status {expected_status}, got {actual_terminal!r}"
+                  )
+              if result is None:
+                  return
+              terminal_data = events[-1].get("data")
+              expected_payload = {
+                  "status": result.get("status"),
+                  "route": result.get("selected_route"),
+                  "failure_code": result.get("failure_code"),
+              }
+              if not isinstance(terminal_data, dict) or any(
+                  terminal_data.get(key) != value for key, value in expected_payload.items()
+              ):
+                  raise AssertionError(
+                      f"{label} terminal payload must match {expected_payload}, got {terminal_data!r}"
+                  )
+          ''')
+
+          content = replace_function(content, "_assert_expected_behavior", '''
+          def _assert_expected_behavior(
+              *,
+              case: dict[str, object],
+              result: dict[str, object],
+              events: list[dict[str, object]],
+              label: str,
+          ) -> None:
+              expected_route = case.get("expected_route")
+              expected_failure = case.get("expected_failure_code")
+              if expected_route is not None:
+                  expected = {
+                      "status": "SUCCEEDED",
+                      "selected_route": expected_route,
+                      "specialist_invoked": True,
+                      "failure_code": None,
+                  }
+                  for key, value in expected.items():
+                      if result.get(key) != value:
+                          raise AssertionError(
+                              f"{label} expected {key}={value!r}, got {result.get(key)!r}"
+                          )
+
+                  expected_specialist_step = f"specialist.{expected_route}"
+                  specialist_steps = _specialist_steps(events)
+                  if not specialist_steps:
+                      raise AssertionError(f"{label} did not emit a specialist step")
+                  if any(step != expected_specialist_step for step in specialist_steps):
+                      raise AssertionError(
+                          f"{label} specialist steps must match {expected_specialist_step}: "
+                          f"{specialist_steps}"
+                      )
+
+                  selected_events = [
+                      event for event in events if event.get("type") == "route.selected"
+                  ]
+                  if len(selected_events) != 1:
+                      raise AssertionError(f"{label} must emit exactly one route.selected event")
+                  selected_data = selected_events[0].get("data")
+                  if not isinstance(selected_data, dict) or selected_data.get("route") != expected_route:
+                      raise AssertionError(
+                          f"{label} route.selected payload does not match expected route "
+                          f"{expected_route!r}"
+                      )
+
+                  classify_completed = [
+                      event for event in events
+                      if event.get("type") == "step.completed"
+                      and isinstance(event.get("data"), dict)
+                      and event["data"].get("step") == "classify"
+                  ]
+                  if len(classify_completed) != 1:
+                      raise AssertionError(
+                          f"{label} must emit exactly one classify step.completed event"
+                      )
+                  classify_data = classify_completed[0].get("data")
+                  if not isinstance(classify_data, dict) or classify_data.get("route") != expected_route:
+                      raise AssertionError(
+                          f"{label} classify completion route must match {expected_route!r}, "
+                          f"got {classify_data!r}"
+                      )
+
+                  model_completed = [
+                      event for event in events if event.get("type") == "model.completed"
+                  ]
+                  if model_completed:
+                      if len(model_completed) != 1:
+                          raise AssertionError(
+                              f"{label} must emit at most one model.completed event"
+                          )
+                      model_data = model_completed[0].get("data")
+                      decision = model_data.get("decision") if isinstance(model_data, dict) else None
+                      if not isinstance(decision, dict) or any(
+                          decision.get(key) != selected_data.get(key)
+                          for key in ("route", "confidence")
+                      ):
+                          raise AssertionError(
+                              f"{label} model.completed decision must match route.selected, "
+                              f"got {decision!r} versus {selected_data!r}"
+                          )
+                  return
+
+              if expected_failure != "INVALID_ROUTE_DECISION":
+                  raise AssertionError(f"Unsupported failure expectation in {label}: {expected_failure}")
+              expected = {
+                  "status": "FAILED",
+                  "selected_route": None,
+                  "specialist_invoked": False,
+                  "failure_code": "INVALID_ROUTE_DECISION",
+              }
+              for key, value in expected.items():
+                  if result.get(key) != value:
+                      raise AssertionError(
+                          f"{label} expected {key}={value!r}, got {result.get(key)!r}"
+                      )
+              if _has_specialist_step(events):
+                  raise AssertionError(f"{label} invoked a specialist after route rejection")
+
+              rejected_events = [
+                  event for event in events if event.get("type") == "route.rejected"
+              ]
+              if len(rejected_events) != 1:
+                  raise AssertionError(f"{label} must emit exactly one route.rejected event")
+              rejected_data = rejected_events[0].get("data")
+              if (
+                  not isinstance(rejected_data, dict)
+                  or rejected_data.get("failure_code") != expected_failure
+              ):
+                  raise AssertionError(
+                      f"{label} route.rejected payload must use failure code "
+                      f"{expected_failure!r}, got {rejected_data!r}"
+                  )
+
+              classify_failed = [
+                  event for event in events
+                  if event.get("type") == "step.failed"
+                  and isinstance(event.get("data"), dict)
+                  and event["data"].get("step") == "classify"
+              ]
+              if len(classify_failed) != 1:
+                  raise AssertionError(f"{label} must emit exactly one classify step.failed event")
+              classify_data = classify_failed[0].get("data")
+              if (
+                  not isinstance(classify_data, dict)
+                  or classify_data.get("failure_code") != expected_failure
+              ):
+                  raise AssertionError(
+                      f"{label} classify failure code must match {expected_failure!r}, "
+                      f"got {classify_data!r}"
+                  )
+
+              model_completed = [
+                  event for event in events if event.get("type") == "model.completed"
+              ]
+              if model_completed:
+                  if len(model_completed) != 1:
+                      raise AssertionError(f"{label} must emit at most one model.completed event")
+                  model_data = model_completed[0].get("data")
+                  decision = model_data.get("decision") if isinstance(model_data, dict) else None
+                  if (
+                      not isinstance(decision, dict)
+                      or decision.get("route") != rejected_data.get("route")
+                  ):
+                      raise AssertionError(
+                          f"{label} model.completed rejected route must match route.rejected, "
+                          f"got {decision!r} versus {rejected_data!r}"
+                      )
+          ''')
+
+          content = replace_function(content, "_scenario_cases", '''
+          def _scenario_cases() -> list[tuple[dict[str, object], str]]:
+              document = yaml.safe_load(SCENARIO_PATH.read_text(encoding="utf-8"))
+              if (
+                  not isinstance(document, dict)
+                  or document.get("scenario_id") != SCENARIO_ID
+                  or not isinstance(document.get("cases"), list)
+              ):
+                  raise ValueError("Canonical support-triage scenario is invalid")
+
+              combinations: list[tuple[dict[str, object], str]] = []
+              success_routes: list[object] = []
+              failure_cases = 0
+              for raw_case in document["cases"]:
+                  if not isinstance(raw_case, dict):
+                      raise ValueError("Scenario cases must be objects")
+                  case = dict(raw_case)
+                  if "expected_route" in case:
+                      success_routes.append(case.get("expected_route"))
+                      combinations.append((case, "deterministic"))
+                      combinations.append((case, "model"))
+                  elif case.get("expected_failure_code") == "INVALID_ROUTE_DECISION":
+                      failure_cases += 1
+                      combinations.append((case, "model"))
+                  else:
+                      raise ValueError(f"Unsupported scenario expectation: {case}")
+
+              required_routes = {"billing", "technical", "general"}
+              if len(success_routes) != len(required_routes) or set(success_routes) != required_routes:
+                  raise AssertionError(
+                      "M0 requires exactly one success case per route: "
+                      "billing, technical, general"
+                  )
+              if failure_cases != 1:
+                  raise AssertionError(
+                      f"M0 requires exactly one invalid-route failure case, got {failure_cases}"
+                  )
+              if len(combinations) != 7:
+                  raise AssertionError(
+                      f"M0 must contain seven verification combinations, got {len(combinations)}"
+                  )
+              return combinations
+          ''')
+
+          old_ts = '''        _assert_terminal_status(\n            ts_events,\n            expected_status=ts_result["status"],\n            label=ts_label,\n        )'''
+          new_ts = '''        _assert_terminal_status(\n            ts_events,\n            expected_status=ts_result["status"],\n            result=ts_result,\n            label=ts_label,\n        )'''
+          old_py = '''        _assert_terminal_status(\n            py_events,\n            expected_status=py_result["status"],\n            label=py_label,\n        )'''
+          new_py = '''        _assert_terminal_status(\n            py_events,\n            expected_status=py_result["status"],\n            result=py_result,\n            label=py_label,\n        )'''
+          if content.count(old_ts) != 1 or content.count(old_py) != 1:
+              raise SystemExit("Could not uniquely locate terminal verifier call sites")
+          content = content.replace(old_ts, new_ts, 1).replace(old_py, new_py, 1)
+
+          path.write_text(content, encoding="utf-8")
+          PY
+          python -m py_compile tools/parity/verify_m0.py
+          git diff --check
+
+      - name: Run focused GREEN tests
+        run: |
+          python -m unittest \
+            tools.parity.test_normalize \
+            tools.parity.test_trace_contract \
+            tools.parity.test_rejection_contract \
+            -v
+
+      - name: Commit candidate locally
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add tools/parity/verify_m0.py
+          git commit -m "fix(verification): bind canonical M0 outcomes"
+
+      - name: Run full exact-head gate before push
+        run: python scripts/verify_m0.py
+
+      - name: Push verified candidate
+        run: git push origin HEAD:feat/m0-behavioral-parity
