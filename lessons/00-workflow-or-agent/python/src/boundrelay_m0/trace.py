@@ -101,4 +101,4 @@ def write_jsonl(path: str | Path, events: Sequence[Mapping[str, object]]) -> Non
         )
         for event in events
     ) + "\n"
-    destination.write_text(content, encoding="utf-8")
+    destination.write_text(content, encoding="utf-8", errors="backslashreplace")
