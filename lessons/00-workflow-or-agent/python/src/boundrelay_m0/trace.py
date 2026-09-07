@@ -29,7 +29,13 @@ def _timestamp(value: datetime) -> str:
 
 
 def _json_safe(value: object) -> object:
-    if value is None or isinstance(value, (str, bool, int)):
+    if value is None or isinstance(value, (str, bool)):
+        return value
+    if isinstance(value, int):
+        try:
+            str(value)
+        except ValueError:
+            return None
         return value
     if isinstance(value, float):
         return value if math.isfinite(value) else None
