@@ -48,41 +48,46 @@ jobs:
           path = Path("tools/parity/verify_m0.py")
           content = path.read_text(encoding="utf-8")
 
-          old_start = '''def verify() -> dict[str, object]:
-              assert_clean_worktree()
-              shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
-          '''
-          new_start = '''def verify() -> dict[str, object]:
-              assert_clean_worktree()
-              verified_revision = _revision()
-              shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
-          '''
-          old_evidence = '''    evidence: dict[str, object] = {
-              "schema_version": "1.0",
-              "scenario_id": SCENARIO_ID,
-              "revision": _revision(),
-          '''
-          new_evidence = '''    assert_clean_worktree()
-              current_revision = _revision()
-              if current_revision != verified_revision:
-                  raise RuntimeError(
-                      "Git revision changed during M0 verification: "
-                      f"started {verified_revision}, ended {current_revision}"
-                  )
-
-              evidence: dict[str, object] = {
-              "schema_version": "1.0",
-              "scenario_id": SCENARIO_ID,
-              "revision": verified_revision,
-          '''
-
+          old_start = (
+              "def verify() -> dict[str, object]:\n"
+              "    assert_clean_worktree()\n"
+              "    shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)\n"
+          )
+          new_start = (
+              "def verify() -> dict[str, object]:\n"
+              "    assert_clean_worktree()\n"
+              "    verified_revision = _revision()\n"
+              "    shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)\n"
+          )
           if content.count(old_start) != 1:
               raise SystemExit(f"Expected one verify start block, found {content.count(old_start)}")
-          if content.count(old_evidence) != 1:
-              raise SystemExit(f"Expected one PASSED evidence block, found {content.count(old_evidence)}")
-
           content = content.replace(old_start, new_start, 1)
-          content = content.replace(old_evidence, new_evidence, 1)
+
+          evidence_marker = "    evidence: dict[str, object] = {\n"
+          revision_marker = '        "revision": _revision(),\n'
+          evidence_index = content.find(evidence_marker)
+          if evidence_index < 0:
+              raise SystemExit("PASSED evidence marker not found")
+          prefix = content[:evidence_index]
+          suffix = content[evidence_index:]
+          if revision_marker not in suffix:
+              raise SystemExit("PASSED evidence revision field not found")
+
+          guard = (
+              "    assert_clean_worktree()\n"
+              "    current_revision = _revision()\n"
+              "    if current_revision != verified_revision:\n"
+              "        raise RuntimeError(\n"
+              "            \"Git revision changed during M0 verification: \"\n"
+              "            f\"started {verified_revision}, ended {current_revision}\"\n"
+              "        )\n\n"
+          )
+          suffix = suffix.replace(
+              revision_marker,
+              '        "revision": verified_revision,\n',
+              1,
+          )
+          content = prefix + guard + suffix
           path.write_text(content, encoding="utf-8")
           PY
           python -m py_compile tools/parity/verify_m0.py
