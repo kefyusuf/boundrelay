@@ -525,6 +525,7 @@ def _scenario_cases() -> list[tuple[dict[str, object], str]]:
 
 def verify() -> dict[str, object]:
     assert_clean_worktree()
+    verified_revision = _revision()
     shutil.rmtree(OUTPUT_ROOT, ignore_errors=True)
     TRACE_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -659,10 +660,18 @@ def verify() -> dict[str, object]:
             "event_count": len(ts_events),
         })
 
+    assert_clean_worktree()
+    current_revision = _revision()
+    if current_revision != verified_revision:
+        raise RuntimeError(
+            "Git revision changed during M0 verification: "
+            f"started {verified_revision}, ended {current_revision}"
+        )
+
     evidence: dict[str, object] = {
         "schema_version": "1.0",
         "scenario_id": SCENARIO_ID,
-        "revision": _revision(),
+        "revision": verified_revision,
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z"),
         "runtimes": {
             "python": platform.python_version(),
