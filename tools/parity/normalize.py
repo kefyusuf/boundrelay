@@ -13,6 +13,10 @@ def normalize_result(result: dict[str, object]) -> dict[str, object]:
     return {key: value for key, value in result.items() if key not in VOLATILE_RESULT_FIELDS}
 
 
+def _reject_nonstandard_constant(value: str) -> object:
+    raise ValueError(f"non-standard JSON constant: {value}")
+
+
 def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     source = Path(path)
     lines = [line for line in source.read_text(encoding="utf-8").splitlines() if line.strip()]
@@ -21,9 +25,11 @@ def read_jsonl(path: str | Path) -> list[dict[str, object]]:
     events: list[dict[str, object]] = []
     for number, line in enumerate(lines, start=1):
         try:
-            value = json.loads(line)
+            value = json.loads(line, parse_constant=_reject_nonstandard_constant)
         except json.JSONDecodeError as error:
             raise ValueError(f"Invalid JSON on line {number} of {source}: {error.msg}") from error
+        except ValueError as error:
+            raise ValueError(f"Invalid JSON on line {number} of {source}: {error}") from error
         if not isinstance(value, dict):
             raise ValueError(f"JSONL line {number} of {source} must contain an object")
         events.append(value)
