@@ -1,7 +1,7 @@
 # M1 Bounded Single-Agent Tool Loop Design
 
 - **Date:** 2026-09-15
-- **Status:** Proposed — awaiting written-spec review
+- **Status:** Accepted
 - **Milestone:** M1 — Bounded single-agent tool loop
 - **Project:** BoundRelay (`boundrelay`)
 - **Depends on:** Foundation design, D-001 through D-011, completed M0 behavioral-parity slice
@@ -519,14 +519,11 @@ M1 is complete only when all of the following are true for the exact candidate r
 - local and CI verification use the same M1 authority command;
 - verification evidence names and records the exact Git revision.
 
-## 21. Implementation gate
+## 21. Acceptance and implementation-planning gate
 
-This document defines M1 behavior but does not authorize implementation by itself.
+This design was reviewed and accepted by the human project owner on 2026-09-15.
 
-Before an implementation plan is written:
-
-1. this written spec must be reviewed by the human project owner;
-2. D-012 must remain `Proposed` until that review explicitly accepts the decision boundary;
-3. any material change to tools, failure taxonomy, budget semantics, side-effect policy, or canonical cases must return to the decision gate.
-
-No M1 implementation code is part of this design change.
+- D-012 is accepted with the boundaries defined in this document.
+- Detailed M1 implementation planning may proceed from this accepted design.
+- Any material change to tools, failure taxonomy, budget semantics, side-effect policy, canonical cases, or verification authority must return to the decision gate before implementation continues.
+- No M1 implementation code is part of this design change.
