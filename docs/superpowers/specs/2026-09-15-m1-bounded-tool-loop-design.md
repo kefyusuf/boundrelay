@@ -39,6 +39,20 @@ request
   -> final answer
 ```
 
+The canonical success records are:
+
+```text
+ORD-1001 -> status=SHIPPED, shipment_id=SHP-1001
+SHP-1001 -> status=DELAYED, reason=WEATHER
+```
+
+The canonical success answers are:
+
+```text
+direct: Order ORD-1001 status is SHIPPED.
+agent:  Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather.
+```
+
 This scenario is intentionally narrow. It is large enough for an observation to influence a later decision but small enough that every transition can be inspected and verified.
 
 ## 3. Scope
@@ -107,7 +121,7 @@ M1 keeps orchestration deterministic around a bounded model decision boundary.
 request ----------------> orchestration loop |
                          +---------+---------+
                                    |
-                          model request (N)
+                           model request (N)
                                    |
                                    v
                          +-------------------+
@@ -121,17 +135,22 @@ request ----------------> orchestration loop |
                      | outer schema validation |
                      +------------+------------+
                                   |
+                                  v
+                     +-------------------------+
+                     | token-budget accounting |
+                     +------------+------------+
+                                  |
                          final or tool_call
                                   |
                  +----------------+----------------+
                  |                                 |
                final                            tool_call
                  |                                 |
-          token budget check              known-tool check
-                 |                                 |
-          terminal success               argument schema check
+        terminal success                   known-tool check
                                                    |
-                                          step-budget check
+                                          argument schema check
+                                                   |
+                                      continuation-budget check
                                                    |
                                           timeout-bound dispatch
                                                    |
@@ -169,7 +188,7 @@ or:
   "schema_version": "1.0",
   "decision": {
     "kind": "final",
-    "answer": "The order is delayed because its shipment is delayed."
+    "answer": "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather."
   },
   "usage": {
     "input_tokens": 55,
@@ -213,24 +232,26 @@ and:
 {"shipment_id": "SHP-1001"}
 ```
 
-Each argument object rejects additional properties and requires exactly its identifier field. Identifier format rules are shared by TypeScript and Python through JSON Schema rather than duplicated language-specific parsing rules.
+`order_id` must match `^ORD-[0-9]{4}$`. `shipment_id` must match `^SHP-[0-9]{4}$`. Each argument object rejects additional properties and requires exactly its identifier field. These rules are shared by TypeScript and Python through JSON Schema rather than duplicated language-specific parsing rules.
 
 Tool observations are structured JSON objects and are passed back to the next model turn as explicit context. They do not contain hidden reasoning.
 
 ## 8. Validation and dispatch order
 
-For every model turn, the runtime must apply this order:
+For agent mode, the runtime must apply this order:
 
-1. Validate the model-turn envelope.
-2. Add provider-reported token usage to the aggregate token counter.
-3. If the aggregate exceeds `max_tokens`, fail before accepting the decision or dispatching a tool.
-4. If the decision is `final`, complete successfully.
-5. If the decision is `tool_call`, resolve the tool in the registry.
-6. Reject an unknown tool before argument validation or execution.
-7. Validate arguments against that tool's schema.
-8. If this is the final permitted model turn, reject the tool call with `STEP_BUDGET_EXCEEDED` before execution because no later turn remains to consume its observation.
-9. Execute the tool through the timeout boundary.
-10. Add the observation to explicit loop context and continue to the next model turn.
+1. Before a model request, if `model_steps >= max_steps`, fail with `STEP_BUDGET_EXCEEDED` rather than starting another turn.
+2. Request the next model turn and increment `model_steps` once for that invocation.
+3. Validate the model-turn envelope.
+4. Add provider-reported token usage to the aggregate token counter.
+5. If the aggregate exceeds `max_tokens`, fail before accepting the decision or dispatching a tool.
+6. If the decision is `final`, complete successfully.
+7. If the decision is `tool_call`, resolve the tool in the registry.
+8. Reject an unknown tool before argument validation or execution.
+9. Validate arguments against that tool's schema.
+10. If `model_steps >= max_steps`, reject the tool call with `STEP_BUDGET_EXCEEDED` before execution because no later turn remains to consume its observation.
+11. Execute the tool through the timeout boundary.
+12. Add the observation to explicit loop context and continue to the next model turn.
 
 No failure path may silently fall back to another tool, coerce arguments, invent missing identifiers, or continue after a hard budget failure.
 
@@ -253,14 +274,14 @@ but:
 ```text
 step 1 -> lookup_order      allowed
 step 2 -> lookup_shipment   allowed
-step 3 -> lookup_order      STEP_BUDGET_EXCEEDED; no dispatch
+step 3 -> lookup_order      STEP_BUDGET_EXCEEDED; rejected call is not dispatched
 ```
 
-Equality at the limit is allowed for a final answer. Only an attempt to require a subsequent model turn is rejected.
+Equality at the limit is allowed for a final answer. A model request is never started after the limit has already been consumed.
 
 ## 10. Token-budget semantics
 
-M1 uses provider-reported usage from each model turn. It does not introduce a tokenizer dependency or estimate tokens from text.
+M1 uses provider-reported usage from each valid model turn. It does not introduce a tokenizer dependency or estimate tokens from text.
 
 For offline mode, fake-model fixtures provide deterministic `input_tokens` and `output_tokens` values. The runtime accumulates:
 
@@ -268,7 +289,7 @@ For offline mode, fake-model fixtures provide deterministic `input_tokens` and `
 tokens_used += input_tokens + output_tokens
 ```
 
-After each completed model turn, if `tokens_used > max_tokens`, the runtime emits budget failure and rejects that turn's requested action. No tool is dispatched and no final answer from the over-budget turn is accepted.
+After each validated model turn, if `tokens_used > max_tokens`, the runtime emits budget failure and rejects that turn's requested action. No tool is dispatched and no final answer from the over-budget turn is accepted.
 
 `tokens_used == max_tokens` is valid.
 
@@ -298,7 +319,7 @@ A result contains at least:
   "case_id": "agent-delayed-shipment",
   "mode": "agent",
   "status": "SUCCEEDED",
-  "answer": "...",
+  "answer": "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather.",
   "failure_code": null,
   "model_steps": 3,
   "tokens_used": 129,
@@ -307,7 +328,7 @@ A result contains at least:
 }
 ```
 
-Success requires a non-empty answer and `failure_code: null`. Failure requires `answer: null` and one explicit failure code. `UNKNOWN` is not used in M1 because all tools are read-only and no external side effect can become indeterminate.
+Success requires a non-empty answer and `failure_code: null`. Failure requires `answer: null` and one explicit failure code. The failure-code set includes the six canonical M1 failures plus `INVALID_MODEL_DECISION` for fail-closed contract rejection. `UNKNOWN` is not used in M1 because all tools are read-only and no external side effect can become indeterminate.
 
 ## 13. Event model
 
@@ -345,7 +366,7 @@ Canonical assets remain language-neutral.
 
 M1 adds:
 
-- `fixtures/scenarios/order-investigation.yaml` — cases, modes, budgets, expected outcomes;
+- `fixtures/scenarios/order-investigation.yaml` — cases, modes, budgets, expected outcomes and canonical success answers;
 - `fixtures/fake-model/order-investigation.yaml` — ordered model turns and usage values;
 - `fixtures/fake-tools/order-investigation.yaml` — order/shipment records plus timeout and failure behaviors;
 - `lessons/01-bounded-tool-loop/invariants.yaml` — milestone invariants.
@@ -364,7 +385,8 @@ The direct path:
 - does not consume model step or token budget;
 - uses the same registered `lookup_order` implementation and timeout boundary;
 - emits tool and run events using the common envelope;
-- produces the same result schema used by agent mode.
+- produces the same result schema used by agent mode;
+- returns exactly `Order ORD-1001 status is SHIPPED.` for the canonical success fixture.
 
 The lesson documentation must explain why `Show order ORD-1001 status` is a direct function call while `Why is order ORD-1001 delayed?` can justify a bounded loop.
 
@@ -384,7 +406,7 @@ Parity preserves:
 - tool execution count;
 - decision kind;
 - budget kind, consumed value, and limit;
-- final answer for canonical success fixtures.
+- exact canonical final answer for the two success fixtures.
 
 Parity ignores:
 
@@ -412,7 +434,7 @@ The M1 verifier must eventually:
 3. run shared contract tests;
 4. run TypeScript typecheck/tests;
 5. run Python tests;
-6. execute all eight canonical cases in both implementations where applicable;
+6. execute all eight canonical cases in both implementations;
 7. validate result and event schemas;
 8. verify failure-specific no-dispatch/one-dispatch invariants;
 9. normalize and compare TypeScript/Python traces;
@@ -478,18 +500,18 @@ scripts/
 └── m1.yml
 ```
 
-Exact implementation file names inside the two language directories are deferred to the implementation plan, but the contracts and behavioral boundaries above are not.
+Exact implementation file names inside the two language directories are selected in the implementation plan; the contracts and behavioral boundaries above are fixed by this design.
 
 ## 20. Acceptance criteria
 
 M1 is complete only when all of the following are true for the exact candidate revision:
 
 - the direct baseline succeeds without any model event;
-- the normal agent case completes the two-tool trajectory and returns the canonical answer;
+- the normal agent case completes the two-tool trajectory and returns the exact canonical answer;
 - all six failure cases terminate with the specified code;
 - unknown tool and malformed arguments cause zero actual tool invocations;
-- final-step tool request causes zero actual tool invocations;
-- over-token-budget turn causes zero post-budget dispatch;
+- the rejected tool decision on the final permitted model step causes no additional tool invocation;
+- an over-token-budget turn causes no post-budget tool dispatch and cannot be accepted as a successful final answer;
 - timeout and tool failure each cause exactly one attempted invocation and no retry;
 - both implementations emit schema-valid JSONL;
 - normalized TypeScript/Python results and traces satisfy the same invariants;
