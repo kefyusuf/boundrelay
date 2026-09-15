@@ -1,6 +1,6 @@
 # D-012 — M1 Bounded Single-Agent Tool Loop
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-09-15
 
 ## Decision
@@ -29,6 +29,6 @@ All M1 tools are `READ_ONLY`. Side effects, idempotency, approval, persistence/r
 
 `docs/superpowers/specs/2026-09-15-m1-bounded-tool-loop-design.md`
 
-## Approval gate
+## Acceptance
 
-This decision remains **Proposed** until the written M1 design is reviewed and explicitly accepted by the human project owner. Implementation planning must not begin before that approval.
+Accepted by the human project owner on 2026-09-15. Detailed implementation planning may proceed from the linked design. Any material change to the accepted M1 boundaries requires a new governance decision or an explicit superseding decision.
