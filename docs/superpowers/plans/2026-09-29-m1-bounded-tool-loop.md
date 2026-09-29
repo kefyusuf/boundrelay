@@ -241,10 +241,10 @@ shipments:
 
 - [ ] **Step 5: Define and test the JSON Schemas**
 
-Add tests using `Draft202012Validator.check_schema()` and these assertions:
+Add a local test helper `schema_errors(path: Path, value: object) -> list[ValidationError]` that loads JSON and returns `list(Draft202012Validator(schema).iter_errors(value))`. Call `Draft202012Validator.check_schema()` for every new/modified schema, then pin these assertions:
 
 ```python
-self.assert_valid(MODEL_TURN_SCHEMA, {
+unknown_tool_turn = {
     "schema_version": "1.0",
     "decision": {
         "kind": "tool_call",
@@ -253,11 +253,15 @@ self.assert_valid(MODEL_TURN_SCHEMA, {
         "arguments": {},
     },
     "usage": {"input_tokens": 1, "output_tokens": 0},
-})
-self.assert_invalid(LOOKUP_ORDER_SCHEMA, {"order_id": "1001"})
-self.assert_invalid(LOOKUP_ORDER_SCHEMA, {"order_id": "ORD-1001", "extra": True})
-self.assert_valid(LOOKUP_ORDER_SCHEMA, {"order_id": "ORD-1001"})
-self.assert_valid(LOOKUP_SHIPMENT_SCHEMA, {"shipment_id": "SHP-1001"})
+}
+self.assertEqual(schema_errors(MODEL_TURN_SCHEMA, unknown_tool_turn), [])
+self.assertNotEqual(schema_errors(LOOKUP_ORDER_SCHEMA, {"order_id": "1001"}), [])
+self.assertNotEqual(
+    schema_errors(LOOKUP_ORDER_SCHEMA, {"order_id": "ORD-1001", "extra": True}),
+    [],
+)
+self.assertEqual(schema_errors(LOOKUP_ORDER_SCHEMA, {"order_id": "ORD-1001"}), [])
+self.assertEqual(schema_errors(LOOKUP_SHIPMENT_SCHEMA, {"shipment_id": "SHP-1001"}), [])
 ```
 
 Schema requirements:
@@ -547,13 +551,18 @@ Use `it.each` for the six canonical failures and assert exact result counters fr
 Additional Review Focus tests:
 
 ```typescript
-expect(finalAtExactStepLimit.status).toBe("SUCCEEDED");
-expect(finalAtExactTokenLimit.tokens_used).toBe(finalAtExactTokenLimitLimit);
+expect(agentSuccess.status).toBe("SUCCEEDED");
+expect(agentSuccess.model_steps).toBe(3);   // exactly max_steps
+expect(agentSuccess.tokens_used).toBe(129); // exactly max_tokens
 expect(stepBudgetResult.tool_invocations).toBe(1);
 expect(tokenBudgetResult.tool_invocations).toBe(1);
-expect(stepBudgetEvents.filter(e => e.type === "tool.requested")).toHaveLength(1);
-expect(tokenBudgetEvents.filter(e => e.type === "tool.requested")).toHaveLength(1);
-expect(invalidModelResult.failure_code).toBe("INVALID_MODEL_DECISION");
+expect(stepBudgetEvents.filter((event) => event.type === "tool.requested")).toHaveLength(1);
+expect(tokenBudgetEvents.filter((event) => event.type === "tool.requested")).toHaveLength(1);
+expect(invalidModelResult).toMatchObject({
+  status: "FAILED",
+  failure_code: "INVALID_MODEL_DECISION",
+  tool_invocations: 0,
+});
 ```
 
 Inject a direct-mode registry whose `lookup_order` never resolves and assert `TOOL_TIMEOUT`, one attempted invocation, and zero model events.
@@ -631,7 +640,34 @@ class ToolRegistry(Protocol):
 
 `pyproject.toml` uses Python `>=3.14` and the exact PyYAML/jsonschema versions already used by M0.
 
-Tests mirror Task 2's schema/scenario/registry assertions, including an outer-valid unknown tool name and identifier regex rejection.
+Pin the same observable boundaries explicitly:
+
+```python
+scenario = load_scenario()
+case = find_scenario_case(scenario, "agent-delayed-shipment")
+self.assertEqual(case.mode, "agent")
+self.assertEqual(case.max_steps, 3)
+self.assertEqual(case.max_tokens, 129)
+
+unknown_turn = {
+    "schema_version": "1.0",
+    "decision": {
+        "kind": "tool_call",
+        "call_id": "call-1",
+        "tool": "unknown-tool",
+        "arguments": {},
+    },
+    "usage": {"input_tokens": 1, "output_tokens": 0},
+}
+self.assertTrue(validate_model_turn(unknown_turn).ok)
+
+registry = create_fake_tool_registry()
+self.assertEqual(registry.resolve("lookup_order").side_effect, "READ_ONLY")
+self.assertEqual(registry.resolve("lookup_shipment").side_effect, "READ_ONLY")
+self.assertIsNone(registry.resolve("lookup_customer"))
+self.assertTrue(validate_tool_arguments("lookup_order", {"order_id": "ORD-1001"}).ok)
+self.assertFalse(validate_tool_arguments("lookup_order", {"order_id": "1001"}).ok)
+```
 
 Run:
 
@@ -696,7 +732,7 @@ git commit -m "feat(m1): add Python tool-loop foundations"
 - Consumes: Task 4 domain/tool layer.
 - Produces:
   - `async def invoke_tool(definition: ToolDefinition, arguments_value: dict[str, object]) -> dict[str, object]`
-  - `async def run_scenario_case(...) -> RunResult`
+  - `run_scenario_case(*, mode, case_id, trace_path, model_provider, tool_registry, clock, id_factory) -> Awaitable[RunResult]`
   - CLI: `python -m boundrelay_m1 --mode <direct|agent> --case <id> --trace <path>`.
 
 Use this runner signature:
@@ -716,7 +752,26 @@ async def run_scenario_case(
 
 - [ ] **Step 1: Write failing direct and successful-agent tests**
 
-Assert the exact same result values, tool order, model inputs, observations, and terminal behavior as Task 3.
+Pin the result values directly:
+
+```python
+self.assertEqual(direct_result.status, "SUCCEEDED")
+self.assertEqual(direct_result.answer, "Order ORD-1001 status is SHIPPED.")
+self.assertEqual(direct_result.model_steps, 0)
+self.assertEqual(direct_result.tokens_used, 0)
+self.assertEqual(direct_result.tool_invocations, 1)
+
+self.assertEqual(agent_result.status, "SUCCEEDED")
+self.assertEqual(
+    agent_result.answer,
+    "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather.",
+)
+self.assertEqual(agent_result.model_steps, 3)
+self.assertEqual(agent_result.tokens_used, 129)
+self.assertEqual(agent_result.tool_invocations, 2)
+```
+
+Also assert zero `model.*` events on direct mode, tool order `lookup_order -> lookup_shipment` in agent mode, exactly one terminal event, and that a recording provider receives the order observation on model turn 2 and shipment observation on model turn 3.
 
 - [ ] **Step 2: Implement strict Python trace writing**
 
@@ -752,7 +807,7 @@ Also use a fresh-interpreter import probe equivalent to M0 so import-time networ
 
 - [ ] **Step 7: Implement CLI and run Python checks**
 
-`cli.py` uses argparse choices `direct|agent`; `main()` calls `asyncio.run(run_scenario_case(...))`, emits one compact JSON stdout line, stderr diagnostics, exit code `2`.
+`cli.py` uses argparse choices `direct|agent`; `main()` passes the parsed `mode`, `case_id`, and `trace_path` into `asyncio.run(run_scenario_case(...))`, emits one compact JSON stdout line, writes diagnostics to stderr, and returns exit code `2` on failure.
 
 Run:
 
@@ -791,15 +846,52 @@ git commit -m "feat(m1): implement Python bounded tool loop"
 Create tests for:
 
 ```python
-def test_result_is_bound_to_requested_case_mode_and_trace(self): ...
-def test_trace_run_ids_match_result_run_id(self): ...
-def test_exactly_one_terminal_event_is_last(self): ...
-def test_unknown_and_invalid_arguments_have_zero_tool_requested(self): ...
-def test_timeout_and_failure_have_one_requested_and_one_failed(self): ...
-def test_step_and_token_budget_rejections_add_no_second_tool_request(self): ...
-def test_passing_evidence_rechecks_same_clean_revision_before_publish(self): ...
-def test_previous_m1_evidence_is_removed_before_gate(self): ...
+with self.assertRaisesRegex(AssertionError, "wrong case_id"):
+    verifier._assert_result_context(
+        {"case_id": "other", "mode": "agent", "trace_path": "/tmp/a.jsonl"},
+        expected_case_id="agent-delayed-shipment",
+        expected_mode="agent",
+        expected_trace_path="/tmp/a.jsonl",
+        label="sample",
+    )
+
+with self.assertRaisesRegex(AssertionError, "wrong run_id"):
+    verifier._assert_trace_integrity(
+        [
+            {"run_id": "run-1", "sequence": 1, "type": "run.created"},
+            {"run_id": "run-2", "sequence": 2, "type": "run.failed"},
+        ],
+        expected_run_id="run-1",
+        label="sample",
+        validate_schema=False,
+    )
+
+verifier._assert_case_behavior(
+    case={"id": "agent-unknown-tool", "expected_failure_code": "UNKNOWN_TOOL",
+          "expected_tool_invocations": 0},
+    result={"status": "FAILED", "failure_code": "UNKNOWN_TOOL",
+            "tool_invocations": 0},
+    events=[{"type": "model.completed"}, {"type": "run.failed"}],
+    label="unknown-tool",
+)
+
+with self.assertRaisesRegex(AssertionError, "tool.requested"):
+    verifier._assert_case_behavior(
+        case={"id": "agent-step-budget", "expected_failure_code": "STEP_BUDGET_EXCEEDED",
+              "expected_tool_invocations": 1},
+        result={"status": "FAILED", "failure_code": "STEP_BUDGET_EXCEEDED",
+                "tool_invocations": 1},
+        events=[
+            {"type": "tool.requested", "data": {"tool": "lookup_order"}},
+            {"type": "tool.completed", "data": {"tool": "lookup_order"}},
+            {"type": "tool.requested", "data": {"tool": "lookup_shipment"}},
+            {"type": "run.failed"},
+        ],
+        label="step-budget",
+    )
 ```
+
+Add separate mocked provenance tests, following the M0 safety-test style, that assert `assert_clean_worktree()` is called before and immediately before evidence publication, a changed second `HEAD` raises `RuntimeError("revision changed")`, and `clear_previous_evidence()` runs before the first gate command. Timeout/execution-failure fixtures must assert exactly one `tool.requested` and one `tool.failed`.
 
 Also pin `scenario_id == "order-investigation"` in evidence.
 
