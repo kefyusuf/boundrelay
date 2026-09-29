@@ -88,7 +88,7 @@ function parseCase(raw: unknown): ScenarioCase {
       throw new Error(`${common.id} expected_answer must be a non-empty string.`);
     }
     if (raw.expected_failure_code !== undefined) {
-      throw new Error(${common.id} cannot define expected_failure_code on success.`);
+      throw new Error(`${common.id} cannot define expected_failure_code on success.`);
     }
     if (common.mode === "direct") {
       return {...common, expected_status: "SUCCEEDED", expected_answer: raw.expected_answer, direct_call: parseDirectCall(raw.direct_call)};
