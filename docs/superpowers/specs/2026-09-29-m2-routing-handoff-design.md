@@ -205,6 +205,8 @@ Canonical shape:
 }
 ~~~
 
+sender_intent.route always records the **proposed route**, before confidence policy changes the selected route. In the low-confidence fallback case, sender_intent.route remains billing while receiver is general-specialist.
+
 The contract requires:
 
 - schema_version: "1.0";
@@ -432,7 +434,7 @@ M0 and M1 traces must remain schema-valid.
 
 Canonical route.selected payload preserves router_mode, proposed_route, selected_route, confidence, and fallback_applied.
 
-handoff.requested contains the candidate handoff identifiers plus observable sender_intent and receiver_input.
+handoff.requested contains the candidate handoff identifiers plus observable sender_intent and receiver_input. In the canonical context-loss failure, this candidate is intentionally schema-invalid because request_text has been omitted; emitting the request does not imply that the transfer was authorized.
 
 handoff.accepted contains at least handoff_id and receiver.
 
@@ -472,7 +474,7 @@ Parity preserves:
 - sender-intent fields;
 - receiver-input fields;
 - handoff requested/accepted/rejected ordering;
-- specialist invocation boolean/count;
+- specialist_invoked boolean, with semantic verification that successful cases perform exactly one invocation and rejected cases perform zero;
 - normalized event order;
 - exactly one terminal run event.
 
