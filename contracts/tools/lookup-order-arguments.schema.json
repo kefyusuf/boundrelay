@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/tools/lookup-order-arguments.schema.json",
+  "title": "lookup_order arguments",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id"],
+  "properties": {
+    "order_id": {"type": "string", "pattern": "^ORD-[0-9]{4}$"}
+  }
+}

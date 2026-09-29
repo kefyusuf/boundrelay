@@ -33,7 +33,12 @@
         "model.completed",
         "model.failed",
         "route.selected",
-        "route.rejected"
+        "route.rejected",
+        "tool.requested",
+        "tool.completed",
+        "tool.failed",
+        "budget.consumed",
+        "budget.exceeded"
       ]
     },
     "timestamp": {"type": "string", "format": "date-time"},

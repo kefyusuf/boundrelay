@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/tools/lookup-shipment-arguments.schema.json",
+  "title": "lookup_shipment arguments",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["shipment_id"],
+  "properties": {
+    "shipment_id": {"type": "string", "pattern": "^SHP-[0-9]{4}$"}
+  }
+}

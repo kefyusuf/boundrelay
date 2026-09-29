@@ -1,0 +1,96 @@
+schema_version: "1.0"
+scenario_id: order-investigation
+trajectories:
+  agent-delayed-shipment:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: ORD-1001}
+        usage: {input_tokens: 50, output_tokens: 10}
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-2
+          tool: lookup_shipment
+          arguments: {shipment_id: SHP-1001}
+        usage: {input_tokens: 30, output_tokens: 10}
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: final
+          answer: "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather."
+        usage: {input_tokens: 20, output_tokens: 9}
+  agent-unknown-tool:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_customer
+          arguments: {customer_id: CUS-1001}
+        usage: {input_tokens: 20, output_tokens: 5}
+  agent-invalid-arguments:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: "1001"}
+        usage: {input_tokens: 20, output_tokens: 5}
+  agent-tool-timeout:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: ORD-9001}
+        usage: {input_tokens: 20, output_tokens: 5}
+  agent-tool-failure:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: ORD-9002}
+        usage: {input_tokens: 20, output_tokens: 5}
+  agent-step-budget:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: ORD-1001}
+        usage: {input_tokens: 20, output_tokens: 5}
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-2
+          tool: lookup_shipment
+          arguments: {shipment_id: SHP-1001}
+        usage: {input_tokens: 20, output_tokens: 5}
+  agent-token-budget:
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-1
+          tool: lookup_order
+          arguments: {order_id: ORD-1001}
+        usage: {input_tokens: 40, output_tokens: 10}
+    - return:
+        schema_version: "1.0"
+        decision:
+          kind: tool_call
+          call_id: call-2
+          tool: lookup_shipment
+          arguments: {shipment_id: SHP-1001}
+        usage: {input_tokens: 20, output_tokens: 5}

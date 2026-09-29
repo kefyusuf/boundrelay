@@ -1,0 +1,87 @@
+schema_version: "1.0"
+scenario_id: order-investigation
+cases:
+  - id: direct-order-status
+    mode: direct
+    request: Show order ORD-1001 status.
+    max_steps: 0
+    max_tokens: 0
+    direct_call:
+      call_id: direct-call-1
+      tool: lookup_order
+      arguments: {order_id: ORD-1001}
+    expected_status: SUCCEEDED
+    expected_answer: "Order ORD-1001 status is SHIPPED."
+    expected_model_steps: 0
+    expected_tokens_used: 0
+    expected_tool_invocations: 1
+  - id: agent-delayed-shipment
+    mode: agent
+    request: Why is order ORD-1001 delayed?
+    max_steps: 3
+    max_tokens: 129
+    expected_status: SUCCEEDED
+    expected_answer: "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather."
+    expected_model_steps: 3
+    expected_tokens_used: 129
+    expected_tool_invocations: 2
+  - id: agent-unknown-tool
+    mode: agent
+    request: Investigate order ORD-1001 using the scripted unknown-tool decision.
+    max_steps: 2
+    max_tokens: 100
+    expected_status: FAILED
+    expected_failure_code: UNKNOWN_TOOL
+    expected_model_steps: 1
+    expected_tokens_used: 25
+    expected_tool_invocations: 0
+  - id: agent-invalid-arguments
+    mode: agent
+    request: Investigate order ORD-1001 using the scripted invalid arguments.
+    max_steps: 2
+    max_tokens: 100
+    expected_status: FAILED
+    expected_failure_code: INVALID_TOOL_ARGUMENTS
+    expected_model_steps: 1
+    expected_tokens_used: 25
+    expected_tool_invocations: 0
+  - id: agent-tool-timeout
+    mode: agent
+    request: Investigate order ORD-9001.
+    max_steps: 2
+    max_tokens: 100
+    expected_status: FAILED
+    expected_failure_code: TOOL_TIMEOUT
+    expected_model_steps: 1
+    expected_tokens_used: 25
+    expected_tool_invocations: 1
+  - id: agent-tool-failure
+    mode: agent
+    request: Investigate order ORD-9002.
+    max_steps: 2
+    max_tokens: 100
+    expected_status: FAILED
+    expected_failure_code: TOOL_EXECUTION_FAILED
+    expected_model_steps: 1
+    expected_tokens_used: 25
+    expected_tool_invocations: 1
+  - id: agent-step-budget
+    mode: agent
+    request: Investigate why order ORD-1001 is delayed with a two-step budget.
+    max_steps: 2
+    max_tokens: 100
+    expected_status: FAILED
+    expected_failure_code: STEP_BUDGET_EXCEEDED
+    expected_model_steps: 2
+    expected_tokens_used: 50
+    expected_tool_invocations: 1
+  - id: agent-token-budget
+    mode: agent
+    request: Investigate why order ORD-1001 is delayed with a seventy-token budget.
+    max_steps: 3
+    max_tokens: 70
+    expected_status: FAILED
+    expected_failure_code: TOKEN_BUDGET_EXCEEDED
+    expected_model_steps: 2
+    expected_tokens_used: 75
+    expected_tool_invocations: 1
