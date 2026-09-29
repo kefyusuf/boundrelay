@@ -177,6 +177,27 @@ route_receivers:
   general: general-specialist
 ~~~
 
+Each case uses these exact keys:
+
+~~~text
+id
+ticket_id
+request
+router_mode
+expected_status
+expected_proposed_route
+expected_confidence
+expected_selected_route
+expected_receiver
+expected_policy_outcome
+expected_fallback_applied
+expected_specialist_invoked
+expected_failure_code    # null/omitted on success
+failure_ref              # present only on the two handoff-failure cases
+~~~
+
+For both failure cases, `failure_ref` equals the case ID and resolves into `fixtures/failures/support-handoff.yaml`.
+
 Use this five-case observable matrix:
 
 | Case | mode | proposed | confidence | selected | receiver | fallback | invoked | outcome |
@@ -595,7 +616,7 @@ For `code-billing-handoff` assert:
 - zero `model.*` events;
 - event order includes `route.selected -> handoff.requested -> handoff.accepted -> run.completed`.
 
-For `model-technical-handoff`, assert one model decision and same handoff lifecycle.
+For `model-technical-handoff`, assert exactly one `model.requested` and one `model.completed`, then the same handoff lifecycle. All canonical model-mode cases consume exactly one scripted route decision.
 
 For fallback, assert sender intent route remains billing while selected receiver is general-specialist.
 
@@ -959,7 +980,7 @@ Mirror Task 3 observable behavior and Lesson 01 Python strict JSON serialization
 
 Code mode emits no model events.
 
-Model mode calls the scripted provider once and validates the raw route decision before confidence policy.
+Model mode calls the scripted provider exactly once, emits exactly one requested/completed model pair, and validates the raw route decision before confidence policy.
 
 Malformed route decision returns `INVALID_ROUTE_DECISION`, emits `route.rejected`, and never emits `handoff.requested`.
 
