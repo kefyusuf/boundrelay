@@ -334,8 +334,11 @@ def verify() -> dict[str, object]:
         mode = str(case["mode"])
         ts_trace = TRACE_ROOT / f"{case_id}-typescript.jsonl"
         py_trace = TRACE_ROOT / f"{case_id}-python.jsonl"
-        ts_trace_arg = _relative(ts_trace)
-        py_trace_arg = _relative(py_trace)
+        # npm --prefix executes the TypeScript script from the package directory.
+        # Pass absolute trace paths to both CLIs so trace placement does not depend
+        # on runtime-specific working-directory behavior.
+        ts_trace_arg = str(ts_trace)
+        py_trace_arg = str(py_trace)
 
         ts_result = _run([
             "npm", "--silent", "--prefix", str(TS_ROOT), "run", "run", "--",
@@ -385,8 +388,8 @@ def verify() -> dict[str, object]:
             "model_steps": ts_result.get("model_steps"),
             "tokens_used": ts_result.get("tokens_used"),
             "tool_invocations": ts_result.get("tool_invocations"),
-            "typescript_trace": ts_trace_arg,
-            "python_trace": py_trace_arg,
+            "typescript_trace": _relative(ts_trace),
+            "python_trace": _relative(py_trace),
         })
 
     assert_clean_worktree()
