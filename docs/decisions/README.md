@@ -16,3 +16,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-010](D-010-initial-scope-boundary.md) | First implementation is M0 only | Accepted | 2026-09-02 |
 | [D-011](D-011-project-name-and-family.md) | Use BoundRelay as the umbrella brand and `boundrelay` as the initial repository slug | Accepted | 2026-09-02 |
 | [D-012](D-012-m1-bounded-single-agent-tool-loop.md) | Bound M1 to an offline read-only single-agent tool loop with hard budgets | Accepted | 2026-09-15 |
+| [D-013](D-013-m2-typed-support-handoff-boundary.md) | Bound M2 to typed support handoff with deterministic confidence fallback and receivers | Proposed | 2026-09-29 |
