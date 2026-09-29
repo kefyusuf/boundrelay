@@ -436,7 +436,19 @@ export interface ReceiverDirectory {
 }
 ~~~
 
-- [ ] **Step 1: Write failing foundation tests**
+- [ ] **Step 1: Create package/config scaffold using Lesson 01 versions**
+
+Use package name:
+
+~~~text
+@boundrelay/lesson-02-typescript
+~~~
+
+Copy the exact dependency/version and strict compiler settings from Lesson 01; do not add dependencies. Do not create production source modules yet.
+
+Run `npm install --prefix lessons/02-routing-handoff/typescript` once to materialize the matching lockfile.
+
+- [ ] **Step 2: Write failing foundation tests**
 
 Pin:
 
@@ -456,26 +468,15 @@ Schema tests must reject extra receiver-input fields and missing `request_text`.
 
 Failure-loader tests assert exactly two failure records and prove `code-billing-handoff` has no inherited failure injection.
 
-- [ ] **Step 2: Run TypeScript tests and verify RED**
+- [ ] **Step 3: Run TypeScript tests and verify RED**
 
 Run:
 
 ~~~bash
-npm install --prefix lessons/02-routing-handoff/typescript
 npm --prefix lessons/02-routing-handoff/typescript test
 ~~~
 
 Expected: FAIL because M2 source modules do not exist.
-
-- [ ] **Step 3: Create package/config using Lesson 01 versions**
-
-Use package name:
-
-~~~text
-@boundrelay/lesson-02-typescript
-~~~
-
-Copy the exact dependency/version and strict compiler settings from Lesson 01; do not add dependencies.
 
 - [ ] **Step 4: Implement shared validators and non-coercing fixture loaders**
 
