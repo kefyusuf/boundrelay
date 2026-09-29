@@ -165,6 +165,18 @@ Expected: FAIL because M2 schemas/fixtures do not exist.
 
 - [ ] **Step 3: Add the exact canonical scenario fixture**
 
+The document begins with:
+
+~~~yaml
+schema_version: "1.0"
+scenario_id: support-handoff
+confidence_threshold: 0.80
+route_receivers:
+  billing: billing-specialist
+  technical: technical-specialist
+  general: general-specialist
+~~~
+
 Use this five-case observable matrix:
 
 | Case | mode | proposed | confidence | selected | receiver | fallback | invoked | outcome |
@@ -189,24 +201,26 @@ Each case records `expected_policy_outcome` as `selected` except low-confidence 
 
 - [ ] **Step 4: Add deterministic model and failure fixtures**
 
-`fixtures/fake-model/support-handoff.yaml` contains only model-mode decisions:
+`fixtures/fake-model/support-handoff.yaml` begins with `schema_version: "1.0"`, `scenario_id: support-handoff`, and a `decisions:` mapping containing only model-mode decisions:
 
 ~~~yaml
-model-technical-handoff:
+decisions:
+  model-technical-handoff:
   return: {route: technical, confidence: 0.92}
-model-low-confidence-fallback:
-  return: {route: billing, confidence: 0.54}
-handoff-context-loss:
-  return: {route: billing, confidence: 0.93}
+  model-low-confidence-fallback:
+    return: {route: billing, confidence: 0.54}
+  handoff-context-loss:
+    return: {route: billing, confidence: 0.93}
 ~~~
 
-`fixtures/failures/support-handoff.yaml` contains only:
+`fixtures/failures/support-handoff.yaml` begins with `schema_version: "1.0"`, `scenario_id: support-handoff`, and a `failures:` mapping containing only:
 
 ~~~yaml
-handoff-context-loss:
+failures:
+  handoff-context-loss:
   omit_receiver_input_fields: [request_text]
-handoff-receiver-unavailable:
-  unavailable_receivers: [billing-specialist]
+  handoff-receiver-unavailable:
+    unavailable_receivers: [billing-specialist]
 ~~~
 
 Do not add generic mutation operators.
@@ -307,7 +321,7 @@ git commit -m "test(m2): add canonical handoff contracts and fixtures"
   - `findScenarioCase(scenario, caseId): ScenarioCase`
   - `loadFailureFixtures(): FailureFixtures`
   - `ScriptedRouteProvider.fromFile(): ScriptedRouteProvider`
-  - `RouteDecisionProvider.nextDecision(input): Promise<unknown>`
+  - `RouteDecisionProvider.nextDecision(input: RouteDecisionInput): Promise<unknown>`
   - `classifyWithCode(request: string): RouteDecision`
   - `applyConfidencePolicy(decision: RouteDecision): RouteSelection`
   - `createReceiverDirectory(unavailable?: readonly ReceiverName[]): ReceiverDirectory`
@@ -331,6 +345,15 @@ export type FailureCode =
 export interface RouteDecision {
   route: Route;
   confidence: number;
+}
+
+export interface RouteDecisionInput {
+  caseId: string;
+  request: string;
+}
+
+export interface RouteDecisionProvider {
+  nextDecision(input: RouteDecisionInput): Promise<unknown>;
 }
 
 export interface RouteSelection {
@@ -360,6 +383,22 @@ export interface HandoffEnvelope {
   receiver: ReceiverName;
   sender_intent: SenderIntent;
   receiver_input: ReceiverInput;
+}
+
+export interface HandoffResult {
+  schema_version: "1.0";
+  run_id: string;
+  scenario_id: "support-handoff";
+  case_id: string;
+  router_mode: RouterMode;
+  status: "SUCCEEDED" | "FAILED";
+  proposed_route: Route | null;
+  selected_route: Route | null;
+  receiver: ReceiverName | null;
+  fallback_applied: boolean;
+  specialist_invoked: boolean;
+  failure_code: FailureCode | null;
+  trace_path: string;
 }
 
 export interface ReceiverDefinition {
@@ -428,7 +467,16 @@ validateHandoffResult(value: unknown): ValidationResult<HandoffResult>
 
 - [ ] **Step 5: Implement deterministic code router and scripted model provider**
 
-`classifyWithCode()` remains lesson-local and mirrors M0's billing/technical/general keyword baseline sufficiently for canonical M2 code cases. Pin code-billing and all three route mappings in unit tests.
+`classifyWithCode()` remains lesson-local and copies M0's accepted deterministic keyword baseline without importing Lesson 00:
+
+~~~text
+billing keywords: charged, charge, invoice, payment, refund, billed
+technical keywords: error, crash, cannot log in, can't log in, bug, broken
+otherwise: general
+confidence: 1.0
+~~~
+
+Pin the canonical code-billing cases plus one technical and one general unit case.
 
 `ScriptedRouteProvider` returns exactly one configured raw route decision for a model-mode case; missing/duplicate access raises deterministic `ScriptedRouteError`. It performs no heuristic fallback.
 
@@ -746,7 +794,7 @@ Reject unknown failure operators and malformed values; do not coerce.
 
 - [ ] **Step 4: Implement code router and scripted route provider**
 
-Code routing remains lesson-local and deterministic.
+Code routing remains lesson-local and deterministic. Copy the same exact keyword baseline pinned in Task 2; do not import `boundrelay_m0`.
 
 Scripted provider exposes:
 
@@ -772,7 +820,7 @@ def create_receiver_directory(
 ) -> ReceiverDirectory
 ~~~
 
-Receiver handlers are async, deterministic, model-free, tool-free, and network-free.
+Receiver handlers are async deterministic no-ops after validated input: they return successfully without model, tool, network, persistence, or side effects. Runtime tests use injected recording receivers to prove invocation count/input.
 
 - [ ] **Step 7: Run Python foundation gate and commit**
 
