@@ -143,6 +143,30 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((result.failure_code, result.model_steps, result.tokens_used), ("INVALID_MODEL_DECISION", 1, 0))
         self.assertEqual(sum(e["type"] == "model.failed" for e in events), 1)
 
+    async def test_post_validation_shape_guards_fail_closed(self) -> None:
+        class Provider:
+            async def next_turn(self, **kwargs):
+                return {}
+
+        malformed_turns = (
+            {"usage": [], "decision": {"kind": "final", "answer": "x"}},
+            {"usage": {"input_tokens": 1, "output_tokens": 0}, "decision": []},
+        )
+        for malformed in malformed_turns:
+            with self.subTest(malformed=malformed):
+                with patch(
+                    "boundrelay_m1.runner.validate_model_turn",
+                    return_value=ValidationSuccess(malformed),
+                ):
+                    result, events = await self.run_case(
+                        "agent-delayed-shipment",
+                        "agent",
+                        model_provider=Provider(),
+                    )
+                self.assertEqual(result.failure_code, "INVALID_MODEL_DECISION")
+                self.assertEqual(result.tokens_used, 0)
+                self.assertFalse(any(e["type"] == "tool.requested" for e in events))
+
     async def test_direct_mode_uses_same_timeout_executor(self) -> None:
         import asyncio
         async def never(arguments):
