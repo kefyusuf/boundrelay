@@ -1,7 +1,7 @@
 # M2 Routing and Typed Handoff Design
 
 - **Date:** 2026-09-29
-- **Status:** Proposed
+- **Status:** Accepted
 - **Milestone:** M2 — Routing and handoff
 - **Project:** BoundRelay (boundrelay)
 - **Depends on:** Foundation design, D-001 through D-012, completed M0 and M1 exact-revision verification
@@ -588,13 +588,11 @@ M2 is complete only when all of the following are true for the exact candidate r
 - local and CI verification use the same M2 authority command;
 - M2 evidence records the exact Git revision.
 
-## 20. Governance and implementation-planning gate
+## 20. Acceptance and implementation-planning gate
 
-This design is **Proposed**.
+This design was reviewed and accepted by the human project owner on 2026-09-30.
 
-The human project owner approved the conversational M2 direction on 2026-09-29, which authorizes writing this design proposal but does not authorize implementation.
-
-- D-013 remains Proposed until this written design is reviewed and explicitly accepted.
-- No M2 implementation plan may be written until the written spec is approved.
+- D-013 is accepted with the boundaries defined in this document.
+- Detailed M2 implementation planning may proceed from this accepted design.
 - No M2 product code, contract implementation, fixture implementation, or workflow implementation is part of this design change.
 - Any material change to canonical cases, confidence threshold, route taxonomy, receiver topology, handoff envelope, failure taxonomy, side-effect policy, or verification authority must return to the decision gate.

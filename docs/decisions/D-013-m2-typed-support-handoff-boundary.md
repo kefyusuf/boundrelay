@@ -1,7 +1,7 @@
 # D-013 — M2 Typed Support Handoff Boundary
 
-- **Status:** Proposed
-- **Date:** 2026-09-29
+- **Status:** Accepted
+- **Date:** 2026-09-30
 
 ## Decision
 
@@ -56,8 +56,8 @@ M2 handoff failures are limited to HANDOFF_CONTEXT_INVALID and HANDOFF_RECEIVER_
 
 docs/superpowers/specs/2026-09-29-m2-routing-handoff-design.md
 
-## Acceptance gate
+## Acceptance
 
-This decision is proposed after the human project owner approved the conversational M2 direction on 2026-09-29.
+Accepted by the human project owner on 2026-09-30 after review of the linked written design.
 
-It is not accepted yet. The linked written design must be reviewed and explicitly approved before D-013 may become Accepted or implementation planning may begin.
+Detailed M2 implementation planning may proceed from the accepted design. Any material change to the accepted M2 boundaries requires a new governance decision or an explicit superseding decision.
