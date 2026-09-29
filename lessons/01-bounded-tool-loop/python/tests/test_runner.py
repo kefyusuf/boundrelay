@@ -50,25 +50,39 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
     @classmethod
     def setUpClass(cls) -> None:
         global run_scenario_case
-        original_socket = socket.socket
-        def guarded_socket(family=socket.AF_INET, *args, **kwargs):
-            if family in (socket.AF_INET, socket.AF_INET6):
+        original_connect = socket.socket.connect
+        def guarded_connect(sock, address):
+            if sock.family in (socket.AF_INET, socket.AF_INET6):
                 raise AssertionError("network access is forbidden")
-            return original_socket(family, *args, **kwargs)
-        cls._connect = patch.object(socket, "create_connection", side_effect=AssertionError("network access is forbidden"))
-        cls._socket = patch.object(socket, "socket", side_effect=guarded_socket)
-        cls._connect.start(); cls._socket.start()
+            return original_connect(sock, address)
+        cls._create_connection = patch.object(
+            socket,
+            "create_connection",
+            side_effect=AssertionError("network access is forbidden"),
+        )
+        cls._socket_connect = patch.object(socket.socket, "connect", new=guarded_connect)
+        cls._create_connection.start()
+        cls._socket_connect.start()
         try:
             with cls.assertRaises(cls, AssertionError):
                 socket.create_connection(("127.0.0.1", 9), timeout=0.01)
+            probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            try:
+                with cls.assertRaises(cls, AssertionError):
+                    probe.connect(("127.0.0.1", 9))
+            finally:
+                probe.close()
             from boundrelay_m1.runner import run_scenario_case as runner
             run_scenario_case = runner
         except Exception:
-            cls._socket.stop(); cls._connect.stop(); raise
+            cls._socket_connect.stop()
+            cls._create_connection.stop()
+            raise
 
     @classmethod
     def tearDownClass(cls) -> None:
-        cls._socket.stop(); cls._connect.stop()
+        cls._socket_connect.stop()
+        cls._create_connection.stop()
 
     async def run_case(self, case_id: str, mode: str, **overrides):
         directory = tempfile.TemporaryDirectory()
@@ -157,15 +171,25 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         code = textwrap.dedent('''
         import socket
         class Block(RuntimeError): pass
-        original_socket=socket.socket
-        def blocked(*args,**kwargs): raise Block("network access is forbidden")
-        def guarded_socket(family=socket.AF_INET,*args,**kwargs):
-            if family in (socket.AF_INET,socket.AF_INET6): raise Block("network access is forbidden")
-            return original_socket(family,*args,**kwargs)
-        socket.create_connection=blocked; socket.socket=guarded_socket
+        original_connect=socket.socket.connect
+        def blocked_create_connection(*args,**kwargs):
+            raise Block("network access is forbidden")
+        def blocked_connect(sock,address):
+            if sock.family in (socket.AF_INET,socket.AF_INET6):
+                raise Block("network access is forbidden")
+            return original_connect(sock,address)
+        socket.create_connection=blocked_create_connection
+        socket.socket.connect=blocked_connect
         try: socket.create_connection(("127.0.0.1",9),timeout=.01)
         except Block: pass
-        else: raise SystemExit("guard did not fire")
+        else: raise SystemExit("create_connection guard did not fire")
+        probe=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+        try:
+            try: probe.connect(("127.0.0.1",9))
+            except Block: pass
+            else: raise SystemExit("socket.connect guard did not fire")
+        finally:
+            probe.close()
         import boundrelay_m1.runner
         print("runner-imported-under-network-guard")
         ''')
