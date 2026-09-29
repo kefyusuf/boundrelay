@@ -204,9 +204,11 @@ Each case records `expected_policy_outcome` as `selected` except low-confidence 
 `fixtures/fake-model/support-handoff.yaml` begins with `schema_version: "1.0"`, `scenario_id: support-handoff`, and a `decisions:` mapping containing only model-mode decisions:
 
 ~~~yaml
+schema_version: "1.0"
+scenario_id: support-handoff
 decisions:
   model-technical-handoff:
-  return: {route: technical, confidence: 0.92}
+    return: {route: technical, confidence: 0.92}
   model-low-confidence-fallback:
     return: {route: billing, confidence: 0.54}
   handoff-context-loss:
@@ -216,9 +218,11 @@ decisions:
 `fixtures/failures/support-handoff.yaml` begins with `schema_version: "1.0"`, `scenario_id: support-handoff`, and a `failures:` mapping containing only:
 
 ~~~yaml
+schema_version: "1.0"
+scenario_id: support-handoff
 failures:
   handoff-context-loss:
-  omit_receiver_input_fields: [request_text]
+    omit_receiver_input_fields: [request_text]
   handoff-receiver-unavailable:
     unavailable_receivers: [billing-specialist]
 ~~~
@@ -676,6 +680,72 @@ Do not emit `handoff.rejected` after `handoff.accepted` for this tooling failure
 
 - [ ] **Step 7: Add lifecycle/trace invariants**
 
+Use these exact event payloads in both languages:
+
+~~~text
+run.created:
+  scenario_id
+  case_id
+  router_mode
+
+run.started:
+  case_id
+  router_mode
+
+model.requested:
+  case_id
+
+model.completed:
+  case_id
+  decision          # raw JSON-safe route-decision candidate
+
+route.rejected:
+  router_mode
+  failure_code = INVALID_ROUTE_DECISION
+
+route.selected:
+  router_mode
+  proposed_route
+  selected_route
+  confidence
+  fallback_applied
+
+handoff.requested:
+  handoff_id
+  sender
+  receiver
+  sender_intent
+  receiver_input
+
+handoff.accepted:
+  handoff_id
+  receiver
+
+handoff.rejected:
+  handoff_id
+  receiver
+  failure_code
+
+run.completed:
+  status = SUCCEEDED
+  proposed_route
+  selected_route
+  receiver
+  fallback_applied
+  specialist_invoked = true
+
+run.failed:
+  status = FAILED
+  proposed_route
+  selected_route
+  receiver
+  fallback_applied
+  specialist_invoked = false
+  failure_code
+~~~
+
+For INVALID_ROUTE_DECISION, the terminal failure payload uses null proposed/selected/receiver, fallback false, and specialist_invoked false.
+
 Tests assert:
 
 - stable run ID;
@@ -895,7 +965,7 @@ Malformed route decision returns `INVALID_ROUTE_DECISION`, emits `route.rejected
 
 - [ ] **Step 4: Implement policy, candidate handoff, failure injection, and handoff events**
 
-Preserve exact payload keys from Task 3.
+Preserve the exact event payload keys and lifecycle order pinned in Task 3 Step 7.
 
 For context loss, omit only `receiver_input.request_text` before `handoff.requested`.
 
