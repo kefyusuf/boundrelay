@@ -149,8 +149,10 @@ async def run_scenario_case(
         if not turn_validation.ok:
             return await finish_failure("INVALID_MODEL_DECISION")
         turn = turn_validation.value
-        usage = turn["usage"]
-        assert isinstance(usage, dict)
+        usage = turn.get("usage")
+        decision = turn.get("decision")
+        if not isinstance(usage, dict) or not isinstance(decision, dict):
+            return await finish_failure("INVALID_MODEL_DECISION")
         tokens_used += int(usage["input_tokens"]) + int(usage["output_tokens"])
         sink.emit("budget.consumed", {
             "model_steps": model_steps,
@@ -163,8 +165,6 @@ async def run_scenario_case(
             sink.emit("budget.exceeded", {"budget": "token", "consumed": tokens_used, "limit": scenario_case.max_tokens, "failure_code": "TOKEN_BUDGET_EXCEEDED"})
             return await finish_failure("TOKEN_BUDGET_EXCEEDED")
 
-        decision = turn["decision"]
-        assert isinstance(decision, dict)
         if decision["kind"] == "final":
             return await finish_success(str(decision["answer"]))
 
