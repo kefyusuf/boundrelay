@@ -4,9 +4,11 @@
 
 ## Project status
 
-**Phase:** M0 behavioral parity vertical slice complete.
+**Phase:** M1 bounded single-agent tool loop complete.
 
-M0 now provides canonical support-triage scenarios and contracts, offline deterministic and scripted-model routing, TypeScript/Python implementations, schema-valid JSONL traces, fail-closed invalid-route behavior, and normalized cross-language parity verification. The documented local gate binds evidence to the checked-out Git revision; GitHub Actions runs the same gate on Node.js 24 and Python 3.14 and uploads `.boundrelay/m0/` as `m0-verification-<revision>`.
+M0 remains the deterministic-vs-model routing baseline. M1 adds an offline, deterministic, read-only single-agent tool loop for the canonical `order-investigation` scenario: a direct function-call baseline, a bounded model–tool–observation loop, two typed read-only tools, hard model-step/token budgets, fail-closed validation, explicit timeout/execution failures, strict JSONL traces, and TypeScript/Python behavioral parity.
+
+The M1 certification gate runs the existing M0 authority first, then validates all eight M1 canonical cases in both languages. Passing evidence is bound to the exact Git revision and written under `.boundrelay/m1/`; GitHub Actions runs the same authority command on Node.js 24 and Python 3.14 and uploads `m1-verification-<revision>`.
 
 ## Verify M0 locally
 
@@ -22,7 +24,27 @@ npm ci --prefix lessons/00-workflow-or-agent/typescript
 python scripts/verify_m0.py
 ```
 
-The gate runs contract tests, both language test suites, verification-safety tests, and seven parity cases. It validates requested case/mode binding, result-to-trace run IDs, terminal event/status consistency, specialist dispatch boundaries, and evidence metadata. Because the evidence is bound to `HEAD`, the certification gate requires a clean Git worktree; commit the candidate changes before running it. The command removes prior M0 evidence before its first check so a failed rerun cannot leave an older `PASSED` record behind. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
+The M0 gate runs contract tests, both language test suites, verification-safety tests, and seven parity cases. Because evidence is bound to `HEAD`, the certification gate requires a clean Git worktree. See [Lesson 00](lessons/00-workflow-or-agent/README.md) for the complete walkthrough.
+
+## Verify M1 locally
+
+Install both lessons because M1 intentionally keeps M0 as a regression authority:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements-dev.txt
+python -m pip install -e lessons/00-workflow-or-agent/python
+python -m pip install -e lessons/01-bounded-tool-loop/python
+npm ci --prefix lessons/00-workflow-or-agent/typescript
+npm ci --prefix lessons/01-bounded-tool-loop/typescript
+python scripts/verify_m1.py
+```
+
+The M1 gate clears previous M1 evidence, runs the M0 authority, runs M1 contracts and both language test suites, validates verifier safety, executes all eight canonical cases through both CLIs, and compares normalized results and traces. A passing run writes revision-bound evidence to `.boundrelay/m1/verification-evidence.json`.
+
+M1 remains deliberately offline and read-only. It does not add real model providers, retries, mutating tools, persistence, approval/idempotency, Go parity, MCP/framework adapters, or a shared general-purpose runtime. See [Lesson 01](lessons/01-bounded-tool-loop/README.md).
 
 ## Project identity
 
