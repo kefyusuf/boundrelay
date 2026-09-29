@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/agent/model-turn.schema.json",
+  "title": "M1 Model Turn",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "decision", "usage"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "decision": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "call_id", "tool", "arguments"],
+          "properties": {
+            "kind": {"const": "tool_call"},
+            "call_id": {"type": "string", "minLength": 1},
+            "tool": {"type": "string", "minLength": 1},
+            "arguments": {"type": "object"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "answer"],
+          "properties": {
+            "kind": {"const": "final"},
+            "answer": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["input_tokens", "output_tokens"],
+      "properties": {
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

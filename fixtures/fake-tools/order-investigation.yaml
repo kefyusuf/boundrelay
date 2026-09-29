@@ -1,0 +1,12 @@
+schema_version: "1.0"
+scenario_id: order-investigation
+orders:
+  ORD-1001:
+    output: {order_id: ORD-1001, status: SHIPPED, shipment_id: SHP-1001}
+  ORD-9001:
+    behavior: timeout
+  ORD-9002:
+    behavior: failure
+shipments:
+  SHP-1001:
+    output: {shipment_id: SHP-1001, status: DELAYED, reason: WEATHER}

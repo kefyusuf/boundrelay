@@ -1,0 +1,31 @@
+schema_version: "1.0"
+scenario_id: order-investigation
+invariants:
+  - id: M1-I01
+    description: Direct mode never calls the model.
+  - id: M1-I02
+    description: Agent mode never dispatches a tool before outer decision, registry, and argument validation pass.
+  - id: M1-I03
+    description: Only lookup_order and lookup_shipment are dispatchable in M1.
+  - id: M1-I04
+    description: Both tools are read-only and are invoked at most once per accepted call decision.
+  - id: M1-I05
+    description: Unknown tools never emit tool.requested.
+  - id: M1-I06
+    description: Invalid arguments never emit tool.requested.
+  - id: M1-I07
+    description: Timeout and execution failure each emit exactly one tool.requested and one tool.failed.
+  - id: M1-I08
+    description: A tool call on the final permitted model step is rejected before dispatch.
+  - id: M1-I09
+    description: An over-token-budget model turn cannot cause a tool call or successful final answer.
+  - id: M1-I10
+    description: No failure path retries automatically.
+  - id: M1-I11
+    description: Successful agent investigation follows lookup_order -> lookup_shipment -> final for the canonical case.
+  - id: M1-I12
+    description: TypeScript and Python produce equivalent normalized behavior.
+  - id: M1-I13
+    description: Every run has exactly one terminal event.
+  - id: M1-I14
+    description: Verification evidence is bound to the candidate Git revision.
