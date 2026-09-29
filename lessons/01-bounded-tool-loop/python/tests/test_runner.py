@@ -156,6 +156,30 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual((result.failure_code, result.tool_invocations, result.model_steps, result.tokens_used), ("TOOL_TIMEOUT", 1, 0, 0))
         self.assertFalse(any(e["type"].startswith("model.") for e in events))
 
+    async def test_tool_raised_timeout_error_is_execution_failure(self) -> None:
+        async def raises_timeout(arguments):
+            raise TimeoutError("tool-internal timeout")
+        definition = ToolDefinition(
+            "lookup_order",
+            "READ_ONLY",
+            100,
+            lambda value: ValidationSuccess(value),
+            raises_timeout,
+        )
+        class Registry:
+            def resolve(self, name):
+                return definition if name == "lookup_order" else None
+        result, events = await self.run_case(
+            "direct-order-status",
+            "direct",
+            tool_registry=Registry(),
+        )
+        self.assertEqual(result.failure_code, "TOOL_EXECUTION_FAILED")
+        self.assertEqual(
+            [e["data"]["failure_code"] for e in events if e["type"] == "tool.failed"],
+            ["TOOL_EXECUTION_FAILED"],
+        )
+
     async def test_all_eight_canonical_runs_stay_offline(self) -> None:
         cases = (
             ("direct-order-status", "direct"), ("agent-delayed-shipment", "agent"),
