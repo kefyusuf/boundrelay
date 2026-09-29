@@ -349,7 +349,7 @@ export interface ModelProvider {
 export interface ToolDefinition {
   name: ToolName;
   sideEffect: "READ_ONLY";
-  timeoutMs: 100;
+  timeoutMs: number;
   validateArguments(value: unknown): ValidationResult<Record<string, unknown>>;
   invoke(argumentsValue: Record<string, unknown>): Promise<Record<string, unknown>>;
 }
@@ -619,7 +619,7 @@ class ModelProvider(Protocol):
 class ToolDefinition:
     name: ToolName
     side_effect: Literal["READ_ONLY"]
-    timeout_ms: Literal[100]
+    timeout_ms: int
     validate_arguments: Callable[[object], ValidationResult]
     invoke: Callable[[dict[str, object]], Awaitable[dict[str, object]]]
 
