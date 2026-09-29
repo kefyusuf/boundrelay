@@ -1,1 +1,3 @@
-"""CLI entrypoint is introduced in M1 Task 5."""
+from .cli import main
+
+raise SystemExit(main())
