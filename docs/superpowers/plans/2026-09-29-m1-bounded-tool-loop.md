@@ -199,6 +199,7 @@ The direct case must contain:
 
 ```yaml
 direct_call:
+  call_id: direct-call-1
   tool: lookup_order
   arguments: {order_id: ORD-1001}
 expected_answer: "Order ORD-1001 status is SHIPPED."
@@ -338,6 +339,27 @@ export type FailureCode =
   | "STEP_BUDGET_EXCEEDED"
   | "TOKEN_BUDGET_EXCEEDED"
   | "INVALID_MODEL_DECISION";
+
+export interface ToolObservation {
+  call_id: string;
+  tool: ToolName;
+  output: Record<string, unknown>;
+}
+
+export interface RunResult {
+  schema_version: "1.0";
+  run_id: string;
+  scenario_id: "order-investigation";
+  case_id: string;
+  mode: RunMode;
+  status: RunStatus;
+  answer: string | null;
+  failure_code: FailureCode | null;
+  model_steps: number;
+  tokens_used: number;
+  tool_invocations: number;
+  trace_path: string;
+}
 
 export interface ModelInput {
   caseId: string;
@@ -544,6 +566,25 @@ For every agent turn:
 
 Provider trajectory errors are caught at the model boundary, emit `model.failed`, and return `FAILED / INVALID_MODEL_DECISION`.
 
+Use these exact M1 event payload shapes in both languages; do not add synthetic `step.*` events in Lesson 01:
+
+| Event | `data` payload |
+|---|---|
+| `run.created` | `{scenario_id, case_id, mode}` |
+| `run.started` | `{case_id, mode}` |
+| `model.requested` | `{case_id, model_step}` |
+| `model.completed` | `{case_id, model_step, turn}` where `turn` is the JSON-safe raw provider return |
+| `model.failed` | `{case_id, model_step, failure_code: "INVALID_MODEL_DECISION"}` |
+| `budget.consumed` | `{model_steps, max_steps, tokens_used, max_tokens}` |
+| `budget.exceeded` | `{budget, consumed, limit, failure_code}` where `budget` is `step|token` |
+| `tool.requested` | `{call_id, tool, arguments}` |
+| `tool.completed` | `{call_id, tool, observation}` |
+| `tool.failed` | `{call_id, tool, failure_code}` |
+| `run.completed` | `{status, answer, model_steps, tokens_used, tool_invocations}` |
+| `run.failed` | `{status, failure_code, model_steps, tokens_used, tool_invocations}` |
+
+A successful tool observation passed to the next model turn has exactly `{call_id, tool, output}`. Direct mode uses canonical `call_id: "direct-call-1"`; agent calls use the fixture call IDs.
+
 - [ ] **Step 5: Add all failure and boundary tests**
 
 Use `it.each` for the six canonical failures and assert exact result counters from Task 1.
@@ -611,9 +652,30 @@ git commit -m "feat(m1): implement TypeScript bounded tool loop"
 - Consumes: Task 1 assets.
 - Produces the Python equivalents of Task 2 with package name `boundrelay-m1` and import package `boundrelay_m1`.
 
-Use:
+Define the Python result/observation shapes with the same JSON field names as TypeScript:
 
 ```python
+@dataclass(frozen=True)
+class ToolObservation:
+    call_id: str
+    tool: ToolName
+    output: dict[str, object]
+
+@dataclass(frozen=True)
+class RunResult:
+    schema_version: Literal["1.0"]
+    run_id: str
+    scenario_id: Literal["order-investigation"]
+    case_id: str
+    mode: RunMode
+    status: RunStatus
+    answer: str | None
+    failure_code: FailureCode | None
+    model_steps: int
+    tokens_used: int
+    tool_invocations: int
+    trace_path: str
+
 class ModelProvider(Protocol):
     async def next_turn(
         self,
@@ -747,7 +809,7 @@ async def run_scenario_case(
     tool_registry: ToolRegistry | None = None,
     clock: Clock | None = None,
     id_factory: IdFactory | None = None,
-) -> RunResult: ...
+) -> RunResult
 ```
 
 - [ ] **Step 1: Write failing direct and successful-agent tests**
