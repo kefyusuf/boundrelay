@@ -1,0 +1,10 @@
+import {fileURLToPath} from "node:url";
+import {resolve, dirname} from "node:path";
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../..");
+export const SCENARIO_PATH = resolve(ROOT, "fixtures/scenarios/support-handoff.yaml");
+export const FAILURE_PATH = resolve(ROOT, "fixtures/failures/support-handoff.yaml");
+export const MODEL_PATH = resolve(ROOT, "fixtures/fake-model/support-handoff.yaml");
+export const EVENT_SCHEMA_PATH = resolve(ROOT, "contracts/events/run-event.schema.json");
+export const RESULT_SCHEMA_PATH = resolve(ROOT, "contracts/results/handoff-result.schema.json");
+export const HANDOFF_SCHEMA_PATH = resolve(ROOT, "contracts/handoffs/support-handoff.schema.json");
+export const ROUTE_SCHEMA_PATH = resolve(ROOT, "contracts/routing/route-decision.schema.json");
