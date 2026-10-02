@@ -4,6 +4,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import shutil
 import subprocess
 import sys
 from typing import Mapping
@@ -76,10 +77,11 @@ def _revision() -> str:
 
 
 def _runtime_version(command: list[str]) -> str:
-    return subprocess.check_output(command, cwd=ROOT, text=True).strip()
+    return subprocess.check_output([shutil.which(command[0]) or command[0], *command[1:]], cwd=ROOT, text=True).strip()
 
 
 def _run(command: list[str], *, env: Mapping[str, str] | None = None) -> dict[str, object]:
+    command = [shutil.which(command[0]) or command[0], *command[1:]]
     process = subprocess.run(
         command,
         cwd=ROOT,

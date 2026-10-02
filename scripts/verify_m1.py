@@ -17,7 +17,7 @@ def clear_previous_evidence(output_root: Path = OUTPUT_ROOT) -> None:
 
 def run(command: list[str], env: dict[str, str] | None = None) -> None:
     print("+ " + " ".join(command), flush=True)
-    subprocess.run(command, cwd=ROOT, env=env, check=True)
+    subprocess.run([shutil.which(command[0]) or command[0], *command[1:]], cwd=ROOT, env=env, check=True)
 
 
 def main() -> int:
