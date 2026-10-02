@@ -2,15 +2,23 @@
 
 ## Active phase
 
-M0 — Behavioral parity vertical slice complete and revision-verifiable.
+M2 — Routing and typed support handoff implemented and revision-verifiable.
+
+Accepted scope: D-013 and `docs/superpowers/specs/2026-09-29-m2-routing-handoff-design.md`. Implementation plan: `docs/superpowers/plans/2026-09-30-m2-routing-handoff.md`.
+
+M2 adds exactly five offline support-handoff cases in TypeScript and Python, a fixed confidence threshold of 0.80, a typed sender-intent/receiver-input boundary, three deterministic receivers, and context-loss/unavailable-receiver rejection without dispatch or retry. Receiver input contains only ticket_id and request_text. M0 and M1 remain regression authorities.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m0.py`
-- CI workflow: `.github/workflows/m0.yml`
+- Local gate: `python scripts/verify_m2.py` (runs M1, which runs M0)
+- CI workflow: `.github/workflows/m2.yml`
 - Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m0-verification-<revision>`
-- Evidence root: `.boundrelay/m0/`
+- CI artifact: `m2-verification-<revision>`
+- Evidence root: `.boundrelay/m2/`
+
+M2 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for its five cases and ten language-specific traces. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+
+## Preserved M0 baseline
 
 The gate requires a clean Git worktree and binds its evidence to the checked-out revision. It captures the starting revision, reruns the clean-worktree check immediately before publishing PASSED evidence, and refuses certification if `HEAD` moved during verification. Each passing record includes `scenario_id`, revision, runtime versions, verification command, seven requested case/mode combinations, and fourteen language-specific traces. Any affected implementation, contract, fixture, dependency, test, verifier, or workflow change makes earlier evidence stale and requires a fresh run.
 
