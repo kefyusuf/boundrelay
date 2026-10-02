@@ -1,0 +1,81 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "handoff_id",
+    "sender",
+    "receiver",
+    "sender_intent",
+    "receiver_input"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "handoff_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sender": {
+      "const": "support-router"
+    },
+    "receiver": {
+      "type": "string",
+      "enum": [
+        "billing-specialist",
+        "technical-specialist",
+        "general-specialist"
+      ]
+    },
+    "sender_intent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "route",
+        "confidence",
+        "policy_outcome"
+      ],
+      "properties": {
+        "route": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "policy_outcome": {
+          "enum": [
+            "selected",
+            "fallback"
+          ]
+        }
+      }
+    },
+    "receiver_input": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ticket_id",
+        "request_text"
+      ],
+      "properties": {
+        "ticket_id": {
+          "type": "string",
+          "pattern": "^TCK-[0-9]{4}$"
+        },
+        "request_text": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

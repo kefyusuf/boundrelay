@@ -1,0 +1,215 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "scenario_id",
+    "case_id",
+    "router_mode",
+    "status",
+    "proposed_route",
+    "selected_route",
+    "receiver",
+    "fallback_applied",
+    "specialist_invoked",
+    "failure_code",
+    "trace_path"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_id": {
+      "const": "support-handoff"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "router_mode": {
+      "enum": [
+        "code",
+        "model"
+      ]
+    },
+    "status": {
+      "enum": [
+        "SUCCEEDED",
+        "FAILED"
+      ]
+    },
+    "proposed_route": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "selected_route": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "receiver": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "billing-specialist",
+            "technical-specialist",
+            "general-specialist"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "fallback_applied": {
+      "type": "boolean"
+    },
+    "specialist_invoked": {
+      "type": "boolean"
+    },
+    "failure_code": {
+      "enum": [
+        null,
+        "INVALID_ROUTE_DECISION",
+        "HANDOFF_CONTEXT_INVALID",
+        "HANDOFF_RECEIVER_UNAVAILABLE"
+      ]
+    },
+    "trace_path": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "oneOf": [
+    {
+      "properties": {
+        "proposed_route": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        "selected_route": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        "receiver": {
+          "type": "string",
+          "enum": [
+            "billing-specialist",
+            "technical-specialist",
+            "general-specialist"
+          ]
+        },
+        "status": {
+          "const": "SUCCEEDED"
+        },
+        "failure_code": {
+          "type": "null"
+        },
+        "specialist_invoked": {
+          "const": true
+        }
+      }
+    },
+    {
+      "properties": {
+        "proposed_route": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        "selected_route": {
+          "type": "string",
+          "enum": [
+            "billing",
+            "technical",
+            "general"
+          ]
+        },
+        "receiver": {
+          "type": "string",
+          "enum": [
+            "billing-specialist",
+            "technical-specialist",
+            "general-specialist"
+          ]
+        },
+        "status": {
+          "const": "FAILED"
+        },
+        "failure_code": {
+          "enum": [
+            "HANDOFF_CONTEXT_INVALID",
+            "HANDOFF_RECEIVER_UNAVAILABLE"
+          ]
+        },
+        "specialist_invoked": {
+          "const": false
+        }
+      }
+    },
+    {
+      "properties": {
+        "status": {
+          "const": "FAILED"
+        },
+        "failure_code": {
+          "const": "INVALID_ROUTE_DECISION"
+        },
+        "specialist_invoked": {
+          "const": false
+        },
+        "fallback_applied": {
+          "const": false
+        },
+        "proposed_route": {
+          "type": "null"
+        },
+        "selected_route": {
+          "type": "null"
+        },
+        "receiver": {
+          "type": "null"
+        }
+      }
+    }
+  ]
+}

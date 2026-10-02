@@ -1,0 +1,37 @@
+schema_version: '1.0'
+scenario_id: support-handoff
+invariants:
+- id: M2-I01
+  description: Code mode never invokes the model.
+- id: M2-I02
+  description: Validate model decisions before policy or handoff.
+- id: M2-I03
+  description: Reuse the M0 route-decision authority.
+- id: M2-I04
+  description: Confidence >= 0.80 preserves the proposed route.
+- id: M2-I05
+  description: Confidence < 0.80 forces general fallback.
+- id: M2-I06
+  description: Models cannot redefine confidence policy.
+- id: M2-I07
+  description: Use exactly the three fixed route-to-receiver mappings.
+- id: M2-I08
+  description: Separate sender intent from receiver input.
+- id: M2-I09
+  description: Receivers obtain only ticket_id and request_text.
+- id: M2-I10
+  description: 'Invalid context: requested then rejected with zero invocations.'
+- id: M2-I11
+  description: 'Unavailable receiver: requested then rejected with zero invocations.'
+- id: M2-I12
+  description: 'Success: requested then accepted with exactly one invocation.'
+- id: M2-I13
+  description: Never retry handoff failures.
+- id: M2-I14
+  description: Exactly one terminal event and contiguous sequence numbers.
+- id: M2-I15
+  description: Equivalent normalized TypeScript/Python behavior.
+- id: M2-I16
+  description: Bind evidence to the exact Git revision.
+- id: M2-I17
+  description: Keep M1 verification green.
