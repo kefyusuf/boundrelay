@@ -52,3 +52,16 @@ it("rejects mismatched mode and unknown case", () => withTrace(async tracePath =
   await expect(runScenarioCase({mode: "code", caseId: "model-technical-handoff", tracePath})).rejects.toThrow();
   await expect(runScenarioCase({mode: "code", caseId: "unknown", tracePath})).rejects.toThrow();
 }));
+it("rejects original private or cyclic candidates while tracing only safe routing fields", () => withTrace(async tracePath => {
+  const cyclic: Record<string, unknown> = {route: "billing", confidence: .9}; cyclic.extra = cyclic;
+  const nested = {route: {chain_of_thought: "PRIVATE_REASONING_SENTINEL"}, confidence: .9};
+  for (const decision of [{route: "billing", confidence: .9, chain_of_thought: "PRIVATE_REASONING_SENTINEL"}, nested, cyclic]) {
+    const result = await runScenarioCase({mode: "model", caseId: "model-technical-handoff", tracePath, routeProvider: {async nextDecision() {return decision;}}, receiverDirectory: {resolve() {throw new Error("must not resolve");}}});
+    expect(result.failure_code).toBe("INVALID_ROUTE_DECISION");
+    const text = await readFile(tracePath, "utf8");
+    expect(text).not.toContain("PRIVATE_REASONING_SENTINEL");
+    expect(text).not.toContain("chain_of_thought");
+    const candidate = (await readEvents(tracePath)).find(e => e.type === "model.completed").data.decision;
+    expect(candidate).toEqual({route: decision === nested ? null : "billing", confidence: .9});
+  }
+}));

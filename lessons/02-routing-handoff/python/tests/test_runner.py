@@ -91,3 +91,36 @@ print('offline-imported')
         process = subprocess.run([sys.executable,'-c',code],capture_output=True,text=True)
         self.assertEqual(process.returncode,0,process.stderr)
         self.assertEqual(process.stdout.strip(),'offline-imported')
+
+    async def test_private_candidates_rejected_without_trace_leakage(self):
+        nested={'route':{'chain_of_thought':'PRIVATE_REASONING_SENTINEL'},'confidence':.9}
+        for raw in ({'route':'billing','confidence':.9,'chain_of_thought':'PRIVATE_REASONING_SENTINEL'},nested):
+            class Provider:
+                async def next_decision(self,**kwargs): return raw
+            class Directory:
+                def resolve(self,name): raise AssertionError('must not resolve')
+            with tempfile.TemporaryDirectory() as directory:
+                trace=Path(directory)/'trace.jsonl'
+                result=await run_scenario_case(mode='model',case_id='model-technical-handoff',trace_path=str(trace),route_provider=Provider(),receiver_directory=Directory())
+                self.assertEqual(result.failure_code,'INVALID_ROUTE_DECISION')
+                text=trace.read_text(encoding='utf-8')
+                self.assertNotIn('PRIVATE_REASONING_SENTINEL',text)
+                self.assertNotIn('chain_of_thought',text)
+                events=[json.loads(line) for line in text.splitlines()]
+                candidate=next(e['data']['decision'] for e in events if e['type']=='model.completed')
+                self.assertEqual(candidate,{'route':None if raw is nested else 'billing','confidence':.9})
+
+    async def test_cyclic_and_oversized_decisions_fail_closed_with_terminal_trace(self):
+        cyclic={'route':'billing','confidence':.9};cyclic['extra']=cyclic
+        for raw in (cyclic,{'route':'billing','confidence':10**5000}):
+            class Provider:
+                async def next_decision(self,**kwargs): return raw
+            class Directory:
+                def resolve(self,name): raise AssertionError('must not resolve')
+            with tempfile.TemporaryDirectory() as directory:
+                trace=Path(directory)/'trace.jsonl'
+                result=await run_scenario_case(mode='model',case_id='model-technical-handoff',trace_path=str(trace),route_provider=Provider(),receiver_directory=Directory())
+                self.assertEqual(result.failure_code,'INVALID_ROUTE_DECISION')
+                events=[json.loads(line) for line in trace.read_text(encoding='utf-8').splitlines()]
+                self.assertEqual([e['type'] for e in events],['run.created','run.started','model.requested','model.completed','route.rejected','run.failed'])
+                self.assertEqual(events[-1]['data']['failure_code'],'INVALID_ROUTE_DECISION')

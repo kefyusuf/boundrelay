@@ -12,6 +12,15 @@ export interface RunScenarioCaseOptions {
   routeProvider?: RouteDecisionProvider; receiverDirectory?: ReceiverDirectory;
   clock?: () => Date; idFactory?: () => string;
 }
+function observableDecision(raw: unknown): Record<string, unknown> {
+  // Project only the public routing fields; validation still uses the original
+  // candidate so an extra field can never become an authorized route decision.
+  const value = raw !== null && typeof raw === "object" && !Array.isArray(raw) ? raw as Record<string, unknown> : {};
+  return {
+    route: typeof value.route === "string" && ["billing", "technical", "general"].includes(value.route) ? value.route : null,
+    confidence: typeof value.confidence === "number" && Number.isFinite(value.confidence) && value.confidence >= 0 && value.confidence <= 1 ? value.confidence : null,
+  };
+}
 export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<HandoffResult> {
   const c = findScenarioCase(loadScenario(), options.caseId);
   if (c.router_mode !== options.mode) throw new Error("Requested mode does not match canonical case mode");
@@ -36,7 +45,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
     const provider = options.routeProvider ?? ScriptedRouteProvider.fromFile();
     sink.emit("model.requested", {case_id: c.id});
     raw = await provider.nextDecision({caseId: c.id, request: c.request});
-    sink.emit("model.completed", {case_id: c.id, decision: raw});
+    sink.emit("model.completed", {case_id: c.id, decision: observableDecision(raw)});
   }
   const route = validateRouteDecision(raw);
   if (!route.ok) {

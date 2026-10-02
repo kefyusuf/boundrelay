@@ -11,6 +11,19 @@ from .trace import MemoryEventSink, write_jsonl
 from .types import RouterMode, RouteDecisionProvider, ReceiverDirectory, HandoffResult, RouteDecision, RouteSelection, ReceiverInput, FailureCode
 
 
+def _observable_decision(raw: object) -> dict[str, object]:
+    # Only routing fields belong in the public trace. Validate the complete
+    # original candidate separately, so dropping extras cannot authorize it.
+    if not isinstance(raw, dict):
+        return {'route': None, 'confidence': None}
+    route = raw.get('route')
+    confidence = raw.get('confidence')
+    return {
+        'route': route if type(route) is str and route in ('billing', 'technical', 'general') else None,
+        'confidence': confidence if type(confidence) in (int, float) and 0 <= confidence <= 1 else None,
+    }
+
+
 async def run_scenario_case(
     *, mode: RouterMode, case_id: str, trace_path: str,
     route_provider: RouteDecisionProvider | None = None,
@@ -41,7 +54,7 @@ async def run_scenario_case(
         provider = route_provider or ScriptedRouteProvider.from_file()
         sink.emit('model.requested',{'case_id':case.id})
         raw = await provider.next_decision(case_id=case.id,request=case.request)
-        sink.emit('model.completed',{'case_id':case.id,'decision':raw})
+        sink.emit('model.completed',{'case_id':case.id,'decision':_observable_decision(raw)})
     validation = validate_route_decision(raw)
     if not validation.ok:
         sink.emit('route.rejected',{'router_mode':mode,'failure_code':'INVALID_ROUTE_DECISION'})

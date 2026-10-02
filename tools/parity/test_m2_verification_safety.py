@@ -2,6 +2,8 @@ from copy import deepcopy
 import json
 from pathlib import Path
 import tempfile
+import subprocess
+import sys
 import unittest
 from unittest.mock import patch
 import yaml
@@ -23,6 +25,20 @@ def valid_case(case_id='model-low-confidence-fallback'):
 
 
 class VerificationSafety(unittest.TestCase):
+    def test_semantic_rejection_survives_optimized_python(self):
+        code = '''
+from tools.parity.test_m2_verification_safety import valid_case
+from tools.parity.verify_m2 import assert_case_behavior
+c,r,e=valid_case()
+r['selected_route']='billing'
+try: assert_case_behavior(r,e,c,'/trace.jsonl')
+except AssertionError: print('rejected')
+else: print('accepted')
+'''
+        process=subprocess.run([sys.executable,'-O','-c',code],cwd=verifier.ROOT,capture_output=True,text=True)
+        self.assertEqual(process.returncode,0,process.stderr)
+        self.assertEqual(process.stdout.strip(),'rejected')
+
     def test_normalizes_only_top_level_generated_handoff_id(self):
         left={'type':'handoff.requested','data':{'handoff_id':'a','receiver':'billing-specialist','receiver_input':{'handoff_id':'business'}}}
         right=deepcopy(left);right['data']['handoff_id']='b'

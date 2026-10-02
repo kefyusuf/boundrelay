@@ -67,6 +67,8 @@ The runtime obtains and validates a route, applies the fixed policy, constructs 
 
 A **sender intent != receiver input**. Receivers do not obtain the model decision, sender intent, prompts, or full orchestration state. Every object boundary rejects extra fields.
 
+The `model.completed` trace records only observable route/confidence fields. Unsupported or invalid field values become null; arbitrary extra fields and private reasoning are never copied into trace data. Validation still examines the complete original decision, so projecting the trace cannot turn an invalid candidate into an authorized route. Python rejects cyclic, excessively nested, non-JSON, and unsafe integer inputs before constructing schema diagnostics.
+
 Domain failures produce one JSON result and exit `0`. Invalid routes emit `route.rejected` before any handoff or receiver resolution. Rejected handoffs emit requested → rejected → run.failed and invoke zero receivers. Configuration/provider errors and unexpected receiver exceptions propagate to CLI diagnostics and exit `2`; they do not invent another handoff failure code or trigger a retry. A tooling exception does not produce a certified domain result/trace.
 
 ## Verification evidence
