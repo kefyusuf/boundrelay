@@ -1,5 +1,5 @@
 from pathlib import Path
-ROOT = Path(__file__).resolve().parents[4]
+ROOT = Path(__file__).resolve().parents[5]
 SCENARIO_PATH = ROOT / 'fixtures/scenarios/support-handoff.yaml'
 FAILURE_PATH = ROOT / 'fixtures/failures/support-handoff.yaml'
 MODEL_PATH = ROOT / 'fixtures/fake-model/support-handoff.yaml'
