@@ -113,5 +113,16 @@ class M3VerificationSafetyTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):authority.main()
         self.assertFalse((output/'verification-evidence.json').exists())
 
+    def test_python_suite_sets_and_restores_child_import_path(self):
+        from scripts import verify_m3 as authority
+        class ChildImportTest(unittest.TestCase):
+            def runTest(self):
+                subprocess.run([sys.executable,'-c','import boundrelay_m3'],cwd=ROOT,capture_output=True,check=True)
+        import os
+        with patch.dict(os.environ,{},clear=True),patch.object(unittest.TestLoader,'discover',return_value=unittest.TestSuite([ChildImportTest()])):
+            report=authority.run_python_suite()
+            self.assertTrue(report['successful'])
+            self.assertNotIn('PYTHONPATH',os.environ)
+
 
 if __name__=='__main__':unittest.main()

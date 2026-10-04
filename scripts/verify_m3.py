@@ -17,6 +17,14 @@ def run(command,env=None):
     subprocess.run([shutil.which(command[0]) or command[0],*command[1:]],cwd=ROOT,env=env,check=True)
 
 def run_python_suite():
+    previous=os.environ.get('PYTHONPATH')
+    os.environ['PYTHONPATH']=str(gate.PY_SRC)+(os.pathsep+previous if previous else '')
+    try:return _collect_python_suite()
+    finally:
+        if previous is None:os.environ.pop('PYTHONPATH',None)
+        else:os.environ['PYTHONPATH']=previous
+
+def _collect_python_suite():
     discovered=[]
     def collect(suite):
         for test in suite:
