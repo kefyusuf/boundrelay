@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-brief",
+  "invariants": [
+    {
+      "id": "M3-01",
+      "description": "Fixed three-worker admission in canonical order.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-02",
+      "description": "Each worker invoked once with isolated minimum input.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-03",
+      "description": "Sequential concurrency bounded by one.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-04",
+      "description": "Parallel concurrency bounded by two with independent overlap proof.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-05",
+      "description": "Queued worker waits for a recorded outcome to free a slot.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-06",
+      "description": "Exactly one typed outcome per worker.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-07",
+      "description": "Invalid raw payload never enters synthesis or public trace.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-08",
+      "description": "Declared failure preserves usable sibling outcomes without retry.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-09",
+      "description": "Unexpected error stops admission, drains finite entered work and remains a tooling failure.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-10",
+      "description": "Complete fan-in before synthesis.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-11",
+      "description": "Synthesis once with success, zero with none.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-12",
+      "description": "Canonical sections and missing worker order.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-13",
+      "description": "Missing evidence explicit without fabricated facts.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-14",
+      "description": "Run status follows successful worker count.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-15",
+      "description": "Only synthesizer publishes brief.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-16",
+      "description": "Raw validation before normalization.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-17",
+      "description": "One canonical terminal bound to result.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-18",
+      "description": "Same-mode language and cross-mode business parity.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-19",
+      "description": "Six offline cases with strict schemas.",
+      "spec_section": 14
+    },
+    {
+      "id": "M3-20",
+      "description": "Lower chain and all evidence bound to clean unchanged revision.",
+      "spec_section": 14
+    }
+  ]
+}
