@@ -38,7 +38,10 @@
         "tool.completed",
         "tool.failed",
         "budget.consumed",
-        "budget.exceeded"
+        "budget.exceeded",
+        "handoff.requested",
+        "handoff.accepted",
+        "handoff.rejected"
       ]
     },
     "timestamp": {"type": "string", "format": "date-time"},

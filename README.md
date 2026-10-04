@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M1 bounded single-agent tool loop complete.
+**Phase:** M2 routing and typed handoff implemented; certify the checked-out revision with `python scripts/verify_m2.py`.
+
+M2 adds an offline support-router → deterministic specialist handoff in TypeScript and Python. Route decisions are validated before a fixed `0.80` confidence policy; sender intent remains separate from the receiver's minimum `ticket_id + request_text` context. Five canonical cases cover code/model routing, low-confidence fallback, context loss, and unavailable receivers. Success invokes exactly one receiver; rejection invokes none and never retries. M2 certification retains M1 as the lower-milestone authority.
 
 M0 remains the deterministic-vs-model routing baseline. M1 adds an offline, deterministic, read-only single-agent tool loop for the canonical `order-investigation` scenario: a direct function-call baseline, a bounded model–tool–observation loop, two typed read-only tools, hard model-step/token budgets, fail-closed validation, explicit timeout/execution failures, strict JSONL traces, and TypeScript/Python behavioral parity.
 
@@ -45,6 +47,18 @@ python scripts/verify_m1.py
 The M1 gate clears previous M1 evidence, runs the M0 authority, runs M1 contracts and both language test suites, validates verifier safety, executes all eight canonical cases through both CLIs, and compares normalized results and traces. A passing run writes revision-bound evidence to `.boundrelay/m1/verification-evidence.json`.
 
 M1 remains deliberately offline and read-only. It does not add real model providers, retries, mutating tools, persistence, approval/idempotency, Go parity, MCP/framework adapters, or a shared general-purpose runtime. See [Lesson 01](lessons/01-bounded-tool-loop/README.md).
+
+## Verify M2 locally
+
+After installing M0 and M1 as above, install Lesson 02:
+
+```bash
+python -m pip install -e lessons/02-routing-handoff/python
+npm ci --prefix lessons/02-routing-handoff/typescript
+python scripts/verify_m2.py
+```
+
+The gate requires a clean Git worktree, runs M1 (including M0), verifies both M2 implementations and five paired CLI cases, and publishes `.boundrelay/m2/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m2-verification-<revision>`. See [Lesson 02](lessons/02-routing-handoff/README.md) for setup, lifecycle, failure semantics, and exercises. M2 keeps receivers deterministic and read-only; real providers, retries, persistence, side effects, Go, parallelism, and framework adapters remain deferred.
 
 ## Project identity
 

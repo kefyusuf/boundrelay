@@ -1,0 +1,7 @@
+schema_version: "1.0"
+scenario_id: support-handoff
+failures:
+  handoff-context-loss:
+    omit_receiver_input_fields: [request_text]
+  handoff-receiver-unavailable:
+    unavailable_receivers: [billing-specialist]

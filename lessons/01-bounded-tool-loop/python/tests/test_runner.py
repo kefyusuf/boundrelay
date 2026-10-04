@@ -74,15 +74,19 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
                 probe.close()
             from boundrelay_m1.runner import run_scenario_case as runner
             run_scenario_case = runner
-        except Exception:
+        finally:
             cls._socket_connect.stop()
             cls._create_connection.stop()
-            raise
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls._socket_connect.stop()
-        cls._create_connection.stop()
+    async def asyncSetUp(self) -> None:
+        # Windows creates the asyncio self-pipe using a local socketpair.
+        # Install denial after event-loop plumbing exists, before lesson code runs.
+        self._create_connection.start()
+        self._socket_connect.start()
+
+    async def asyncTearDown(self) -> None:
+        self._socket_connect.stop()
+        self._create_connection.stop()
 
     async def run_case(self, case_id: str, mode: str, **overrides):
         directory = tempfile.TemporaryDirectory()

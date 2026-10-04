@@ -7,6 +7,11 @@ from tools.parity.normalize import normalize_event, normalize_result, normalized
 
 
 class NormalizeTests(unittest.TestCase):
+    def test_handoff_generated_ids_do_not_change_parity(self):
+        left = {"type": "handoff.accepted", "data": {"handoff_id": "ts-1", "receiver": "billing-specialist"}}
+        right = {"type": "handoff.accepted", "data": {"handoff_id": "py-9", "receiver": "billing-specialist"}}
+        self.assertEqual(normalize_event(left), normalize_event(right))
+
     def test_event_removes_only_volatile_fields(self) -> None:
         event = {
             "schema_version": "1.0",

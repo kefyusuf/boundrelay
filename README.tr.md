@@ -4,7 +4,9 @@
 
 ## Proje durumu
 
-**Aşama:** M1 bounded single-agent tool loop tamamlandı.
+**Aşama:** M2 routing ve typed handoff uygulandı; mevcut revision'ı `python scripts/verify_m2.py` ile doğrulayın.
+
+M2, TypeScript ve Python'da offline support-router → deterministik specialist handoff ekler. Route kararı doğrulandıktan sonra sabit `0.80` güven eşiği uygulanır; sender intent, alıcının yalnızca `ticket_id + request_text` içeren girdisinden ayrı tutulur. Beş canonical senaryo code/model routing, düşük güven fallback, context loss ve erişilemeyen alıcıyı kapsar. Başarıda tam bir alıcı çağrılır; rejection durumunda çağrı ve retry yapılmaz. M2 doğrulaması M1'i alt milestone authority olarak korur.
 
 M0, deterministic-vs-model routing baseline'ı olarak korunuyor. M1 ise canonical `order-investigation` senaryosu için offline, deterministic ve read-only tek-agent tool loop ekliyor: direct function-call baseline, bounded model–tool–observation döngüsü, iki typed read-only tool, hard model-step/token budget, fail-closed validation, açık timeout/execution failure davranışı, strict JSONL trace ve TypeScript/Python behavioral parity.
 
@@ -45,6 +47,18 @@ python scripts/verify_m1.py
 M1 gate önce eski M1 evidence'ini temizler, M0 authority'yi çalıştırır, M1 contract ve iki dil testlerini doğrular, verifier-safety testlerini yürütür, sekiz canonical case'i iki CLI üzerinden çalıştırır ve normalize edilmiş result/trace eşitliğini kontrol eder. Başarılı çalışmada revision-bound evidence `.boundrelay/m1/verification-evidence.json` dosyasına yazılır.
 
 M1 bilinçli olarak offline ve read-only kalır. Real model provider, retry, mutating tool, persistence, approval/idempotency, Go parity, MCP/framework adapter veya ortak general-purpose runtime eklemez. Ayrıntılar için [Ders 01](lessons/01-bounded-tool-loop/README.md).
+
+## M2'yi yerelde doğrulama
+
+Yukarıdaki M0 ve M1 kurulumlarından sonra Ders 02'yi kurun:
+
+```bash
+python -m pip install -e lessons/02-routing-handoff/python
+npm ci --prefix lessons/02-routing-handoff/typescript
+python scripts/verify_m2.py
+```
+
+Kapı temiz Git worktree gerektirir, M1 üzerinden M0'ı da çalıştırır, iki M2 implementasyonunu ve beş CLI senaryosunun parity'sini doğrular. `HEAD` değişmemişse kanıt `.boundrelay/m2/verification-evidence.json` dosyasına yazılır. GitHub Actions aynı komutu çalıştırır ve `m2-verification-<revision>` artifact'ını yükler. Kurulum, event akışı, hata davranışı ve alıştırmalar için [Ders 02](lessons/02-routing-handoff/README.md). Alıcılar deterministik ve read-only kalır; gerçek provider, retry, persistence, side effect, Go, paralellik ve framework adapter kapsam dışındadır.
 
 ## Proje kimliği
 

@@ -6,7 +6,12 @@ VOLATILE_RESULT_FIELDS = {"run_id", "trace_path"}
 
 
 def normalize_event(event: dict[str, object]) -> dict[str, object]:
-    return {key: value for key, value in event.items() if key not in VOLATILE_EVENT_FIELDS}
+    normalized = {key: value for key, value in event.items() if key not in VOLATILE_EVENT_FIELDS}
+    if event.get("type") in {"handoff.requested", "handoff.accepted", "handoff.rejected"}:
+        data = event.get("data")
+        if isinstance(data, dict):
+            normalized["data"] = {key: value for key, value in data.items() if key != "handoff_id"}
+    return normalized
 
 
 def normalize_result(result: dict[str, object]) -> dict[str, object]:
