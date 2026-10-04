@@ -8,6 +8,10 @@ Accepted scope: D-013 and `docs/superpowers/specs/2026-09-29-m2-routing-handoff-
 
 M2 adds exactly five offline support-handoff cases in TypeScript and Python, a fixed confidence threshold of 0.80, a typed sender-intent/receiver-input boundary, three deterministic receivers, and context-loss/unavailable-receiver rejection without dispatch or retry. Receiver input contains only ticket_id and request_text. M0 and M1 remain regression authorities.
 
+## Next milestone proposal
+
+M3 design is proposed in [the written fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md) and D-014. It introduces a proposed fixed three-worker order brief, sequential/parallel comparison, a two-slot parallel bound, explicit partial results, and one deterministic synthesis owner. M3 is not implemented or accepted; written-design approval precedes implementation planning. M2 remains the implemented verification authority below.
+
 ## Verification authority
 
 - Local gate: `python scripts/verify_m2.py` (runs M1, which runs M0)
