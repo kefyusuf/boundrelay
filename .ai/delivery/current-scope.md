@@ -2,7 +2,7 @@
 
 ## Active phase
 
-M3 — Bounded read-only fan-out/fan-in implemented; candidate qualification in progress.
+M3 — Bounded read-only fan-out/fan-in implemented and revision-verifiable.
 
 Accepted scope: D-014 and `docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md`. Implementation plan: `docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md`, approved for Native execution.
 
@@ -14,7 +14,7 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md), D-014, and the [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) on 2026-10-05, selecting Native execution. The implementation now awaits complete current-revision qualification and whole-branch review. No M4/M5 work is included.
+The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md), D-014, and the [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) on 2026-10-05, selecting Native execution. A fresh whole-branch review identified two Important boundary findings, addressed through RED→GREEN tests: reject hidden/symbol/accessor worker fields before cloning and remove stale evidence before dirty preflight. The complete authority must be rerun on every changed candidate. No M4/M5 work is included.
 
 ## Verification authority
 
