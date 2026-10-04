@@ -9,6 +9,16 @@ import {createReceiverDirectory} from "../src/receivers.js";
 import {SCENARIO_PATH, FAILURE_PATH} from "../src/paths.js";
 
 describe("M2 foundations", () => {
+  it("accepts explicit null failure codes on success while rejecting failure fields", () => {
+    const raw = parse(readFileSync(SCENARIO_PATH, "utf8"));
+    raw.cases[0].expected_failure_code = null;
+    expect(findScenarioCase(loadScenario(raw), raw.cases[0].id).expected_status).toBe("SUCCEEDED");
+    raw.cases[0].expected_failure_code = "HANDOFF_CONTEXT_INVALID";
+    expect(() => loadScenario(raw)).toThrow("success case cannot define failure fields");
+    raw.cases[0].expected_failure_code = null;
+    raw.cases[0].failure_ref = "handoff-context-loss";
+    expect(() => loadScenario(raw)).toThrow("success case cannot define failure fields");
+  });
   it("loads the canonical fallback and isolates failures", () => {
     expect(findScenarioCase(loadScenario(), "model-low-confidence-fallback")).toMatchObject({router_mode: "model", expected_proposed_route: "billing", expected_confidence: 0.54, expected_selected_route: "general", expected_receiver: "general-specialist", expected_fallback_applied: true});
     expect(Object.keys(loadFailureFixtures())).toEqual(["handoff-context-loss", "handoff-receiver-unavailable"]);

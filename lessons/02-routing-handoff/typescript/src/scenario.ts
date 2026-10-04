@@ -85,7 +85,7 @@ function parseCase(raw: unknown, failures: FailureFixtures): ScenarioCase {
   if (!/^TCK-[0-9]{4}$/.test(item.ticket_id)) throw new Error(`${item.id} ticket_id is invalid.`);
   if (item.expected_confidence < 0 || item.expected_confidence > 1) throw new Error(`${item.id} expected_confidence must be between 0 and 1.`);
   if (expectedStatus === "SUCCEEDED") {
-    if (raw.expected_failure_code !== undefined || raw.failure_ref !== undefined) throw new Error(`${item.id} success case cannot define failure fields.`);
+    if ((raw.expected_failure_code !== undefined && raw.expected_failure_code !== null) || raw.failure_ref !== undefined) throw new Error(`${item.id} success case cannot define failure fields.`);
     return item;
   }
   item.expected_failure_code = enumValue<FailureCode>(raw.expected_failure_code, FAILURE_CODES, "expected_failure_code");
