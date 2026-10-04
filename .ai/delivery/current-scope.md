@@ -10,7 +10,7 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md) and D-014 on 2026-10-05. It fixes three order-brief workers, sequential/parallel comparison, a two-slot parallel bound, explicit partial results, and one deterministic synthesis owner. The [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) awaits owner review and execution-method selection. M3 is not implemented. M2 remains the implemented verification authority below.
+The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md), D-014, and the [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) on 2026-10-05, selecting Native execution. It fixes three order-brief workers, sequential/parallel comparison, a two-slot parallel bound, explicit partial results, and one deterministic synthesis owner. M3 implementation is in progress and not yet certified. M2 remains the implemented verification authority below.
 
 ## Verification authority
 

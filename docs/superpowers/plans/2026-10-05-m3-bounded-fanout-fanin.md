@@ -1,6 +1,6 @@
 # M3 Bounded Fan-Out and Fan-In Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Native execution is recommended for this plan; owner selection is pending.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The owner selected Native execution on 2026-10-05.
 
 **Goal:** Deliver the accepted offline order-brief lesson with three independent reads, sequential/parallel execution, explicit partial failure, deterministic synthesis, and exact-revision evidence.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M3 design](../specs/2026-10-05-m3-bounded-fanout-fanin-design.md), [D-014](../../decisions/D-014-m3-bounded-read-only-fanout-fanin.md).
 
-**Status:** Written design accepted on 2026-10-05. This plan awaits owner review and execution-method selection. Product implementation has not started.
+**Status:** Written design and implementation plan accepted on 2026-10-05. The owner selected Native execution; implementation is in progress and not yet certified.
 
 ## Global Constraints
 
@@ -168,7 +168,7 @@ Use repository root as explicit cwd. On this Windows host use `.venv/Scripts/pyt
 
 **Files — Create:** `TS/src/{trace,runner,cli}.ts`, `TS/test/{runner,cli,offline}.test.ts`, `TS/test/helpers/offline-runner.ts`; `PY/src/boundrelay_m3/{trace,runner,cli,__main__}.py`, `PY/tests/test_{runner,cli_trace,offline}.py`, `PY/tests/offline_runner.py`.
 
-**Interfaces:** Consume executor/collector/synthesizer, produce `TraceSink` and `runCase`. CLI options exactly `--case <id> --trace <path>` (mode comes from case). Python module CLI `python -m boundrelay_m3`; TS package run script `tsx src/cli.ts`. Reject unknown/duplicate/positional or missing arguments before worker calls. Runtime source IDs follow existing TS/Python source conventions.
+**Interfaces:** Consume executor/collector/synthesizer, produce `TraceSink` and `runCase`. CLI options exactly `--mode sequential|parallel --case <id> --trace <path>`, matching accepted spec section 4. Reject case-incompatible mode. Python module CLI `python -m boundrelay_m3`; TS package run script `tsx src/cli.ts`. Reject unknown/duplicate/positional or missing arguments before worker calls. Runtime source IDs follow existing TS/Python source conventions.
 
 - [ ] Write paired `synthesis_waits_for_all_outcomes` with injected directory/control and synthesizer spy. Hold delivery gate while two outcomes settle; assert synthesis calls 0. Release delivery, assert 1 call with canonical outcomes; all-failed asserts 0. Verify SUCCEEDED/PARTIAL/FAILED policy including the extra two-failure unit case, synthesis flag, null brief on all failure, and canonical result order.
 - [ ] Write paired `trace_rejects_raw_private_payload` and `fatal_run_flushes_prefix_without_result`. Assert invalid payment gets FAILED typed outcome without private/raw value, no invalid facts in brief, and unexpected error has CLI exit 2/no JSON result/no canonical terminal, but persisted valid trace prefix. Check worker terminal data includes only safe typed outcome.
@@ -228,4 +228,4 @@ All five Review Focus rows have named tests. Interfaces and wire names are consi
 
 ## Execution Handoff
 
-Owner review of this written plan and execution-method selection are pending. Recommended: **Native** — implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. These tasks share close interfaces and have no external business writes. Alternative: **Subagent-driven** — fresh implementer and reviewer per task, followed by whole-branch review, with greater context cost. Do not start product implementation before the owner reviews the plan and selects the method.
+The owner approved this written plan and selected **Native** on 2026-10-05: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. These tasks share close interfaces and have no external business writes. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
