@@ -2,8 +2,11 @@ import {expect,test} from 'vitest';
 import {canonicalizeOutcomes} from '../src/collector.js';
 import {synthesizeBrief} from '../src/synthesizer.js';
 import {WORKER_IDS,type WorkerOutcome,type CanonicalOutcomes} from '../src/types.js';
-const outputs=[{order_id:'ORD-1001',order_status:'SHIPPED'},{order_id:'ORD-1001',payment_status:'PAID'},{order_id:'ORD-1001',delivery_status:'DELAYED'}];
-const outcomes=WORKER_IDS.map((worker_id,i)=>({worker_id,status:'SUCCEEDED',output:outputs[i],failure_code:null})) as CanonicalOutcomes;
+const outcomes:CanonicalOutcomes=[
+ {worker_id:'order-details',status:'SUCCEEDED',output:{order_id:'ORD-1001',order_status:'SHIPPED'},failure_code:null},
+ {worker_id:'payment-status',status:'SUCCEEDED',output:{order_id:'ORD-1001',payment_status:'PAID'},failure_code:null},
+ {worker_id:'delivery-status',status:'SUCCEEDED',output:{order_id:'ORD-1001',delivery_status:'DELAYED'},failure_code:null},
+];
 const fail=(i:number):WorkerOutcome=>({worker_id:WORKER_IDS[i]!,status:'FAILED',output:null,failure_code:'WORKER_EXECUTION_FAILED'});
 test('canonical_merge_ignores_completion_order',()=>{
  expect(canonicalizeOutcomes([outcomes[2],outcomes[1],outcomes[0]],'ORD-1001')).toEqual(outcomes);
