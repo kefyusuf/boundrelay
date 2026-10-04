@@ -28,6 +28,10 @@ M3 adds deterministic asynchronous workers, not model-backed agents. Fixed worke
 | Sequential reads only | Small deterministic baseline | Cannot demonstrate overlapping independent execution | Keep as baseline, not the milestone |
 | Model-selected workers with model-backed synthesis | Can teach decomposition and interpretation | Adds provider, budget, topology, and output-policy decisions before concurrency is proved | Defer |
 
+### Teaching sequence
+
+Follow D-005: establish the known-identifier problem, build sequential reads, justify overlapping independent work, show an isolated naive example, inject controlled failures, correct admission/collection/synthesis, and prove the invariants. The naive example launches all three reads without a cap and appends directly to a shared brief in completion order. A deterministic gated demonstration exposes its three active calls and completion-order-dependent report. Keep this example in the lesson walkthrough/exercise and its small regression demonstration, not as another public CLI mode or canonical case. The corrected runtime retains the two-slot limit, typed outcomes, canonical merge order, and one publisher. Explain why neither version needs model judgment and when three sequential calls are the better choice.
+
 ## 3. Canonical scenario: order brief
 
 The proposed scenario ID is `order-brief`. Its input is a known order identifier, initially `ORD-1001`. It requests an internal structured brief, not a customer message or an external write.
