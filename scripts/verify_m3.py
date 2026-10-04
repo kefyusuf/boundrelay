@@ -40,7 +40,7 @@ def _collect_python_suite():
             'failed':[test.id() for test,_ in result.failures+result.errors],'skipped':[test.id() for test,_ in result.skipped]}
 
 def main():
-    gate.assert_clean_worktree();revision=gate._revision();gate.clear_previous_evidence()
+    gate.clear_previous_evidence();gate.assert_clean_worktree();revision=gate._revision()
     env=os.environ.copy();env['PYTHONPATH']=str(gate.PY_SRC)
     run([sys.executable,'scripts/verify_m2.py']);gate.validate_lower_evidence(revision)
     run([sys.executable,'-m','unittest','tools.contracts.test_m3_contracts','-v'],env)

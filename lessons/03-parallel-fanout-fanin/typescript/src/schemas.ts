@@ -14,7 +14,13 @@ export function finiteJson(value:unknown,seen=new Set<object>(),depth=0):boolean
  if(typeof value==='number')return Number.isFinite(value)&&(!Number.isInteger(value)||Number.isSafeInteger(value));
  if(typeof value!=='object'||seen.has(value))return false;
  if(!Array.isArray(value)&&Object.getPrototypeOf(value)!==Object.prototype)return false;
- seen.add(value);try{return Object.values(value).every(v=>finiteJson(v,seen,depth+1));}finally{seen.delete(value);}
+ const descriptors=Object.getOwnPropertyDescriptors(value);
+ seen.add(value);try{return Reflect.ownKeys(value).every(key=>{
+  if(typeof key!=='string')return false;
+  if(Array.isArray(value)&&key==='length')return true;
+  const descriptor=descriptors[key];
+  return descriptor!==undefined&&descriptor.enumerable===true&&'value' in descriptor&&finiteJson(descriptor.value,seen,depth+1);
+ });}finally{seen.delete(value);}
 }
 export function validateWorkerOutput(id:WorkerId,raw:unknown,orderId:string):ValidationResult<WorkerOutput> {
  if(!finiteJson(raw))return {valid:false};

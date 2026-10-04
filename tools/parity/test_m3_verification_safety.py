@@ -124,5 +124,13 @@ class M3VerificationSafetyTests(unittest.TestCase):
             self.assertTrue(report['successful'])
             self.assertNotIn('PYTHONPATH',os.environ)
 
+    def test_stale_output_removed_for_dirty_preflight(self):
+        from scripts import verify_m3 as authority
+        output=Path(self.tmp.name)/'m3';output.mkdir()
+        stale=output/'verification-evidence.json';stale.write_text('{"status":"PASSED"}')
+        with patch.object(gate,'OUTPUT_ROOT',output),patch.object(gate,'assert_clean_worktree',side_effect=RuntimeError('dirty')):
+            with self.assertRaises(RuntimeError):authority.main()
+        self.assertFalse(stale.exists())
+
 
 if __name__=='__main__':unittest.main()
