@@ -1,18 +1,18 @@
 # M3 Bounded Fan-Out and Fan-In Design
 
 - **Date:** 2026-10-05
-- **Status:** Proposed; awaiting owner review of this written design
+- **Status:** Accepted by the owner on 2026-10-05; implementation plan review pending
 - **Milestone:** M3 — Parallel fan-out and fan-in
 - **Project:** BoundRelay
 - **Baseline:** merged M2 at `497132e827d27dc81048fab9fcb7e8de809e2bda`
-- **Decision:** [D-014](../../decisions/D-014-m3-bounded-read-only-fanout-fanin.md), proposed
+- **Decision:** [D-014](../../decisions/D-014-m3-bounded-read-only-fanout-fanin.md), accepted
 - **Depends on:** [foundation design](../../design/2026-09-02-foundation-design.md), D-001 through D-013, completed M0/M1/M2 verification
 
 ## 1. Purpose and design brief
 
 M3 teaches independent work, bounded execution, explicit partial failure, and deterministic synthesis. The owner requested careful continuation along the existing roadmap after M2 integration. The roadmap requires independent read-only workers, bounded concurrency, explicit partial failure, a deterministic merge contract, and one synthesizer owning the final write.
 
-This proposal preserves offline execution, TypeScript/Python parity, lesson-local implementations, shared behavioral contracts, and exact-revision evidence. Proposed scenario and policy choices below are subject to owner approval; they are not accepted project truth yet.
+This accepted design preserves offline execution, TypeScript/Python parity, lesson-local implementations, shared behavioral contracts, and exact-revision evidence. The owner approved the written scenario and policy choices on 2026-10-05. Product implementation requires review of the detailed plan and selection of its execution method.
 
 The teaching objective is:
 
@@ -34,7 +34,7 @@ Follow D-005: establish the known-identifier problem, build sequential reads, ju
 
 ## 3. Canonical scenario: order brief
 
-The proposed scenario ID is `order-brief`. Its input is a known order identifier, initially `ORD-1001`. It requests an internal structured brief, not a customer message or an external write.
+The scenario ID is `order-brief`. Its input is a known order identifier, initially `ORD-1001`. It requests an internal structured brief, not a customer message or an external write.
 
 M1's order investigation required one observation to identify a subsequent read. M3 deliberately starts with the identifier already known: its three reads do not depend on each other's results. The new lesson does not call the M1 tool loop or M2 router.
 
@@ -94,7 +94,7 @@ Every ordinary worker outcome contains `worker_id`, `status`, `output`, and `fai
 | `SUCCEEDED` | Strict worker-specific output | `null` |
 | `FAILED` | `null` | `WORKER_EXECUTION_FAILED` or `INVALID_WORKER_OUTPUT` |
 
-Worker outputs are closed objects with the exact fields above, matching the requested order ID. The proposed field domains are `order_status: PROCESSING|SHIPPED|CANCELLED`, `payment_status: PAID|UNPAID`, and `delivery_status: PENDING|IN_TRANSIT|DELIVERED|DELAYED`. Order IDs follow `^ORD-[0-9]{4}$`. Reject missing or extra fields, wrong identifiers, unsupported statuses, and values that cannot safely cross the finite JSON boundary before public event serialization.
+Worker outputs are closed objects with the exact fields above, matching the requested order ID. The field domains are `order_status: PROCESSING|SHIPPED|CANCELLED`, `payment_status: PAID|UNPAID`, and `delivery_status: PENDING|IN_TRANSIT|DELIVERED|DELAYED`. Order IDs follow `^ORD-[0-9]{4}$`. Reject missing or extra fields, wrong identifiers, unsupported statuses, and values that cannot safely cross the finite JSON boundary before public event serialization.
 
 The scripted adapter can raise a declared worker execution failure. That becomes `WORKER_EXECUTION_FAILED`. A returned but invalid payload becomes `INVALID_WORKER_OUTPUT`. Neither supplies facts to synthesis. Public failure events contain only safe identifiers and the fixed failure code; raw rejected payloads, arbitrary exception text, prompts, and private reasoning are not trace data.
 
@@ -117,7 +117,7 @@ The synthesizer is called exactly once when at least one worker succeeds, and ne
 
 ## 7. Run result and partial-failure policy
 
-The proposed policy retains usable successful reads while marking missing evidence explicitly:
+The policy retains usable successful reads while marking missing evidence explicitly:
 
 | Successful workers | Run status | Brief | Synthesis invoked | Run failure code |
 |---|---|---|---|---|
@@ -125,7 +125,7 @@ The proposed policy retains usable successful reads while marking missing eviden
 | 1 or 2 | `PARTIAL` | Incomplete, only successful sections | `true` | `null` |
 | 0 | `FAILED` | `null` | `false` | `ALL_WORKERS_FAILED` |
 
-`PARTIAL` is not interchangeable with `SUCCEEDED`. The result retains all three worker outcomes and their individual failure codes. Owner review of this proposal must settle this policy before implementation planning.
+`PARTIAL` is not interchangeable with `SUCCEEDED`. The result retains all three worker outcomes and their individual failure codes. The owner approved this policy with the written design.
 
 The result also records schema version `1.0`, run/scenario/case IDs, `execution_mode`, `concurrency_limit`, `peak_concurrency`, requested order ID, synthesis invocation flag, and trace path. `peak_concurrency` must agree with reconstructed lifecycle evidence; it does not independently prove real overlapping calls.
 
@@ -139,7 +139,7 @@ Validate the complete trajectory before dispatch: the worker set must be exact, 
 
 Fixture grammar validates the return/failure operators and schedule, not whether a returned business payload will pass the worker schema. The invalid-output case must reach runtime validation. The release controller advances only after acknowledgement of the recorded worker terminal, not merely when a provider future resolves; this makes the completion-order witness repeatable across runtimes without requiring identical cross-worker start interleavings.
 
-The proposed milestone contains exactly six cases:
+The milestone contains exactly six cases:
 
 | Case ID | Mode | Completion order | Expected outcome |
 |---|---|---|---|
@@ -197,7 +197,7 @@ The authority must run tests with instrumented worker bodies independent of the 
 
 A bounded test watchdog may detect a deadlock, but is test infrastructure rather than a new runtime timeout/recovery feature. No speedup claim or noisy duration comparison is an acceptance criterion. Trace self-report cannot substitute for these probes.
 
-## 12. Proposed artifacts and architecture
+## 12. Planned artifacts and architecture
 
 The future implementation is lesson-local and idiomatic in each language:
 
@@ -245,7 +245,7 @@ Evidence records the exact revision, command, runtime versions, requested case/m
 19. All six canonical cases run offline, with strict schema-valid outputs and traces.
 20. M0/M1/M2 remain valid and all evidence is bound to the current candidate revision.
 
-M3 is complete only when executable evidence proves all these requirements for the candidate revision. This proposed document and a passing lower-milestone gate do not establish M3 completion.
+M3 is complete only when executable evidence proves all these requirements for the candidate revision. This accepted design and a passing lower-milestone gate do not establish M3 completion.
 
 ## 15. Explicit exclusions
 
@@ -253,6 +253,6 @@ M3 does not introduce real providers, model-backed workers/synthesis, dynamic de
 
 ## 16. Written-design review gate
 
-This design and D-014 remain Proposed. Owner approval must cover the order-brief scenario, fixed worker topology, limits, partial-result policy, single synthesis owner, six canonical cases, failure taxonomy, trace/parity boundaries, and revision-bound authority.
+The owner approved this written design and D-014 on 2026-10-05, covering the order-brief scenario, fixed worker topology, limits, partial-result policy, single synthesis owner, six canonical cases, failure taxonomy, trace/parity boundaries, and revision-bound authority.
 
-After approval of this written design, record acceptance and prepare a written implementation plan. Review that plan and select its execution method before product implementation. No product code, schema, fixture, dependency, workflow, or implementation-plan change is authorized by this proposal alone.
+The [implementation plan](../plans/2026-10-05-m3-bounded-fanout-fanin.md) is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product code, schema, fixture, dependency, or workflow implementation.

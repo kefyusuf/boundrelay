@@ -17,4 +17,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-011](D-011-project-name-and-family.md) | Use BoundRelay as the umbrella brand and `boundrelay` as the initial repository slug | Accepted | 2026-09-02 |
 | [D-012](D-012-m1-bounded-single-agent-tool-loop.md) | Bound M1 to an offline read-only single-agent tool loop with hard budgets | Accepted | 2026-09-15 |
 | [D-013](D-013-m2-typed-support-handoff-boundary.md) | Bound M2 to typed support handoff with deterministic confidence fallback and receivers | Accepted | 2026-09-30 |
-| [D-014](D-014-m3-bounded-read-only-fanout-fanin.md) | Propose M3 bounded read-only fan-out/fan-in with explicit partial results and deterministic synthesis | Proposed | 2026-10-05 |
+| [D-014](D-014-m3-bounded-read-only-fanout-fanin.md) | Bound M3 to read-only fan-out/fan-in with explicit partial results and deterministic synthesis | Accepted | 2026-10-05 |

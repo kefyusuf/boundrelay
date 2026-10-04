@@ -1,6 +1,6 @@
 # D-014 — M3 Bounded Read-Only Fan-Out and Fan-In
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-05
 
 ## Context
@@ -9,13 +9,13 @@ M2 is integrated and certified on main. The roadmap's next lesson concerns indep
 
 M3 should isolate those responsibilities without adding dynamic decomposition, real providers, persistence, recovery, or external writes. M1 already provides a dependent read loop; M2 provides a typed handoff. Neither runtime needs to become a shared orchestration framework for this lesson.
 
-## Proposed decision
+## Decision
 
 Teach the offline `order-brief` scenario through exactly three independent workers: `order-details`, `payment-status`, and `delivery-status`. Every worker receives only the known order ID. The fixed queue and synthesis order follows that list.
 
 Provide sequential mode with one slot and parallel mode with two slots. Invoke each worker once. Collect one validated typed outcome per worker before invoking the deterministic synthesizer. Declared failures remain explicit; malformed payloads never become report facts. Unexpected implementation exceptions remain tooling failures.
 
-The proposed result policy is:
+The result policy is:
 
 - three successful workers: `SUCCEEDED`, complete brief;
 - one or two successful workers: `PARTIAL`, usable sections and explicit missing workers;
@@ -43,4 +43,4 @@ Reuse the unchanged shared event envelope and step/run event types. Validate raw
 
 ## Acceptance gate
 
-Awaiting owner review of the written design. This proposed decision does not supersede or change accepted M0/M1/M2 boundaries. Written-design approval permits detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation.
+The owner approved the written design on 2026-10-05. This decision does not supersede or change accepted M0/M1/M2 boundaries. Written-design approval permits detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation.
