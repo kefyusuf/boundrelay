@@ -1,37 +1,37 @@
-schema_version: '1.0'
+schema_version: "1.0"
 scenario_id: support-handoff
 invariants:
-- id: M2-I01
-  description: Code mode never invokes the model.
-- id: M2-I02
-  description: Validate model decisions before policy or handoff.
-- id: M2-I03
-  description: Reuse the M0 route-decision authority.
-- id: M2-I04
-  description: Confidence >= 0.80 preserves the proposed route.
-- id: M2-I05
-  description: Confidence < 0.80 forces general fallback.
-- id: M2-I06
-  description: Models cannot redefine confidence policy.
-- id: M2-I07
-  description: Use exactly the three fixed route-to-receiver mappings.
-- id: M2-I08
-  description: Separate sender intent from receiver input.
-- id: M2-I09
-  description: Receivers obtain only ticket_id and request_text.
-- id: M2-I10
-  description: 'Invalid context: requested then rejected with zero invocations.'
-- id: M2-I11
-  description: 'Unavailable receiver: requested then rejected with zero invocations.'
-- id: M2-I12
-  description: 'Success: requested then accepted with exactly one invocation.'
-- id: M2-I13
-  description: Never retry handoff failures.
-- id: M2-I14
-  description: Exactly one terminal event and contiguous sequence numbers.
-- id: M2-I15
-  description: Equivalent normalized TypeScript/Python behavior.
-- id: M2-I16
-  description: Bind evidence to the exact Git revision.
-- id: M2-I17
-  description: Keep M1 verification green.
+  - id: M2-I01
+    description: Code-router mode never invokes the model.
+  - id: M2-I02
+    description: Every model route decision is validated before confidence policy or handoff construction.
+  - id: M2-I03
+    description: The existing M0 route-decision schema remains the route-decision authority.
+  - id: M2-I04
+    description: Confidence greater than or equal to 0.80 preserves the proposed route.
+  - id: M2-I05
+    description: Confidence below 0.80 forces general with fallback_applied true.
+  - id: M2-I06
+    description: The model cannot bypass or redefine confidence policy.
+  - id: M2-I07
+    description: Route-to-receiver mapping is exactly billing, technical, and general to their three named specialists.
+  - id: M2-I08
+    description: Handoff sender intent and receiver input remain separate typed objects.
+  - id: M2-I09
+    description: Receiver input contains only ticket_id and request_text.
+  - id: M2-I10
+    description: Invalid handoff context emits one requested and one rejected handoff and invokes no specialist.
+  - id: M2-I11
+    description: Unavailable receiver emits one requested and one rejected handoff and invokes no specialist.
+  - id: M2-I12
+    description: Successful handoff emits requested then accepted and invokes exactly one deterministic specialist.
+  - id: M2-I13
+    description: No handoff failure retries automatically.
+  - id: M2-I14
+    description: Every run emits exactly one terminal event with monotonic event sequence numbers.
+  - id: M2-I15
+    description: TypeScript and Python produce equivalent normalized M2 behavior.
+  - id: M2-I16
+    description: M2 evidence is bound to the exact candidate revision.
+  - id: M2-I17
+    description: M1 authority remains green.

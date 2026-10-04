@@ -29,7 +29,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
                     for key in ('status','proposed_route','selected_route','receiver','fallback_applied','specialist_invoked','failure_code'):
                         self.assertEqual(getattr(result,key), getattr(c,'expected_'+key))
                     self.assertEqual(calls, [{'ticket_id': c.ticket_id, 'request_text': c.request}] if c.expected_specialist_invoked else [])
-                    self.assertEqual(resolutions, [] if c.id == 'handoff-context-loss' else [c.expected_receiver])
+                    self.assertEqual(resolutions, [c.expected_receiver] if c.expected_specialist_invoked else [])
                     events = [json.loads(line) for line in Path(trace).read_text(encoding='utf-8').splitlines()]
                     expected = ['run.created','run.started'] + (['model.requested','model.completed'] if c.router_mode == 'model' else []) + ['route.selected','handoff.requested','handoff.accepted' if c.expected_specialist_invoked else 'handoff.rejected','run.completed' if c.expected_specialist_invoked else 'run.failed']
                     self.assertEqual([e['type'] for e in events], expected)

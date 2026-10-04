@@ -1,7 +1,16 @@
-import {ROUTE_RECEIVERS} from "./policy.js";
-import type {ReceiverName, ReceiverDirectory, ReceiverDefinition} from "./types.js";
+import {RECEIVER_NAMES, type ReceiverDefinition, type ReceiverDirectory, type ReceiverInput, type ReceiverName} from "./types.js";
+class StaticReceiverDirectory implements ReceiverDirectory {
+  readonly #definitions: ReadonlyMap<string, ReceiverDefinition>;
+  constructor(definitions: readonly ReceiverDefinition[]) { this.#definitions = new Map(definitions.map((d) => [d.name,d])); }
+  resolve(name: string): ReceiverDefinition | undefined { return this.#definitions.get(name); }
+}
+function receiver(name: ReceiverName): ReceiverDefinition {
+  return Object.freeze({
+    name,
+    async handle(input: ReceiverInput): Promise<void> { void input.ticket_id; void input.request_text; },
+  });
+}
 export function createReceiverDirectory(unavailable: readonly ReceiverName[] = []): ReceiverDirectory {
-  const definitions = new Map<string, ReceiverDefinition>();
-  for (const name of Object.values(ROUTE_RECEIVERS)) if (!unavailable.includes(name)) definitions.set(name, {name, async handle(_input) {}});
-  return {resolve: name => definitions.get(name)};
+  const unavailableSet = new Set<ReceiverName>(unavailable);
+  return new StaticReceiverDirectory(RECEIVER_NAMES.filter((name) => !unavailableSet.has(name)).map(receiver));
 }

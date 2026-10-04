@@ -1,75 +1,76 @@
-schema_version: '1.0'
+schema_version: "1.0"
 scenario_id: support-handoff
-confidence_threshold: 0.8
+confidence_threshold: 0.80
 route_receivers:
   billing: billing-specialist
   technical: technical-specialist
   general: general-specialist
 cases:
-- id: code-billing-handoff
-  ticket_id: TCK-1001
-  request: I was charged twice for invoice INV-1001.
-  router_mode: code
-  expected_status: SUCCEEDED
-  expected_proposed_route: billing
-  expected_confidence: 1.0
-  expected_selected_route: billing
-  expected_receiver: billing-specialist
-  expected_policy_outcome: selected
-  expected_fallback_applied: false
-  expected_specialist_invoked: true
-  expected_failure_code: null
-- id: model-technical-handoff
-  ticket_id: TCK-1002
-  request: The verification screen keeps rejecting the code and I cannot get in.
-  router_mode: model
-  expected_status: SUCCEEDED
-  expected_proposed_route: technical
-  expected_confidence: 0.92
-  expected_selected_route: technical
-  expected_receiver: technical-specialist
-  expected_policy_outcome: selected
-  expected_fallback_applied: false
-  expected_specialist_invoked: true
-  expected_failure_code: null
-- id: model-low-confidence-fallback
-  ticket_id: TCK-1003
-  request: Something about my invoice looks wrong but I am not sure what happened.
-  router_mode: model
-  expected_status: SUCCEEDED
-  expected_proposed_route: billing
-  expected_confidence: 0.54
-  expected_selected_route: general
-  expected_receiver: general-specialist
-  expected_policy_outcome: fallback
-  expected_fallback_applied: true
-  expected_specialist_invoked: true
-  expected_failure_code: null
-- id: handoff-context-loss
-  ticket_id: TCK-9001
-  request: I was billed for a service I did not receive.
-  router_mode: model
-  expected_status: FAILED
-  expected_proposed_route: billing
-  expected_confidence: 0.93
-  expected_selected_route: billing
-  expected_receiver: billing-specialist
-  expected_policy_outcome: selected
-  expected_fallback_applied: false
-  expected_specialist_invoked: false
-  expected_failure_code: HANDOFF_CONTEXT_INVALID
-  failure_ref: handoff-context-loss
-- id: handoff-receiver-unavailable
-  ticket_id: TCK-9002
-  request: I need help with a charge on invoice INV-9002.
-  router_mode: code
-  expected_status: FAILED
-  expected_proposed_route: billing
-  expected_confidence: 1.0
-  expected_selected_route: billing
-  expected_receiver: billing-specialist
-  expected_policy_outcome: selected
-  expected_fallback_applied: false
-  expected_specialist_invoked: false
-  expected_failure_code: HANDOFF_RECEIVER_UNAVAILABLE
-  failure_ref: handoff-receiver-unavailable
+  - id: code-billing-handoff
+    ticket_id: TCK-1001
+    request: I was charged twice for invoice INV-1001.
+    router_mode: code
+    expected_status: SUCCEEDED
+    expected_proposed_route: billing
+    expected_confidence: 1.0
+    expected_selected_route: billing
+    expected_receiver: billing-specialist
+    expected_policy_outcome: selected
+    expected_fallback_applied: false
+    expected_specialist_invoked: true
+
+  - id: model-technical-handoff
+    ticket_id: TCK-1002
+    request: The verification screen keeps rejecting the code and I cannot get in.
+    router_mode: model
+    expected_status: SUCCEEDED
+    expected_proposed_route: technical
+    expected_confidence: 0.92
+    expected_selected_route: technical
+    expected_receiver: technical-specialist
+    expected_policy_outcome: selected
+    expected_fallback_applied: false
+    expected_specialist_invoked: true
+
+  - id: model-low-confidence-fallback
+    ticket_id: TCK-1003
+    request: Something about my invoice looks wrong but I am not sure what happened.
+    router_mode: model
+    expected_status: SUCCEEDED
+    expected_proposed_route: billing
+    expected_confidence: 0.54
+    expected_selected_route: general
+    expected_receiver: general-specialist
+    expected_policy_outcome: fallback
+    expected_fallback_applied: true
+    expected_specialist_invoked: true
+
+  - id: handoff-context-loss
+    ticket_id: TCK-9001
+    request: I was billed for a service I did not receive.
+    router_mode: model
+    expected_status: FAILED
+    expected_proposed_route: billing
+    expected_confidence: 0.93
+    expected_selected_route: billing
+    expected_receiver: billing-specialist
+    expected_policy_outcome: selected
+    expected_fallback_applied: false
+    expected_specialist_invoked: false
+    expected_failure_code: HANDOFF_CONTEXT_INVALID
+    failure_ref: handoff-context-loss
+
+  - id: handoff-receiver-unavailable
+    ticket_id: TCK-9002
+    request: I need help with a charge on invoice INV-9002.
+    router_mode: code
+    expected_status: FAILED
+    expected_proposed_route: billing
+    expected_confidence: 1.0
+    expected_selected_route: billing
+    expected_receiver: billing-specialist
+    expected_policy_outcome: selected
+    expected_fallback_applied: false
+    expected_specialist_invoked: false
+    expected_failure_code: HANDOFF_RECEIVER_UNAVAILABLE
+    failure_ref: handoff-receiver-unavailable

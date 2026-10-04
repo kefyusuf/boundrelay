@@ -1,16 +1,26 @@
 import {readFileSync} from "node:fs";
-import Ajv2020, {type ValidateFunction} from "ajv/dist/2020.js";
+import Ajv2020, {type ErrorObject, type ValidateFunction} from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
-import {EVENT_SCHEMA_PATH, RESULT_SCHEMA_PATH, HANDOFF_SCHEMA_PATH, ROUTE_SCHEMA_PATH} from "./paths.js";
-import type {RunEvent, HandoffResult, HandoffEnvelope, RouteDecision, ValidationResult} from "./types.js";
-const ajv = new Ajv2020({strict: true, allErrors: true});
-addFormats(ajv);
-function compile<T>(path: string): ValidateFunction<T> {return ajv.compile<T>(JSON.parse(readFileSync(path, "utf8")));}
-function validate<T>(schema: ValidateFunction<T>, value: unknown): ValidationResult<T> {
-  return schema(value) ? {ok: true, value: structuredClone(value)} : {ok: false, errors: (schema.errors ?? []).map(e => `${e.instancePath || "/"} ${e.message}`)};
+import {EVENT_SCHEMA_PATH, HANDOFF_SCHEMA_PATH, RESULT_SCHEMA_PATH, ROUTE_SCHEMA_PATH} from "./paths.js";
+import type {HandoffEnvelope, HandoffResult, RouteDecision, RunEvent, ValidationResult} from "./types.js";
+
+function loadSchema(path: string): object {
+  return JSON.parse(readFileSync(path, "utf8")) as object;
 }
-const route = compile<RouteDecision>(ROUTE_SCHEMA_PATH), handoff = compile<HandoffEnvelope>(HANDOFF_SCHEMA_PATH), event = compile<RunEvent>(EVENT_SCHEMA_PATH), result = compile<HandoffResult>(RESULT_SCHEMA_PATH);
-export const validateRouteDecision = (value: unknown) => validate(route, value);
-export const validateHandoff = (value: unknown) => validate(handoff, value);
-export const validateRunEvent = (value: unknown) => validate(event, value);
-export const validateHandoffResult = (value: unknown) => validate(result, value);
+const ajv = new Ajv2020({allErrors: true, strict: true});
+addFormats(ajv);
+const routeValidator = ajv.compile<RouteDecision>(loadSchema(ROUTE_SCHEMA_PATH));
+const handoffValidator = ajv.compile<HandoffEnvelope>(loadSchema(HANDOFF_SCHEMA_PATH));
+const eventValidator = ajv.compile<RunEvent>(loadSchema(EVENT_SCHEMA_PATH));
+const resultValidator = ajv.compile<HandoffResult>(loadSchema(RESULT_SCHEMA_PATH));
+function stableErrors(errors: ErrorObject[] | null | undefined): string[] {
+  return (errors ?? []).map((error) => `${error.instancePath || "/"} ${error.message ?? "is invalid"}`);
+}
+function validate<T>(validator: ValidateFunction<T>, raw: unknown): ValidationResult<T> {
+  if (validator(raw)) return {ok: true, value: structuredClone(raw)};
+  return {ok: false, errors: stableErrors(validator.errors)};
+}
+export function validateRouteDecision(raw: unknown): ValidationResult<RouteDecision> { return validate(routeValidator, raw); }
+export function validateHandoff(raw: unknown): ValidationResult<HandoffEnvelope> { return validate(handoffValidator, raw); }
+export function validateRunEvent(raw: unknown): ValidationResult<RunEvent> { return validate(eventValidator, raw); }
+export function validateHandoffResult(raw: unknown): ValidationResult<HandoffResult> { return validate(resultValidator, raw); }

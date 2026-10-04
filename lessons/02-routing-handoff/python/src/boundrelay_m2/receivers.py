@@ -1,15 +1,26 @@
-from .policy import ROUTE_RECEIVERS
-from .types import ReceiverDefinition, ReceiverDirectory, ReceiverName, ReceiverInput
+from .types import RECEIVER_NAMES, ReceiverDefinition, ReceiverDirectory, ReceiverInput, ReceiverName
 
 
-async def _handle(input: ReceiverInput) -> None:
-    pass
+class StaticReceiverDirectory(ReceiverDirectory):
+    def __init__(self, definitions: tuple[ReceiverDefinition, ...]) -> None:
+        self._definitions = {definition.name: definition for definition in definitions}
+
+    def resolve(self, name: str) -> ReceiverDefinition | None:
+        return self._definitions.get(name)
 
 
-def create_receiver_directory(unavailable: tuple[ReceiverName, ...] = ()) -> ReceiverDirectory:
-    definitions = {name: ReceiverDefinition(name, _handle) for name in ROUTE_RECEIVERS.values() if name not in unavailable}
+async def _handle_noop(input_value: ReceiverInput) -> None:
+    del input_value
 
-    class Directory:
-        def resolve(self, name: str): return definitions.get(name)
 
-    return Directory()
+def _receiver(name: ReceiverName) -> ReceiverDefinition:
+    return ReceiverDefinition(name=name, handle=_handle_noop)
+
+
+def create_receiver_directory(
+    unavailable: tuple[ReceiverName, ...] = (),
+) -> ReceiverDirectory:
+    unavailable_set = set(unavailable)
+    return StaticReceiverDirectory(
+        tuple(_receiver(name) for name in RECEIVER_NAMES if name not in unavailable_set)
+    )

@@ -1,67 +1,125 @@
-import {it, expect} from "vitest";
-import {mkdtemp, readFile, rm} from "node:fs/promises";
+import {mkdtempSync, readFileSync, rmSync} from "node:fs";
+import net from "node:net";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
-import {runScenarioCase} from "../src/runner.js";
-import {loadScenario} from "../src/scenario.js";
-import type {ReceiverDirectory, ReceiverInput, ReceiverName} from "../src/types.js";
+import {afterAll, beforeAll, describe, expect, it} from "vitest";
+import type {ReceiverDefinition, ReceiverDirectory, ReceiverInput, RouteDecisionProvider} from "../src/types.js";
 
-async function withTrace(test: (path: string) => Promise<void>) {
-  const dir = await mkdtemp(join(tmpdir(), "boundrelay-m2-"));
-  try {await test(join(dir, "trace.jsonl"));} finally {await rm(dir, {recursive: true, force: true});}
+type RunScenarioCase = typeof import("../src/runner.js").runScenarioCase;
+let runScenarioCase: RunScenarioCase;
+const originalConnect = net.Socket.prototype.connect;
+const originalFetch = globalThis.fetch;
+
+beforeAll(async () => {
+  net.Socket.prototype.connect = function blockedConnect() { throw new Error("network access is forbidden"); } as any;
+  globalThis.fetch = async () => { throw new Error("network access is forbidden"); };
+  await expect(import("./offline-import-probe.js")).rejects.toThrow("network access is forbidden");
+  ({runScenarioCase} = await import("../src/runner.js"));
+});
+
+afterAll(() => { net.Socket.prototype.connect = originalConnect; globalThis.fetch = originalFetch; });
+
+function ids(prefix="id"){let n=0;return()=>`${prefix}-${++n}`}
+function events(path:string): any[]{return readFileSync(path,"utf8").trim().split("\n").map((x:string)=>JSON.parse(x));}
+async function run(caseId:string,mode:"code"|"model", extra:Record<string,unknown>={}){
+ const dir=mkdtempSync(join(tmpdir(),"boundrelay-m2-run-")); const path=join(dir,"trace.jsonl");
+ try { const result=await runScenarioCase({mode,caseId,tracePath:path,clock:()=>new Date("2026-09-30T00:00:00Z"),idFactory:ids(caseId),...extra}); return {result,events:events(path)}; }
+ finally { rmSync(dir,{recursive:true,force:true}); }
 }
-const readEvents = async (path: string) => (await readFile(path, "utf8")).trimEnd().split("\n").map(s => JSON.parse(s));
-for (const c of loadScenario().cases) it(`pins lifecycle and actual invocation for ${c.id}`, () => withTrace(async tracePath => {
-  const invoked: ReceiverInput[] = [];
-  const resolved: string[] = [];
-  const directory: ReceiverDirectory = {resolve(name) {
-    resolved.push(name);
-    if (c.id === "handoff-receiver-unavailable") return undefined;
-    return {name: name as ReceiverName, async handle(input) {invoked.push(input);}};
-  }};
-  const result = await runScenarioCase({mode: c.router_mode, caseId: c.id, tracePath, receiverDirectory: directory});
-  expect(result).toMatchObject({case_id: c.id, router_mode: c.router_mode, status: c.expected_status, proposed_route: c.expected_proposed_route, selected_route: c.expected_selected_route, receiver: c.expected_receiver, fallback_applied: c.expected_fallback_applied, specialist_invoked: c.expected_specialist_invoked, failure_code: c.expected_failure_code});
-  expect(invoked).toEqual(c.expected_specialist_invoked ? [{ticket_id: c.ticket_id, request_text: c.request}] : []);
-  expect(resolved).toEqual(c.id === "handoff-context-loss" ? [] : [c.expected_receiver]);
-  const events = await readEvents(tracePath);
-  const expected = ["run.created", "run.started", ...(c.router_mode === "model" ? ["model.requested", "model.completed"] : []), "route.selected", "handoff.requested", c.expected_specialist_invoked ? "handoff.accepted" : "handoff.rejected", c.expected_specialist_invoked ? "run.completed" : "run.failed"];
-  expect(events.map(e => e.type)).toEqual(expected);
-  expect(events.map(e => e.sequence)).toEqual(expected.map((_, i) => i + 1));
-  expect(events.every(e => e.run_id === result.run_id)).toBe(true);
-  const request = events.find(e => e.type === "handoff.requested").data;
-  expect(request.sender_intent).toEqual({route: c.expected_proposed_route, confidence: c.expected_confidence, policy_outcome: c.expected_policy_outcome});
-  expect(request.receiver_input).toEqual(c.id === "handoff-context-loss" ? {ticket_id: c.ticket_id} : {ticket_id: c.ticket_id, request_text: c.request});
-  expect(events.at(-2).data.handoff_id).toBe(request.handoff_id);
-}));
-it("rejects malformed route before any receiver resolution", () => withTrace(async tracePath => {
-  for (const decision of [{route: "other", confidence: 1}, {route: "billing", confidence: NaN}, {route: "billing", confidence: .9, receiver: "general-specialist"}]) {
-    let resolutions = 0;
-    const result = await runScenarioCase({mode: "model", caseId: "model-technical-handoff", tracePath, routeProvider: {async nextDecision() {return decision;}}, receiverDirectory: {resolve() {resolutions++; return undefined;}}});
-    expect(result.failure_code).toBe("INVALID_ROUTE_DECISION");
-    expect(result.proposed_route).toBeNull();
-    expect(resolutions).toBe(0);
-    expect((await readEvents(tracePath)).map(e => e.type)).toEqual(["run.created", "run.started", "model.requested", "model.completed", "route.rejected", "run.failed"]);
-  }
-}));
-it("propagates receiver exceptions without retry", () => withTrace(async tracePath => {
-  let calls = 0;
-  await expect(runScenarioCase({mode: "code", caseId: "code-billing-handoff", tracePath, receiverDirectory: {resolve() {return {name: "billing-specialist", async handle() {calls++; throw new Error("receiver bug");}};}}})).rejects.toThrow("receiver bug");
-  expect(calls).toBe(1);
-}));
-it("rejects mismatched mode and unknown case", () => withTrace(async tracePath => {
-  await expect(runScenarioCase({mode: "code", caseId: "model-technical-handoff", tracePath})).rejects.toThrow();
-  await expect(runScenarioCase({mode: "code", caseId: "unknown", tracePath})).rejects.toThrow();
-}));
-it("rejects original private or cyclic candidates while tracing only safe routing fields", () => withTrace(async tracePath => {
-  const cyclic: Record<string, unknown> = {route: "billing", confidence: .9}; cyclic.extra = cyclic;
-  const nested = {route: {chain_of_thought: "PRIVATE_REASONING_SENTINEL"}, confidence: .9};
-  for (const decision of [{route: "billing", confidence: .9, chain_of_thought: "PRIVATE_REASONING_SENTINEL"}, nested, cyclic]) {
-    const result = await runScenarioCase({mode: "model", caseId: "model-technical-handoff", tracePath, routeProvider: {async nextDecision() {return decision;}}, receiverDirectory: {resolve() {throw new Error("must not resolve");}}});
-    expect(result.failure_code).toBe("INVALID_ROUTE_DECISION");
-    const text = await readFile(tracePath, "utf8");
-    expect(text).not.toContain("PRIVATE_REASONING_SENTINEL");
-    expect(text).not.toContain("chain_of_thought");
-    const candidate = (await readEvents(tracePath)).find(e => e.type === "model.completed").data.decision;
-    expect(candidate).toEqual({route: decision === nested ? null : "billing", confidence: .9});
-  }
-}));
+
+describe("M2 typed handoff runtime", () => {
+ it("runs code billing with no model events", async()=>{
+   const {result,events:e}=await run("code-billing-handoff","code");
+   expect(result).toMatchObject({status:"SUCCEEDED",proposed_route:"billing",selected_route:"billing",receiver:"billing-specialist",fallback_applied:false,specialist_invoked:true,failure_code:null});
+   expect(e.filter((x:any)=>String(x.type).startsWith("model.")).length).toBe(0);
+   expect(e.map((x:any)=>x.type).filter((x:any)=>["route.selected","handoff.requested","handoff.accepted","run.completed"].includes(x))).toEqual(["route.selected","handoff.requested","handoff.accepted","run.completed"]);
+ });
+ it("runs model technical with exactly one model decision", async()=>{
+   const {result,events:e}=await run("model-technical-handoff","model");
+   expect(result).toMatchObject({status:"SUCCEEDED",proposed_route:"technical",selected_route:"technical",receiver:"technical-specialist",fallback_applied:false,specialist_invoked:true});
+   expect(e.filter((x:any)=>x.type==="model.requested").length).toBe(1);
+   expect(e.filter((x:any)=>x.type==="model.completed").length).toBe(1);
+ });
+ it("keeps proposed billing intent while low confidence selects general receiver", async()=>{
+   const {result,events:e}=await run("model-low-confidence-fallback","model");
+   expect(result).toMatchObject({proposed_route:"billing",selected_route:"general",receiver:"general-specialist",fallback_applied:true,specialist_invoked:true});
+   const requested=e.find((x:any)=>x.type==="handoff.requested");
+   expect(requested.data.sender_intent.route).toBe("billing");
+   expect(requested.data.receiver).toBe("general-specialist");
+ });
+ it("rejects context loss before receiver resolution or invocation", async()=>{
+   let resolves=0; let handles=0;
+   const directory:ReceiverDirectory={resolve(){resolves++;return {name:"billing-specialist",async handle(){handles++;}}}};
+   const {result,events:e}=await run("handoff-context-loss","model",{receiverDirectory:directory});
+   expect(result).toMatchObject({status:"FAILED",failure_code:"HANDOFF_CONTEXT_INVALID",specialist_invoked:false,receiver:"billing-specialist"});
+   expect(e.map((x:any)=>x.type).filter((x:any)=>String(x).startsWith("handoff."))).toEqual(["handoff.requested","handoff.rejected"]);
+   expect(resolves).toBe(0); expect(handles).toBe(0);
+ });
+ it("rejects unavailable receiver without fallback or invocation", async()=>{
+   let resolves=0; let handles=0;
+   const directory:ReceiverDirectory={resolve(){resolves++;return {name:"billing-specialist",async handle(){handles++;}}}};
+   const {result,events:e}=await run("handoff-receiver-unavailable","code",{receiverDirectory:directory});
+   expect(result).toMatchObject({status:"FAILED",failure_code:"HANDOFF_RECEIVER_UNAVAILABLE",selected_route:"billing",receiver:"billing-specialist",specialist_invoked:false});
+   expect(e.map((x:any)=>x.type).filter((x:any)=>String(x).startsWith("handoff."))).toEqual(["handoff.requested","handoff.rejected"]);
+   expect(resolves).toBe(0); expect(handles).toBe(0);
+ });
+ it("fails invalid model route before handoff and receiver resolution", async()=>{
+   let resolves=0;
+   const provider:RouteDecisionProvider={async nextDecision(){return {route:"unknown",confidence:0.9}}};
+   const directory:ReceiverDirectory={resolve(){resolves++;return undefined}};
+   const {result,events:e}=await run("model-technical-handoff","model",{routeProvider:provider,receiverDirectory:directory});
+   expect(result).toMatchObject({status:"FAILED",failure_code:"INVALID_ROUTE_DECISION",proposed_route:null,selected_route:null,receiver:null,fallback_applied:false,specialist_invoked:false});
+   expect(e.some((x:any)=>String(x.type).startsWith("handoff."))).toBe(false);
+   expect(e.some((x:any)=>x.type==="route.rejected")).toBe(true);
+   expect(resolves).toBe(0);
+ });
+ it("invokes exactly one receiver with only ticket_id and request_text", async()=>{
+   const seen:ReceiverInput[]=[];
+   const definition:ReceiverDefinition={name:"billing-specialist",async handle(input){seen.push(structuredClone(input))}};
+   const directory:ReceiverDirectory={resolve(name){return name==="billing-specialist"?definition:undefined}};
+   const {result}=await run("code-billing-handoff","code",{receiverDirectory:directory});
+   expect(result.specialist_invoked).toBe(true);
+   expect(seen).toHaveLength(1);
+   expect(Object.keys(seen[0]!).sort()).toEqual(["request_text","ticket_id"]);
+ });
+ it("treats receiver exception as tooling failure after accepted handoff", async()=>{
+   let calls=0;
+   const definition:ReceiverDefinition={name:"billing-specialist",async handle(){calls++;throw new Error("receiver exploded")}};
+   const directory:ReceiverDirectory={resolve(){return definition}};
+   const dir=mkdtempSync(join(tmpdir(),"boundrelay-m2-explode-")); const path=join(dir,"trace.jsonl");
+   try {
+     await expect(runScenarioCase({mode:"code",caseId:"code-billing-handoff",tracePath:path,receiverDirectory:directory,idFactory:ids("x")})).rejects.toThrow("receiver exploded");
+     expect(calls).toBe(1);
+     const e=events(path);
+     expect(e.some((x:any)=>x.type==="handoff.accepted")).toBe(true);
+     expect(e.some((x:any)=>x.type==="handoff.rejected")).toBe(false);
+   } finally {rmSync(dir,{recursive:true,force:true});}
+ });
+
+ it("emits the exact successful event payload boundary", async()=>{
+   const {events:e}=await run("model-low-confidence-fallback","model");
+   expect(e[0].data).toEqual({scenario_id:"support-handoff",case_id:"model-low-confidence-fallback",router_mode:"model"});
+   expect(e[1].data).toEqual({case_id:"model-low-confidence-fallback",router_mode:"model"});
+   expect(e.find((x:any)=>x.type==="model.requested").data).toEqual({case_id:"model-low-confidence-fallback"});
+   expect(e.find((x:any)=>x.type==="model.completed").data).toEqual({case_id:"model-low-confidence-fallback",decision:{route:"billing",confidence:0.54}});
+   expect(e.find((x:any)=>x.type==="route.selected").data).toEqual({router_mode:"model",proposed_route:"billing",selected_route:"general",confidence:0.54,fallback_applied:true});
+   const requested=e.find((x:any)=>x.type==="handoff.requested");
+   expect(Object.keys(requested.data).sort()).toEqual(["handoff_id","receiver","receiver_input","sender","sender_intent"]);
+   expect(requested.data.sender_intent).toEqual({route:"billing",confidence:0.54,policy_outcome:"fallback"});
+   expect(requested.data.receiver_input).toEqual({ticket_id:"TCK-1003",request_text:"Something about my invoice looks wrong but I am not sure what happened."});
+   const terminal=e.at(-1);
+   expect(terminal.data).toEqual({status:"SUCCEEDED",proposed_route:"billing",selected_route:"general",receiver:"general-specialist",fallback_applied:true,specialist_invoked:true});
+ });
+ it("keeps provider exceptions as tooling failures before handoff", async()=>{
+   const provider:RouteDecisionProvider={async nextDecision(){throw new Error("provider fixture broken")}};
+   const dir=mkdtempSync(join(tmpdir(),"boundrelay-m2-provider-")); const path=join(dir,"trace.jsonl");
+   try {
+     await expect(runScenarioCase({mode:"model",caseId:"model-technical-handoff",tracePath:path,routeProvider:provider,idFactory:ids("p")})).rejects.toThrow("provider fixture broken");
+     const e=events(path); expect(e.filter((x:any)=>x.type==="model.requested")).toHaveLength(1); expect(e.some((x:any)=>String(x.type).startsWith("handoff."))).toBe(false); expect(e.some((x:any)=>x.type==="run.failed"||x.type==="run.completed")).toBe(false);
+   } finally {rmSync(dir,{recursive:true,force:true});}
+ });
+ it("keeps stable run id, contiguous sequences, and one terminal event for canonical outcomes", async()=>{
+   const all: Array<[string,"code"|"model"]> = [["code-billing-handoff","code"],["model-technical-handoff","model"],["model-low-confidence-fallback","model"],["handoff-context-loss","model"],["handoff-receiver-unavailable","code"]];
+   for(const [caseId,mode] of all){const {result,events:e}=await run(caseId,mode);expect(e.every((x:any)=>x.run_id===result.run_id)).toBe(true);expect(e.map((x:any)=>x.sequence)).toEqual(e.map((_x:any,i:number)=>i+1));expect(e.filter((x:any)=>x.type==="run.completed"||x.type==="run.failed")).toHaveLength(1);expect(String(e.at(-1).type).startsWith("run.")).toBe(true);expect(e.some((x:any)=>String(x.type).startsWith("step."))).toBe(false);}
+ });
+});

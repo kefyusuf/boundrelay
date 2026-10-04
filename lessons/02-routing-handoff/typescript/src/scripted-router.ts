@@ -1,28 +1,31 @@
 import {readFileSync} from "node:fs";
 import {parse} from "yaml";
-import {MODEL_PATH} from "./paths.js";
-import {loadScenario} from "./scenario.js";
-import type {RouteDecision, RouteDecisionInput, RouteDecisionProvider} from "./types.js";
-export function classifyWithCode(request: string): RouteDecision {
-  const text = request.toLowerCase();
-  const route = ["charged", "charge", "invoice", "payment", "refund", "billed"].some(k => text.includes(k)) ? "billing" : ["error", "crash", "cannot log in", "can't log in", "bug", "broken"].some(k => text.includes(k)) ? "technical" : "general";
-  return {route, confidence: 1};
-}
+import {FAKE_MODEL_PATH} from "./paths.js";
+import type {RouteDecisionInput, RouteDecisionProvider} from "./types.js";
+function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 export class ScriptedRouteError extends Error {}
 export class ScriptedRouteProvider implements RouteDecisionProvider {
-  readonly #decisions: Record<string, {return: unknown}>;
+  readonly #decisions: Readonly<Record<string, unknown>>;
   readonly #consumed = new Set<string>();
-  constructor(decisions: Record<string, {return: unknown}>) {this.#decisions = structuredClone(decisions);}
-  static fromFile(): ScriptedRouteProvider {
-    const raw = parse(readFileSync(MODEL_PATH, "utf8"));
-    const expected = loadScenario().cases.filter(c => c.router_mode === "model").map(c => c.id).sort();
-    if (!raw || raw.schema_version !== "1.0" || raw.scenario_id !== "support-handoff" || !raw.decisions || Object.keys(raw).sort().join() !== "decisions,scenario_id,schema_version" || Object.keys(raw.decisions).sort().join() !== expected.join() || Object.values(raw.decisions).some(v => !v || typeof v !== "object" || Array.isArray(v) || Object.keys(v).join() !== "return")) throw new ScriptedRouteError("Invalid model fixtures");
-    return new ScriptedRouteProvider(raw.decisions);
+  constructor(decisions: Record<string, unknown>) { this.#decisions = structuredClone(decisions); }
+  static fromFile(path: string = FAKE_MODEL_PATH): ScriptedRouteProvider {
+    const raw = parse(readFileSync(path, "utf8"));
+    if (!isRecord(raw) || raw.schema_version !== "1.0" || raw.scenario_id !== "support-handoff" || !isRecord(raw.decisions)) {
+      throw new ScriptedRouteError("Unsupported M2 scripted route fixture.");
+    }
+    const decisions: Record<string, unknown> = {};
+    for (const [caseId, entry] of Object.entries(raw.decisions)) {
+      if (!isRecord(entry) || Object.keys(entry).length !== 1 || !("return" in entry)) throw new ScriptedRouteError(`Decision ${caseId} must contain exactly return.`);
+      decisions[caseId] = structuredClone(entry.return);
+    }
+    return new ScriptedRouteProvider(decisions);
   }
   async nextDecision(input: RouteDecisionInput): Promise<unknown> {
-    const record = this.#decisions[input.caseId];
-    if (!record || this.#consumed.has(input.caseId)) throw new ScriptedRouteError(`Missing or consumed decision: ${input.caseId}`);
+    void input.request;
+    if (!(input.caseId in this.#decisions)) throw new ScriptedRouteError(`Missing scripted decision for case: ${input.caseId}`);
+    if (this.#consumed.has(input.caseId)) throw new ScriptedRouteError(`Scripted decision already consumed for case: ${input.caseId}`);
     this.#consumed.add(input.caseId);
-    return structuredClone(record.return);
+    return structuredClone(this.#decisions[input.caseId]);
   }
 }
+export {classifyWithCode} from "./policy.js";

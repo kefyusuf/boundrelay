@@ -3,12 +3,12 @@ from dataclasses import asdict
 from datetime import datetime
 from uuid import uuid4
 from .scenario import load_scenario, find_scenario_case, load_failure_fixtures
-from .scripted_router import classify_with_code, ScriptedRouteProvider
-from .policy import apply_confidence_policy
+from .scripted_router import ScriptedRouteProvider
+from .policy import apply_confidence_policy, classify_with_code
 from .receivers import create_receiver_directory
 from .schemas import validate_route_decision, validate_handoff, validate_run_result
 from .trace import MemoryEventSink, write_jsonl
-from .types import RouterMode, RouteDecisionProvider, ReceiverDirectory, HandoffResult, RouteDecision, RouteSelection, ReceiverInput, FailureCode
+from .types import RouterMode, RouteDecisionProvider, ReceiverDirectory, HandoffResult, RouteDecision, RouteSelection, ReceiverInput, FailureCode, OmitReceiverInputFailure, UnavailableReceiversFailure
 
 
 def _observable_decision(raw: object) -> dict[str, object]:
@@ -61,9 +61,10 @@ async def run_scenario_case(
         return finish('INVALID_ROUTE_DECISION')
     selection = apply_confidence_policy(RouteDecision(**validation.value))
     sink.emit('route.selected',{'router_mode':mode,'proposed_route':selection.proposed_route,'selected_route':selection.selected_route,'confidence':selection.confidence,'fallback_applied':selection.fallback_applied})
-    failure = load_failure_fixtures()[case.failure_ref] if case.failure_ref else {}
+    failure = load_failure_fixtures()[case.failure_ref] if case.failure_ref else None
     receiver_input = {'ticket_id':case.ticket_id,'request_text':case.request}
-    for field in failure.get('omit_receiver_input_fields',[]): receiver_input.pop(field)
+    if isinstance(failure, OmitReceiverInputFailure):
+        for field in failure.omit_receiver_input_fields: receiver_input.pop(field)
     candidate = {'schema_version':'1.0','handoff_id':next_id(),'sender':'support-router','receiver':selection.receiver,'sender_intent':{'route':selection.proposed_route,'confidence':selection.confidence,'policy_outcome':selection.policy_outcome},'receiver_input':receiver_input}
     sink.emit('handoff.requested',{k:v for k,v in candidate.items() if k != 'schema_version'})
 
@@ -73,8 +74,9 @@ async def run_scenario_case(
 
     handoff = validate_handoff(candidate)
     if not handoff.ok: return reject('HANDOFF_CONTEXT_INVALID')
-    directory = receiver_directory or create_receiver_directory(tuple(failure.get('unavailable_receivers',())))
-    receiver = directory.resolve(handoff.value['receiver'])
+    directory = receiver_directory or create_receiver_directory()
+    unavailable = isinstance(failure, UnavailableReceiversFailure) and selection.receiver in failure.unavailable_receivers
+    receiver = None if unavailable else directory.resolve(handoff.value['receiver'])
     if receiver is None: return reject('HANDOFF_RECEIVER_UNAVAILABLE')
     sink.emit('handoff.accepted',{'handoff_id':candidate['handoff_id'],'receiver':candidate['receiver']})
     await receiver.handle(ReceiverInput(**handoff.value['receiver_input']))

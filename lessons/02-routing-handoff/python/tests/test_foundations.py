@@ -5,7 +5,7 @@ import yaml
 from boundrelay_m2.scenario import load_scenario, find_scenario_case, load_failure_fixtures
 from boundrelay_m2.schemas import validate_handoff, validate_route_decision
 from boundrelay_m2.policy import apply_confidence_policy
-from boundrelay_m2.scripted_router import classify_with_code, ScriptedRouteProvider
+from boundrelay_m2.scripted_router import classify_with_code, ScriptedRouteProvider, ScriptedRouteError
 from boundrelay_m2.receivers import create_receiver_directory
 from boundrelay_m2.types import RouteDecision, ReceiverInput
 from boundrelay_m2.paths import SCENARIO_PATH, FAILURE_PATH
@@ -57,7 +57,7 @@ class Foundations(unittest.IsolatedAsyncioTestCase):
         provider = ScriptedRouteProvider.from_file()
         self.assertEqual(await provider.next_decision(case_id='model-technical-handoff', request='ignored'), {'route': 'technical', 'confidence': .92})
         for case_id in ('model-technical-handoff','unknown'):
-            with self.assertRaises(ValueError): await provider.next_decision(case_id=case_id, request='invoice')
+            with self.assertRaises(ScriptedRouteError): await provider.next_decision(case_id=case_id, request='invoice')
         directory = create_receiver_directory(('billing-specialist',))
         self.assertIsNone(directory.resolve('billing-specialist'))
         self.assertIsNone(directory.resolve('unknown'))

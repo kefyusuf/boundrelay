@@ -53,20 +53,13 @@ export class MemoryEventSink {
     this.#idFactory = options.idFactory ?? randomUUID;
   }
 
-  get events(): readonly RunEvent[] {
-    return this.#events.map((event) => structuredClone(event));
-  }
+  get events(): readonly RunEvent[] { return this.#events.map((event) => structuredClone(event)); }
 
   emit(type: EventType, data: Record<string, unknown>): RunEvent {
     this.#sequence += 1;
     const event: RunEvent = {
-      schema_version: "1.0",
-      event_id: this.#idFactory(),
-      run_id: this.#runId,
-      sequence: this.#sequence,
-      type,
-      timestamp: this.#clock().toISOString(),
-      source: this.#source,
+      schema_version: "1.0", event_id: this.#idFactory(), run_id: this.#runId,
+      sequence: this.#sequence, type, timestamp: this.#clock().toISOString(), source: this.#source,
       data: jsonSafeData(data),
     };
     const validation = validateRunEvent(event);

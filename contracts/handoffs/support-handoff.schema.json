@@ -1,4 +1,7 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/handoffs/support-handoff.schema.json",
+  "title": "M2 Support Handoff",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -10,16 +13,9 @@
     "receiver_input"
   ],
   "properties": {
-    "schema_version": {
-      "const": "1.0"
-    },
-    "handoff_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "sender": {
-      "const": "support-router"
-    },
+    "schema_version": {"const": "1.0"},
+    "handoff_id": {"type": "string", "minLength": 1},
+    "sender": {"const": "support-router"},
     "receiver": {
       "type": "string",
       "enum": [
@@ -31,19 +27,11 @@
     "sender_intent": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "route",
-        "confidence",
-        "policy_outcome"
-      ],
+      "required": ["route", "confidence", "policy_outcome"],
       "properties": {
         "route": {
           "type": "string",
-          "enum": [
-            "billing",
-            "technical",
-            "general"
-          ]
+          "enum": ["billing", "technical", "general"]
         },
         "confidence": {
           "type": "number",
@@ -51,20 +39,15 @@
           "maximum": 1
         },
         "policy_outcome": {
-          "enum": [
-            "selected",
-            "fallback"
-          ]
+          "type": "string",
+          "enum": ["selected", "fallback"]
         }
       }
     },
     "receiver_input": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "ticket_id",
-        "request_text"
-      ],
+      "required": ["ticket_id", "request_text"],
       "properties": {
         "ticket_id": {
           "type": "string",
@@ -76,6 +59,5 @@
         }
       }
     }
-  },
-  "$schema": "https://json-schema.org/draft/2020-12/schema"
+  }
 }

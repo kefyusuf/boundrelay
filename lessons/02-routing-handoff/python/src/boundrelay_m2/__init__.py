@@ -1,1 +1,1 @@
-"""Offline routing and typed support handoff lesson."""
+"""BoundRelay M2 Python foundation package."""
