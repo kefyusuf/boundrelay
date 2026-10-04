@@ -13,6 +13,7 @@ from tools.parity.normalize import normalize_event
 
 def valid_case(case_id='model-low-confidence-fallback'):
     c = next(c for c in yaml.safe_load(verifier.SCENARIO_PATH.read_text(encoding='utf-8'))['cases'] if c['id'] == case_id)
+    c.setdefault('expected_failure_code', None)
     result = {'schema_version':'1.0','run_id':'run-1','scenario_id':'support-handoff','case_id':c['id'],'router_mode':c['router_mode'],'status':c['expected_status'],'proposed_route':c['expected_proposed_route'],'selected_route':c['expected_selected_route'],'receiver':c['expected_receiver'],'fallback_applied':c['expected_fallback_applied'],'specialist_invoked':c['expected_specialist_invoked'],'failure_code':c['expected_failure_code'],'trace_path':'/trace.jsonl'}
     requested = {'handoff_id':'h-1','sender':'support-router','receiver':c['expected_receiver'],'sender_intent':{'route':c['expected_proposed_route'],'confidence':c['expected_confidence'],'policy_outcome':c['expected_policy_outcome']},'receiver_input':{'ticket_id':c['ticket_id'],**({} if case_id == 'handoff-context-loss' else {'request_text':c['request']})}}
     payloads = [('run.created',{'scenario_id':'support-handoff','case_id':c['id'],'router_mode':c['router_mode']}),('run.started',{'case_id':c['id'],'router_mode':c['router_mode']})]
