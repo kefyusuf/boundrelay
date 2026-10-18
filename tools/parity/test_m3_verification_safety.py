@@ -21,7 +21,8 @@ class M3VerificationSafetyTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
-        self.path = str(Path(self.tmp.name)/'trace.jsonl')
+        self.root = Path(self.tmp.name).resolve()
+        self.path = str(self.root/'trace.jsonl')
         self.case = asdict(load_scenario().cases[1])
         self.result = asyncio.run(run_case(case_id=self.case['case_id'],trace_path=self.path))
         self.events = read_jsonl(self.path)
@@ -92,7 +93,7 @@ class M3VerificationSafetyTests(unittest.TestCase):
             with self.assertRaises((RuntimeError,ValueError)):gate.validate_probe_reports(t,p)
 
     def test_publication_checks_survive_optimization(self):
-        path=Path(self.tmp.name)/'evidence.json'
+        path=self.root/'evidence.json'
         with patch.object(gate,'EVIDENCE_PATH',path),patch.object(gate,'validate_lower_evidence'),patch.object(gate,'assert_clean_worktree'),patch.object(gate,'_revision',return_value='changed'):
             with self.assertRaises(RuntimeError):gate.publish_evidence({'status':'PASSED','revision':'start'},'start')
             self.assertFalse(path.exists())
@@ -105,7 +106,7 @@ class M3VerificationSafetyTests(unittest.TestCase):
 
     def test_stale_output_removed_before_first_gate_command(self):
         from scripts import verify_m3 as authority
-        output=Path(self.tmp.name)/'m3';output.mkdir();(output/'verification-evidence.json').write_text('old')
+        output=self.root/'m3';output.mkdir();(output/'verification-evidence.json').write_text('old')
         def stop(*args,**kwargs):
             self.assertFalse((output/'verification-evidence.json').exists())
             raise RuntimeError('lower chain failed')
@@ -126,7 +127,7 @@ class M3VerificationSafetyTests(unittest.TestCase):
 
     def test_stale_output_removed_for_dirty_preflight(self):
         from scripts import verify_m3 as authority
-        output=Path(self.tmp.name)/'m3';output.mkdir()
+        output=self.root/'m3';output.mkdir()
         stale=output/'verification-evidence.json';stale.write_text('{"status":"PASSED"}')
         with patch.object(gate,'OUTPUT_ROOT',output),patch.object(gate,'assert_clean_worktree',side_effect=RuntimeError('dirty')):
             with self.assertRaises(RuntimeError):authority.main()
@@ -134,7 +135,7 @@ class M3VerificationSafetyTests(unittest.TestCase):
 
 
     def test_evidence_clear_rejects_symlink_redirect(self):
-        root=Path(self.tmp.name)
+        root=self.root
         for placement in ('leaf','parent'):
             with self.subTest(placement=placement):
                 external=root/placement/'outside'/'m3'
@@ -164,7 +165,7 @@ class M3VerificationSafetyTests(unittest.TestCase):
 
     def test_symlinked_temporary_root_is_canonicalized(self):
         from types import SimpleNamespace
-        resolved=Path(self.tmp.name).resolve()
+        resolved=self.root
         alias=resolved/'temp-alias'
         try:
             alias.symlink_to(resolved,target_is_directory=True)
