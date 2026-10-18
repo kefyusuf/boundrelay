@@ -1,0 +1,23 @@
+{
+  "order-details": {
+    "operation": "return",
+    "output": {
+      "order_id": "ORD-1001",
+      "order_status": "SHIPPED"
+    }
+  },
+  "payment-status": {
+    "operation": "return",
+    "output": {
+      "order_id": "ORD-1001",
+      "payment_status": "PAID"
+    }
+  },
+  "delivery-status": {
+    "operation": "return",
+    "output": {
+      "order_id": "ORD-1001",
+      "delivery_status": "DELAYED"
+    }
+  }
+}

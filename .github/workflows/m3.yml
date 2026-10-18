@@ -1,0 +1,59 @@
+name: M3 Verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            lessons/00-workflow-or-agent/typescript/package-lock.json
+            lessons/01-bounded-tool-loop/typescript/package-lock.json
+            lessons/02-routing-handoff/typescript/package-lock.json
+            lessons/03-parallel-fanout-fanin/typescript/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            lessons/00-workflow-or-agent/python/pyproject.toml
+            lessons/01-bounded-tool-loop/python/pyproject.toml
+            lessons/02-routing-handoff/python/pyproject.toml
+            lessons/03-parallel-fanout-fanin/python/pyproject.toml
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -e lessons/00-workflow-or-agent/python
+          python -m pip install -e lessons/01-bounded-tool-loop/python
+          python -m pip install -e lessons/02-routing-handoff/python
+          python -m pip install -e lessons/03-parallel-fanout-fanin/python
+      - run: |
+          npm ci --prefix lessons/00-workflow-or-agent/typescript
+          npm ci --prefix lessons/01-bounded-tool-loop/typescript
+          npm ci --prefix lessons/02-routing-handoff/typescript
+          npm ci --prefix lessons/03-parallel-fanout-fanin/typescript
+      - run: python scripts/verify_m3.py
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: m3-verification-${{ github.event.pull_request.head.sha || github.sha }}
+          path: .boundrelay/m3/
+          if-no-files-found: error
+          include-hidden-files: true
+          retention-days: 14

@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/workers/order-brief-worker-result.schema.json",
+  "title": "M3 Worker Outcome",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_id",
+        "status",
+        "output",
+        "failure_code"
+      ],
+      "properties": {
+        "worker_id": {
+          "enum": [
+            "order-details",
+            "payment-status",
+            "delivery-status"
+          ]
+        },
+        "status": {
+          "const": "SUCCEEDED"
+        },
+        "output": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "order_id",
+                "order_status"
+              ],
+              "properties": {
+                "order_id": {
+                  "type": "string",
+                  "pattern": "^ORD-[0-9]{4}$"
+                },
+                "order_status": {
+                  "enum": [
+                    "PROCESSING",
+                    "SHIPPED",
+                    "CANCELLED"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "order_id",
+                "payment_status"
+              ],
+              "properties": {
+                "order_id": {
+                  "type": "string",
+                  "pattern": "^ORD-[0-9]{4}$"
+                },
+                "payment_status": {
+                  "enum": [
+                    "PAID",
+                    "UNPAID"
+                  ]
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "order_id",
+                "delivery_status"
+              ],
+              "properties": {
+                "order_id": {
+                  "type": "string",
+                  "pattern": "^ORD-[0-9]{4}$"
+                },
+                "delivery_status": {
+                  "enum": [
+                    "PENDING",
+                    "IN_TRANSIT",
+                    "DELIVERED",
+                    "DELAYED"
+                  ]
+                }
+              }
+            }
+          ]
+        },
+        "failure_code": {
+          "type": "null"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "order-details"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id",
+                  "order_status"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "pattern": "^ORD-[0-9]{4}$"
+                  },
+                  "order_status": {
+                    "enum": [
+                      "PROCESSING",
+                      "SHIPPED",
+                      "CANCELLED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "payment-status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id",
+                  "payment_status"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "pattern": "^ORD-[0-9]{4}$"
+                  },
+                  "payment_status": {
+                    "enum": [
+                      "PAID",
+                      "UNPAID"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "delivery-status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id",
+                  "delivery_status"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "pattern": "^ORD-[0-9]{4}$"
+                  },
+                  "delivery_status": {
+                    "enum": [
+                      "PENDING",
+                      "IN_TRANSIT",
+                      "DELIVERED",
+                      "DELAYED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_id",
+        "status",
+        "output",
+        "failure_code"
+      ],
+      "properties": {
+        "worker_id": {
+          "enum": [
+            "order-details",
+            "payment-status",
+            "delivery-status"
+          ]
+        },
+        "status": {
+          "const": "FAILED"
+        },
+        "output": {
+          "type": "null"
+        },
+        "failure_code": {
+          "enum": [
+            "WORKER_EXECUTION_FAILED",
+            "INVALID_WORKER_OUTPUT"
+          ]
+        }
+      }
+    }
+  ]
+}

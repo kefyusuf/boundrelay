@@ -2,21 +2,29 @@
 
 ## Active phase
 
-M2 — Routing and typed support handoff implemented and revision-verifiable.
+M3 — Bounded read-only fan-out/fan-in implemented and revision-verifiable.
 
-Accepted scope: D-013 and `docs/superpowers/specs/2026-09-29-m2-routing-handoff-design.md`. Implementation plan: `docs/superpowers/plans/2026-09-30-m2-routing-handoff.md`.
+Accepted scope: D-014 and `docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md`. Implementation plan: `docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md`, approved for Native execution.
+
+M3 fixes three independent order-brief workers, sequential cap1 / parallel cap2, once-only invocation, explicit partial/all-failed outcomes, complete canonical fan-in, one deterministic synthesis owner and six offline paired cases. The new authority includes independent worker-body proof, raw-first trace validation and the M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+
+## Preserved M2 boundary
 
 M2 adds exactly five offline support-handoff cases in TypeScript and Python, a fixed confidence threshold of 0.80, a typed sender-intent/receiver-input boundary, three deterministic receivers, and context-loss/unavailable-receiver rejection without dispatch or retry. Receiver input contains only ticket_id and request_text. M0 and M1 remain regression authorities.
 
+## Next milestone design
+
+The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md), D-014, and the [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) on 2026-10-05, selecting Native execution. A fresh whole-branch review identified two Important boundary findings, addressed through RED→GREEN tests: reject hidden/symbol/accessor worker fields before cloning and remove stale evidence before dirty preflight. The complete authority must be rerun on every changed candidate. No M4/M5 work is included.
+
 ## Verification authority
 
-- Local gate: `python scripts/verify_m2.py` (runs M1, which runs M0)
-- CI workflow: `.github/workflows/m2.yml`
+- Local gate: `python scripts/verify_m3.py` (runs M2, which runs M1/M0)
+- CI workflow: `.github/workflows/m3.yml`
 - Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m2-verification-<revision>`
-- Evidence root: `.boundrelay/m2/`
+- CI artifact: `m3-verification-<revision>`
+- Evidence root: `.boundrelay/m3/`
 
-M2 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for its five cases and ten language-specific traces. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M3 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and twelve language-specific traces. It requires lower PASSED proofs on the same revision and passed identities of all four independent executor probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 

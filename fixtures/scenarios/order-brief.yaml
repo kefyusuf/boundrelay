@@ -1,0 +1,67 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-brief",
+  "order_id": "ORD-1001",
+  "cases": [
+    {
+      "case_id": "sequential-complete",
+      "execution_mode": "sequential",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    },
+    {
+      "case_id": "parallel-complete",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    },
+    {
+      "case_id": "parallel-out-of-order",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "payment-status",
+        "delivery-status",
+        "order-details"
+      ]
+    },
+    {
+      "case_id": "parallel-partial-failure",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/partial-failure.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    },
+    {
+      "case_id": "parallel-all-failed",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/all-failed.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    },
+    {
+      "case_id": "parallel-invalid-output",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/invalid-output.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    }
+  ]
+}
