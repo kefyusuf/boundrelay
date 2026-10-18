@@ -162,4 +162,23 @@ class M3VerificationSafetyTests(unittest.TestCase):
                 self.assertTrue(marker.exists())
 
 
+    def test_symlinked_temporary_root_is_canonicalized(self):
+        from types import SimpleNamespace
+        resolved=Path(self.tmp.name).resolve()
+        alias=resolved/'temp-alias'
+        try:
+            alias.symlink_to(resolved,target_is_directory=True)
+        except (OSError,NotImplementedError):
+            self.skipTest('Directory symlinks are unavailable')
+        nested=M3VerificationSafetyTests('test_stale_output_removed_before_first_gate_command')
+        fake=SimpleNamespace(name=str(alias),cleanup=lambda: None)
+        with patch.object(tempfile,'TemporaryDirectory',return_value=fake):
+            nested.setUp()
+        try:
+            self.assertEqual(Path(nested.path).parent,resolved)
+            nested.test_stale_output_removed_before_first_gate_command()
+        finally:
+            nested.doCleanups()
+
+
 if __name__=='__main__':unittest.main()
