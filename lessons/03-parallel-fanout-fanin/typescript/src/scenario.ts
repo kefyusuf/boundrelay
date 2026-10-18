@@ -1,4 +1,4 @@
-import {readFileSync} from 'node:fs';
+import {readFileSync,realpathSync} from 'node:fs';
 import {resolve,relative,isAbsolute} from 'node:path';
 import {parse} from 'yaml';
 import {ROOT,SCENARIO_PATH} from './paths.js';
@@ -8,7 +8,7 @@ function object(raw:unknown,keys:string[]):Record<string,unknown>{
  return raw as Record<string,unknown>;
 }
 export function loadWorkerFixture(path:string):WorkerInstructions {
- const base=resolve(ROOT,'fixtures/workers/order-brief'),target=resolve(ROOT,path),rel=relative(base,target);
+ const base=realpathSync(resolve(ROOT,'fixtures/workers/order-brief')),target=realpathSync(resolve(ROOT,path)),rel=relative(base,target);
  if(rel.startsWith('..')||isAbsolute(rel))throw new Error('Worker fixture escapes root');
  const raw=object(parse(readFileSync(target,'utf8')),[...WORKER_IDS]);
  for(const id of WORKER_IDS){const v=raw[id] as Record<string,unknown>;
