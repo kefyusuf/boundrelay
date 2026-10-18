@@ -29,9 +29,12 @@ def require(condition,message):
     if not condition:raise AssertionError(message)
 
 def clear_previous_evidence():
-    target=OUTPUT_ROOT.resolve()
-    if target.name!='m3' or target in (ROOT.resolve(),ROOT.parent.resolve()):raise RuntimeError('Unsafe evidence root')
-    if target.exists():shutil.rmtree(target)
+    target=OUTPUT_ROOT.absolute()
+    if target.name!='m3' or target.resolve()!=target or target in (ROOT.resolve(),ROOT.parent.resolve()):
+        raise RuntimeError('Unsafe evidence root')
+    if target.exists():
+        if not target.is_dir():raise RuntimeError('Unsafe evidence root')
+        shutil.rmtree(target)
 
 def validate_lower_evidence(revision):
     for milestone in ('m0','m1','m2'):
