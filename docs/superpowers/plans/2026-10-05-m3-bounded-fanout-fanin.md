@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M3 design](../specs/2026-10-05-m3-bounded-fanout-fanin-design.md), [D-014](../../decisions/D-014-m3-bounded-read-only-fanout-fanin.md).
 
-**Status:** Written design and implementation plan accepted on 2026-10-05. The owner selected Native execution; implementation is in progress and not yet certified.
+**Status:** Written design and implementation plan accepted on 2026-10-05. The owner selected Native execution; M3 implementation is complete on the PR branch. Exact-revision certification, independent review, CI, merge, and release remain separate observed states; consult PR evidence for their current status.
 
 ## Global Constraints
 
