@@ -25,11 +25,8 @@ test('reject_fixture_symlink_escaping_worker_directory',()=>{
  const escaped=join(ROOT,'fixtures/workers/order-brief','m3-escape-'+randomUUID()+'.yaml');
  try {
   writeFileSync(join(external,'outside.yaml'),readFileSync(join(ROOT,'fixtures/workers/order-brief/complete.yaml')));
-  try {symlinkSync(join(external,'outside.yaml'),escaped,'file');}
-  catch(error) {
-   if(process.platform==='win32' && (error as NodeJS.ErrnoException).code==='EPERM')return;
-   throw error;
-  }
+  // If this link cannot be created, the security assertion has not been exercised.
+  symlinkSync(join(external,'outside.yaml'),escaped,'file');
   expect(()=>loadWorkerFixture('fixtures/workers/order-brief/'+basename(escaped))).toThrow('Worker fixture escapes root');
  } finally {rmSync(escaped,{force:true});rmSync(external,{recursive:true,force:true});}
 });
