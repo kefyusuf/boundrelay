@@ -133,4 +133,33 @@ class M3VerificationSafetyTests(unittest.TestCase):
         self.assertFalse(stale.exists())
 
 
+    def test_evidence_clear_rejects_symlink_redirect(self):
+        root=Path(self.tmp.name)
+        for placement in ('leaf','parent'):
+            with self.subTest(placement=placement):
+                external=root/placement/'outside'/'m3'
+                external.mkdir(parents=True)
+                marker=external/'important.txt'
+                marker.write_text('preserve',encoding='utf-8')
+                workspace=root/placement/'workspace'
+                workspace.mkdir(parents=True)
+                if placement=='leaf':
+                    output=workspace/'.boundrelay'/'m3'
+                    output.parent.mkdir()
+                    link=output
+                    destination=external
+                else:
+                    output=workspace/'.boundrelay'/'m3'
+                    link=output.parent
+                    destination=external.parent
+                try:
+                    link.symlink_to(destination,target_is_directory=True)
+                except (OSError,NotImplementedError):
+                    self.skipTest('Directory symlinks are unavailable')
+                with patch.object(gate,'OUTPUT_ROOT',output):
+                    with self.assertRaises(RuntimeError):
+                        gate.clear_previous_evidence()
+                self.assertTrue(marker.exists())
+
+
 if __name__=='__main__':unittest.main()
