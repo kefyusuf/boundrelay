@@ -1,6 +1,6 @@
 # D-015 — M4 Durable State and Recovery
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-01
 
 ## Context
@@ -37,4 +37,4 @@ Reuse the unchanged shared event envelope and step/run event types. Validate raw
 
 ## Acceptance gate
 
-This decision is proposed together with the written design. Owner approval of both is required before detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
+The owner approved the written design and this decision on 2026-11-01. Detailed implementation planning is the next artifact; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.

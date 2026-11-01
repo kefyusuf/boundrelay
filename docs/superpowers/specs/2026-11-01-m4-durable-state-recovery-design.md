@@ -1,7 +1,7 @@
 # M4 Durable State and Recovery Design
 
 - **Date:** 2026-11-01
-- **Status:** Proposed — awaiting owner review and written-design approval
+- **Status:** Accepted by the owner on 2026-11-01; implementation planning follows
 - **Milestone:** M4 — Durable state and recovery
 - **Project:** BoundRelay
 - **Baseline:** merged M3 at `12f3c59fe5c69bfb4c63464a28001265e9fe9b34`
@@ -217,4 +217,6 @@ M4 does not introduce real databases or storage engines, network or distributed 
 
 ## 18. Written-design review gate
 
-This design is **Proposed**. The owner's written-design approval — covering the scenario reuse, state-document contract, checkpoint/resume/retry/cancel/replay semantics, canonical cases, fail-closed loading, trace/parity boundaries, and revision-bound authority — is required before the implementation plan is drafted. Design acceptance alone does not authorize product code, schema, fixture, dependency, or workflow implementation.
+The owner approved this written design and D-015 on 2026-11-01, covering the order-brief-recovery scenario reuse, the run-state document contract, checkpoint/resume/retry/cancel/replay semantics, the six canonical cases, fail-closed state loading, trace/parity boundaries, and the revision-bound authority.
+
+The implementation plan is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product code, schema, fixture, dependency, or workflow implementation.
