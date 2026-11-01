@@ -9,15 +9,24 @@ from .types import WORKER_IDS,RunStateDocument,StateBinding,StateLoadError,Worke
 TERMINAL=('SUCCEEDED','FAILED')
 
 class StateStore:
-    def __init__(self,root,binding:StateBinding,queue,run_id:str|None=None):
-        self.root=Path(root);self._binding=binding;self._run_id=run_id or str(uuid4())
-        self._document:RunStateDocument={'state_schema_version':'1.0','run_id':self._run_id,'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'requested_order_id':binding.requested_order_id,'status':'RUNNING','steps':[{'worker_id':worker_id,'status':'PENDING','output':None,'failure_code':None} for worker_id in queue],'sequence_cursor':0,'digest':''}
+    def __init__(self,root,binding:StateBinding,queue,run_id:str|None=None,document:RunStateDocument|None=None):
+        self.root=Path(root);self._binding=binding
+        if document is not None:
+            self._run_id=str(document['run_id']);self._document:RunStateDocument={**deepcopy(document),'status':'RUNNING'}
+        else:
+            self._run_id=run_id or str(uuid4())
+            self._document={'state_schema_version':'1.0','run_id':self._run_id,'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'requested_order_id':binding.requested_order_id,'status':'RUNNING','steps':[{'worker_id':worker_id,'status':'PENDING','output':None,'failure_code':None} for worker_id in queue],'sequence_cursor':0,'digest':''}
         self.state_path().parent.mkdir(parents=True,exist_ok=True)
         self.snapshot_path(1).parent.mkdir(parents=True,exist_ok=True)
         self._flush()
     @classmethod
     def create(cls,root,binding:StateBinding,queue)->'StateStore':
         return cls(root,binding,queue)
+    @classmethod
+    def resume(cls,document:RunStateDocument,state_path)->'StateStore':
+        state_path=Path(state_path);run_id=str(document['run_id'])
+        root=state_path.parent.parent if state_path.parent.name==run_id else state_path.parent
+        return cls(root,StateBinding(case_id=document['case_id'],execution_mode=document['execution_mode'],requested_order_id=document['requested_order_id'],concurrency_limit=document['concurrency_limit']),[],run_id=run_id,document=document)
     def state(self)->RunStateDocument:
         return deepcopy(self._document)
     def state_path(self)->Path:
@@ -58,14 +67,8 @@ class StateStore:
         except BaseException:
             tmp.unlink(missing_ok=True);raise
 
-def load_run_state(state_root,expected_binding:StateBinding)->dict[str,object]:
-    root=Path(state_root);flat=root/'state.json'
-    if flat.exists():paths=[flat]
-    else:
-        if not root.is_dir():raise ValueError(f'Expected exactly one run state document under {root}, found 0')
-        paths=sorted(child/'state.json' for child in root.iterdir() if (child/'state.json').is_file())
-    if len(paths)!=1:raise ValueError(f'Expected exactly one run state document under {root}, found {len(paths)}')
-    path=paths[0]
+def load_run_state_document(path,expected_binding:StateBinding)->RunStateDocument:
+    path=Path(path)
     try:raw=json.loads(path.read_text(encoding='utf-8'))
     except ValueError:raise StateLoadError('TRUNCATED','run state document is not valid JSON') from None
     if type(raw) is not dict or raw.get('state_schema_version')!='1.0':raise StateLoadError('UNKNOWN_VERSION','missing or unsupported state_schema_version')
@@ -74,6 +77,17 @@ def load_run_state(state_root,expected_binding:StateBinding)->dict[str,object]:
     document:RunStateDocument=validation.value
     if document['digest']!=state_digest(canonical_state_body(document)):raise StateLoadError('DIGEST_MISMATCH',f"run_id={document['run_id']} case_id={document['case_id']}")
     if (document['case_id'],document['execution_mode'],document['requested_order_id'],document['concurrency_limit'])!=(expected_binding.case_id,expected_binding.execution_mode,expected_binding.requested_order_id,expected_binding.concurrency_limit):raise StateLoadError('BINDING_MISMATCH',f"run_id={document['run_id']} case_id={document['case_id']}")
+    return document
+
+def load_run_state(state_root,expected_binding:StateBinding)->dict[str,object]:
+    root=Path(state_root);flat=root/'state.json'
+    if flat.exists():paths=[flat]
+    else:
+        if not root.is_dir():raise ValueError(f'Expected exactly one run state document under {root}, found 0')
+        paths=sorted(child/'state.json' for child in root.iterdir() if (child/'state.json').is_file())
+    if len(paths)!=1:raise ValueError(f'Expected exactly one run state document under {root}, found {len(paths)}')
+    path=paths[0]
+    document=load_run_state_document(path,expected_binding)
     checkpoints=root/str(document['run_id'])/'checkpoints'
     for index,step in enumerate(document['steps']):
         if step['status'] in TERMINAL:_verify_snapshot(checkpoints/f'step-{index+1}.json',index+1,document['run_id'])

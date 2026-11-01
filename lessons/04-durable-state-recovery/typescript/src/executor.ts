@@ -10,11 +10,13 @@ export async function executeWorkers(options:ExecutorOptions):Promise<ExecutionS
  const {mode,input,directory,control,observer}=options;
  const store=options.store,controls=options.controls,onCrash=options.on_crash;
  if(!['sequential','parallel'].includes(mode)||typeof input.order_id!=='string'||!/^ORD-[0-9]{4}$/.test(input.order_id)||Object.keys(input).join('|')!=='order_id')throw new Error('Invalid execution input');
+ const queue=options.queue??WORKER_IDS,expected=[...WORKER_IDS].filter(id=>queue.includes(id));
+ if(new Set(queue).size!==queue.length||queue.length!==expected.length||queue.some((id,index)=>id!==expected[index]))throw new Error('Invalid execution queue');
  const crashAfter=controls?.crash_after,cancelBefore=controls?.cancel_before;
  if(crashAfter!==undefined&&cancelBefore!==undefined)throw new Error('At most one control is allowed');
  if(crashAfter!==undefined&&(store===undefined||onCrash===undefined))throw new Error('Crash control requires store and on_crash');
  const crashPos=crashAfter===undefined?undefined:WORKER_IDS.indexOf(crashAfter)+1;
- const limit=mode==='sequential'?1:2,pending=[...WORKER_IDS],outcomes:WorkerOutcome[]=[];
+ const limit=mode==='sequential'?1:2,pending=[...queue],outcomes:WorkerOutcome[]=[];
  type Settled={id:WorkerId;outcome:WorkerOutcome}|{id:WorkerId;error:unknown};
  const active=new Map<WorkerId,Promise<Settled>>();let peak=0,fatalSeen=false,fatal:unknown,cancelFired=false;
  const invoke=async(id:WorkerId):Promise<Settled>=>{

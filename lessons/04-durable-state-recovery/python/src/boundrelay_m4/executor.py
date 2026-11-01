@@ -15,12 +15,15 @@ async def execute_workers(options:ExecutorOptions)->ExecutionSummary:
     mode,input,directory,control,observer=options.mode,options.input,options.directory,options.control,options.observer
     store=options.store;controls=options.controls;on_crash=options.on_crash
     if mode not in ('sequential','parallel') or type(input) is not WorkerInput or type(input.order_id) is not str or re.fullmatch(r'ORD-[0-9]{4}',input.order_id) is None:raise ValueError('Invalid execution input')
+    queue=WORKER_IDS if options.queue is None else options.queue
+    expected=[worker_id for worker_id in WORKER_IDS if worker_id in queue]
+    if len(set(queue))!=len(queue) or len(queue)!=len(expected) or any(worker_id!=expected[index] for index,worker_id in enumerate(queue)):raise ValueError('Invalid execution queue')
     crash_after=controls.crash_after if controls is not None else None
     cancel_before=controls.cancel_before if controls is not None else None
     if crash_after is not None and cancel_before is not None:raise ValueError('At most one control is allowed')
     if crash_after is not None and (store is None or on_crash is None):raise ValueError('Crash control requires store and on_crash')
     crash_pos=None if crash_after is None else WORKER_IDS.index(crash_after)+1
-    limit=1 if mode=='sequential' else 2;pending=list(WORKER_IDS);active={};outcomes=[];peak=0;fatal=[];cancel_fired=False
+    limit=1 if mode=='sequential' else 2;pending=list(queue);active={};outcomes=[];peak=0;fatal=[];cancel_fired=False
     async def invoke(worker_id):
         try:
             worker=directory.resolve(worker_id)

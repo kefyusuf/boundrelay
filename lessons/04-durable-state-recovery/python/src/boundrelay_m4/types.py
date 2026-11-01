@@ -73,6 +73,7 @@ class ExecutorOptions:
     controls:RecoveryControls|None=None
     completion_order:tuple[WorkerId,...]|None=None
     on_crash:Callable[[],object]|None=None
+    queue:tuple[WorkerId,...]|None=None
 
 @dataclass(frozen=True)
 class ExecutionSummary:
