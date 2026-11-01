@@ -26,7 +26,7 @@ export type WorkerLifecycle={kind:'started';worker_id:WorkerId;input:WorkerInput
 export type WorkerObserver=(event:WorkerLifecycle)=>void;
 export interface StateStore {markRunning(worker:WorkerId):void;recordStepTerminal(worker:WorkerId,outcome:WorkerOutcome):void;markCancelledFrom(worker:WorkerId):void;markTerminal(status:Exclude<RunStateStatus,'RUNNING'>,failureCode?:'ALL_WORKERS_FAILED'):void;state():RunStateDocument;statePath():string;snapshotPath(seq:number):string}
 export interface ExecutorOptions {mode:ExecutionMode;input:WorkerInput;directory:WorkerDirectory;control:WorkerControl;observer:WorkerObserver;store?:StateStore;controls?:RecoveryControls;completion_order?:WorkerId[];on_crash?:()=>never}
-export interface ExecutionSummary {outcomes:WorkerOutcome[];peakConcurrency:number}
+export interface ExecutionSummary {outcomes:WorkerOutcome[];peakConcurrency:number;cancelled_before?:WorkerId}
 export interface CaseSpec {case_id:string;execution_mode:ExecutionMode;worker_fixture:string;completion_order:WorkerId[];controls?:RecoveryControls;replay_from_step?:number;tampered_state?:string}
 export interface Scenario {schema_version:'1.0';scenario_id:'order-brief-recovery';order_id:string;cases:CaseSpec[]}
 export type WorkerInstruction={operation:'return';output:unknown}|{operation:'raise';failure_code:'WORKER_EXECUTION_FAILED'};

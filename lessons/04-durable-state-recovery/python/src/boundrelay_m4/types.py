@@ -78,6 +78,7 @@ class ExecutorOptions:
 class ExecutionSummary:
     outcomes:list[WorkerOutcome]
     peak_concurrency:int
+    cancelled_before:WorkerId|None=None
 
 @dataclass(frozen=True)
 class CaseSpec:
