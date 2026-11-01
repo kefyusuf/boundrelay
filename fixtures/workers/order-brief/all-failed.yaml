@@ -1,0 +1,14 @@
+{
+  "order-details": {
+    "operation": "raise",
+    "failure_code": "WORKER_EXECUTION_FAILED"
+  },
+  "payment-status": {
+    "operation": "raise",
+    "failure_code": "WORKER_EXECUTION_FAILED"
+  },
+  "delivery-status": {
+    "operation": "raise",
+    "failure_code": "WORKER_EXECUTION_FAILED"
+  }
+}

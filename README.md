@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M2 routing and typed handoff implemented; certify the checked-out revision with `python scripts/verify_m2.py`.
+**Phase:** M3 bounded fan-out/fan-in implemented; certify the checked-out revision with `python scripts/verify_m3.py`.
+
+M3 adds three independent offline order-brief workers, sequential limit 1 and parallel limit 2, typed partial/all-failed outcomes, complete canonical fan-in and one deterministic synthesizer. Six paired cases demonstrate bounded overlap, out-of-order completion, declared failures and invalid output. Independent worker-body probes prove real overlap and once-only invocation; raw-first trace validation preserves failure evidence. M3 certification invokes M2 once, retaining the M2→M1→M0 chain.
 
 M2 adds an offline support-router → deterministic specialist handoff in TypeScript and Python. Route decisions are validated before a fixed `0.80` confidence policy; sender intent remains separate from the receiver's minimum `ticket_id + request_text` context. Five canonical cases cover code/model routing, low-confidence fallback, context loss, and unavailable receivers. Success invokes exactly one receiver; rejection invokes none and never retries. M2 certification retains M1 as the lower-milestone authority.
 
@@ -59,6 +61,18 @@ python scripts/verify_m2.py
 ```
 
 The gate requires a clean Git worktree, runs M1 (including M0), verifies both M2 implementations and five paired CLI cases, and publishes `.boundrelay/m2/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m2-verification-<revision>`. See [Lesson 02](lessons/02-routing-handoff/README.md) for setup, lifecycle, failure semantics, and exercises. M2 keeps receivers deterministic and read-only; real providers, retries, persistence, side effects, Go, parallelism, and framework adapters remain deferred.
+
+## Verify M3 locally
+
+After installing M0/M1/M2 as above, install Lesson 03:
+
+```bash
+python -m pip install -e lessons/03-parallel-fanout-fanin/python
+npm ci --prefix lessons/03-parallel-fanout-fanin/typescript
+python scripts/verify_m3.py
+```
+
+The authority runs both implementations, independent concurrency probes, offline guards, safety tests, six paired cases and twelve raw traces. It requires clean unchanged HEAD and matching lower-milestone proofs before publishing `.boundrelay/m3/verification-evidence.json`. CI runs the same authority on the exact candidate revision and uploads `m3-verification-<revision>`. See [Lesson 03](lessons/03-parallel-fanout-fanin/README.md) for execution, failure policy and exercises. This lesson remains finite and offline; real providers, dynamic topology, runtime deadlines/cancellation, persistence/recovery and external business writes remain deferred.
 
 ## Project identity
 
