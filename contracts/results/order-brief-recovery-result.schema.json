@@ -1,0 +1,787 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/results/order-brief-recovery-result.schema.json",
+  "title": "M4 Order Brief Recovery Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "scenario_id",
+    "case_id",
+    "execution_mode",
+    "concurrency_limit",
+    "peak_concurrency",
+    "order_id",
+    "status",
+    "worker_outcomes",
+    "synthesis_invoked",
+    "brief",
+    "failure_code",
+    "trace_path",
+    "resumed",
+    "restored_cursor",
+    "restored_worker_ids",
+    "state_dir",
+    "run_state_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_id": {
+      "const": "order-brief-recovery"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_mode": {
+      "enum": [
+        "sequential",
+        "parallel"
+      ]
+    },
+    "concurrency_limit": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "peak_concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 2
+    },
+    "order_id": {
+      "type": "string",
+      "pattern": "^ORD-[0-9]{4}$"
+    },
+    "status": {
+      "enum": [
+        "SUCCEEDED",
+        "PARTIAL",
+        "FAILED",
+        "CANCELLED"
+      ]
+    },
+    "worker_outcomes": {
+      "type": "array",
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/workerOutcome",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "order-details"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "$ref": "#/$defs/workerOutcome",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "payment-status"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "$ref": "#/$defs/workerOutcome",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "delivery-status"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "synthesis_invoked": {
+      "type": "boolean"
+    },
+    "brief": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/brief"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "failure_code": {
+      "enum": [
+        null,
+        "ALL_WORKERS_FAILED"
+      ]
+    },
+    "trace_path": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resumed": {
+      "type": "boolean"
+    },
+    "restored_cursor": {
+      "oneOf": [
+        {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "restored_worker_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "maxItems": 3,
+      "items": {
+        "enum": [
+          "order-details",
+          "payment-status",
+          "delivery-status"
+        ]
+      }
+    },
+    "state_dir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_state_status": {
+      "enum": [
+        "RUNNING",
+        "SUCCEEDED",
+        "PARTIAL",
+        "FAILED",
+        "CANCELLED"
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "execution_mode": {
+            "const": "sequential"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "concurrency_limit": {
+            "const": 1
+          },
+          "peak_concurrency": {
+            "const": 1
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "concurrency_limit": {
+            "const": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "SUCCEEDED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "worker_outcomes": {
+            "contains": {
+              "properties": {
+                "status": {
+                  "const": "SUCCEEDED"
+                }
+              }
+            },
+            "minContains": 3,
+            "maxContains": 3,
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "synthesis_invoked": {
+            "const": true
+          },
+          "failure_code": {
+            "const": null
+          },
+          "brief": {
+            "properties": {
+              "complete": {
+                "const": true
+              },
+              "sections": {
+                "minItems": 3,
+                "maxItems": 3
+              },
+              "missing_workers": {
+                "minItems": 0,
+                "maxItems": 0
+              }
+            },
+            "$ref": "#/$defs/brief"
+          },
+          "run_state_status": {
+            "const": "SUCCEEDED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "PARTIAL"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "worker_outcomes": {
+            "contains": {
+              "properties": {
+                "status": {
+                  "const": "SUCCEEDED"
+                }
+              }
+            },
+            "minContains": 1,
+            "maxContains": 2,
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "synthesis_invoked": {
+            "const": true
+          },
+          "failure_code": {
+            "const": null
+          },
+          "brief": {
+            "properties": {
+              "complete": {
+                "const": false
+              },
+              "sections": {
+                "minItems": 1,
+                "maxItems": 2
+              },
+              "missing_workers": {
+                "minItems": 1,
+                "maxItems": 2
+              }
+            },
+            "$ref": "#/$defs/brief"
+          },
+          "run_state_status": {
+            "const": "PARTIAL"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "FAILED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "worker_outcomes": {
+            "contains": {
+              "properties": {
+                "status": {
+                  "const": "SUCCEEDED"
+                }
+              }
+            },
+            "minContains": 0,
+            "maxContains": 0,
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "synthesis_invoked": {
+            "const": false
+          },
+          "failure_code": {
+            "const": "ALL_WORKERS_FAILED"
+          },
+          "brief": {
+            "type": "null"
+          },
+          "run_state_status": {
+            "const": "FAILED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "CANCELLED"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "worker_outcomes": {
+            "minItems": 0,
+            "maxItems": 3
+          },
+          "synthesis_invoked": {
+            "const": false
+          },
+          "brief": {
+            "type": "null"
+          },
+          "failure_code": {
+            "const": null
+          },
+          "run_state_status": {
+            "const": "CANCELLED"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resumed": {
+            "const": false
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "restored_cursor": {
+            "type": "null"
+          },
+          "restored_worker_ids": {
+            "maxItems": 0
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "resumed": {
+            "const": true
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "restored_cursor": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 3
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "workerOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker_id",
+            "status",
+            "output",
+            "failure_code"
+          ],
+          "properties": {
+            "worker_id": {
+              "enum": [
+                "order-details",
+                "payment-status",
+                "delivery-status"
+              ]
+            },
+            "status": {
+              "const": "SUCCEEDED"
+            },
+            "output": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "order_id",
+                    "order_status"
+                  ],
+                  "properties": {
+                    "order_id": {
+                      "type": "string",
+                      "pattern": "^ORD-[0-9]{4}$"
+                    },
+                    "order_status": {
+                      "enum": [
+                        "PROCESSING",
+                        "SHIPPED",
+                        "CANCELLED"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "order_id",
+                    "payment_status"
+                  ],
+                  "properties": {
+                    "order_id": {
+                      "type": "string",
+                      "pattern": "^ORD-[0-9]{4}$"
+                    },
+                    "payment_status": {
+                      "enum": [
+                        "PAID",
+                        "UNPAID"
+                      ]
+                    }
+                  }
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "order_id",
+                    "delivery_status"
+                  ],
+                  "properties": {
+                    "order_id": {
+                      "type": "string",
+                      "pattern": "^ORD-[0-9]{4}$"
+                    },
+                    "delivery_status": {
+                      "enum": [
+                        "PENDING",
+                        "IN_TRANSIT",
+                        "DELIVERED",
+                        "DELAYED"
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            "failure_code": {
+              "type": "null"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "worker_id": {
+                    "const": "order-details"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "order_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "order_status": {
+                        "enum": [
+                          "PROCESSING",
+                          "SHIPPED",
+                          "CANCELLED"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "worker_id": {
+                    "const": "payment-status"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "payment_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "payment_status": {
+                        "enum": [
+                          "PAID",
+                          "UNPAID"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "if": {
+                "properties": {
+                  "worker_id": {
+                    "const": "delivery-status"
+                  }
+                }
+              },
+              "then": {
+                "properties": {
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "delivery_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "delivery_status": {
+                        "enum": [
+                          "PENDING",
+                          "IN_TRANSIT",
+                          "DELIVERED",
+                          "DELAYED"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "worker_id",
+            "status",
+            "output",
+            "failure_code"
+          ],
+          "properties": {
+            "worker_id": {
+              "enum": [
+                "order-details",
+                "payment-status",
+                "delivery-status"
+              ]
+            },
+            "status": {
+              "const": "FAILED"
+            },
+            "output": {
+              "type": "null"
+            },
+            "failure_code": {
+              "enum": [
+                "WORKER_EXECUTION_FAILED",
+                "INVALID_WORKER_OUTPUT"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "brief": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "sections",
+        "missing_workers",
+        "complete"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "sections": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "worker_id",
+                  "output"
+                ],
+                "properties": {
+                  "worker_id": {
+                    "const": "order-details"
+                  },
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "order_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "order_status": {
+                        "enum": [
+                          "PROCESSING",
+                          "SHIPPED",
+                          "CANCELLED"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "worker_id",
+                  "output"
+                ],
+                "properties": {
+                  "worker_id": {
+                    "const": "payment-status"
+                  },
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "payment_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "payment_status": {
+                        "enum": [
+                          "PAID",
+                          "UNPAID"
+                        ]
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "worker_id",
+                  "output"
+                ],
+                "properties": {
+                  "worker_id": {
+                    "const": "delivery-status"
+                  },
+                  "output": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "order_id",
+                      "delivery_status"
+                    ],
+                    "properties": {
+                      "order_id": {
+                        "type": "string",
+                        "pattern": "^ORD-[0-9]{4}$"
+                      },
+                      "delivery_status": {
+                        "enum": [
+                          "PENDING",
+                          "IN_TRANSIT",
+                          "DELIVERED",
+                          "DELAYED"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        },
+        "missing_workers": {
+          "type": "array",
+          "uniqueItems": true,
+          "maxItems": 2,
+          "items": {
+            "enum": [
+              "order-details",
+              "payment-status",
+              "delivery-status"
+            ]
+          }
+        },
+        "complete": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
