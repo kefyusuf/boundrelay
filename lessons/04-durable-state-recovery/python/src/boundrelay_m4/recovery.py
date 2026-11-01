@@ -22,6 +22,8 @@ class RunOptions:
     control:object=None
     synthesizer:object=None
     state_store:object=None
+    observer:object=None
+    on_crash:object=None
 
 def recorded_worker_ids(document:RunStateDocument)->list[WorkerId]:
     return [step['worker_id'] for step in document['steps'] if step['status'] in RECORDING]
@@ -46,9 +48,18 @@ def _emit_restored(sink,binding:StateBinding,document:RunStateDocument)->None:
     if sink is None:return
     sink.emit('checkpoint.restored',{'case_id':binding.case_id,'execution_mode':binding.execution_mode,'requested_order_id':binding.requested_order_id,'concurrency_limit':binding.concurrency_limit,'state_status':document['status'],'restored_cursor':document['sequence_cursor'],'restored_worker_ids':recorded_worker_ids(document)})
 
+def _emit_checkpoint_saved(sink,binding:StateBinding,store,worker_id:WorkerId)->None:
+    if sink is None:return
+    document=store.state()
+    sink.emit('checkpoint.saved',{'case_id':binding.case_id,'execution_mode':binding.execution_mode,'requested_order_id':binding.requested_order_id,'concurrency_limit':binding.concurrency_limit,'step_name':worker_id,'state_status':document['status'],'sequence_cursor':document['sequence_cursor']})
+
 async def _complete_recovered_run(store,options,binding:StateBinding,document:RunStateDocument)->RunResult:
     if (options.directory is None)!=(options.control is None):raise ValueError('Override pair required')
-    summary=await execute_workers(ExecutorOptions(binding.execution_mode,WorkerInput(binding.requested_order_id),options.directory,options.control,lambda event:None,store=store,queue=tuple(derive_pending(document))))
+    base=options.observer
+    def observe(event):
+        if base is not None:base(event)
+        if event['kind']=='terminal':_emit_checkpoint_saved(options.sink,binding,store,event['outcome']['worker_id'])
+    summary=await execute_workers(ExecutorOptions(binding.execution_mode,WorkerInput(binding.requested_order_id),options.directory,options.control,observe,store=store,queue=tuple(derive_pending(document))))
     restored={outcome['worker_id']:outcome for outcome in recorded_outcomes(document)}
     fresh={outcome['worker_id']:outcome for outcome in summary.outcomes}
     canonical=canonicalize_outcomes([restored.get(worker_id,fresh.get(worker_id)) for worker_id in WORKER_IDS],binding.requested_order_id)
@@ -57,8 +68,10 @@ async def _complete_recovered_run(store,options,binding:StateBinding,document:Ru
     failure_code='ALL_WORKERS_FAILED' if status=='FAILED' else None
     brief=None;synthesis_invoked=False
     if succeeded>0:
+        if options.sink is not None:options.sink.emit('step.started',{'step_name':'synthesize','worker_outcomes':list(canonical)})
         synthesizer=options.synthesizer if options.synthesizer is not None else synthesize_brief
         brief=synthesizer(binding.requested_order_id,canonical);synthesis_invoked=True
+        if options.sink is not None:options.sink.emit('step.completed',{'step_name':'synthesize','brief':brief})
     if failure_code is not None:store.mark_terminal(status,failure_code)
     else:store.mark_terminal(status)
     result={'schema_version':'1.0','run_id':store.state()['run_id'],'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(summary.peak_concurrency,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':list(canonical),'synthesis_invoked':synthesis_invoked,'brief':brief,'failure_code':failure_code,'trace_path':options.trace_path,'resumed':True,'restored_cursor':document['sequence_cursor'],'restored_worker_ids':recorded_worker_ids(document),'state_dir':options.state_dir,'run_state_status':status}
