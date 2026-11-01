@@ -1,6 +1,6 @@
 # M4 Durable State and Recovery Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Plan review and execution-method selection precede product implementation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The owner selected Native execution on 2026-11-01.
 
 **Goal:** Deliver the accepted offline `order-brief-recovery` lesson with a typed run-state document, write-ahead atomic checkpoints, fail-closed resume/replay, deterministic cancellation, and exact-revision evidence across a multi-process authority chain.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M4 design](../specs/2026-11-01-m4-durable-state-recovery-design.md), [D-015](../../decisions/D-015-m4-durable-state-and-recovery.md), accepted 2026-11-01.
 
-**Status:** Written design accepted on 2026-11-01 (PR #12). This plan is the next review artifact; reviewed-plan approval and execution-method selection are required before product implementation. No product code is included in this planning change.
+**Status:** Written design and implementation plan accepted on 2026-11-01. The owner selected Native execution; implementation proceeds on the feature branch. Exact-revision certification, independent review, CI, merge, and release remain separate observed states; consult PR evidence for their current status.
 
 ## Global Constraints
 
@@ -224,7 +224,7 @@ All six Review Focus rows have named tests. Interfaces and wire names are consis
 
 ## Execution Handoff
 
-This plan awaits review. On the owner's plan approval and execution-method selection (expected **Native**: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review), implementation may begin. These tasks share close interfaces and have no external business writes. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
+The owner approved this written plan and selected **Native** on 2026-11-01: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. These tasks share close interfaces and have no external business writes. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
 
 
 
