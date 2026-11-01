@@ -18,3 +18,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-012](D-012-m1-bounded-single-agent-tool-loop.md) | Bound M1 to an offline read-only single-agent tool loop with hard budgets | Accepted | 2026-09-15 |
 | [D-013](D-013-m2-typed-support-handoff-boundary.md) | Bound M2 to typed support handoff with deterministic confidence fallback and receivers | Accepted | 2026-09-30 |
 | [D-014](D-014-m3-bounded-read-only-fanout-fanin.md) | Bound M3 to read-only fan-out/fan-in with explicit partial results and deterministic synthesis | Accepted | 2026-10-05 |
+| [D-015](D-015-m4-durable-state-and-recovery.md) | Bound M4 to file-backed run state with fail-closed checkpoints, resume, cancellation, and replay | Accepted | 2026-11-01 |
