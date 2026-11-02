@@ -1,6 +1,6 @@
 # M5 Side Effects, Idempotency, and Human Approval Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Plan review and execution-method selection precede product implementation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The owner selected Native execution on 2026-11-02.
 
 **Goal:** Deliver the accepted offline `order-closure` lesson with approval-gated, idempotent effects, append-only audit, an explicit UNKNOWN boundary, and exact-revision evidence across the multi-process authority chain.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M5 design](../specs/2026-11-02-m5-side-effects-approval-design.md), [D-016](../../decisions/D-016-m5-idempotent-approved-effects.md), accepted 2026-11-02.
 
-**Status:** Written design accepted on 2026-11-02 (PR #16). This plan is the next review artifact; reviewed-plan approval and execution-method selection are required before product implementation. No product code is included in this planning change.
+**Status:** Written design and implementation plan accepted on 2026-11-02. The owner selected Native execution; implementation proceeds on the feature branch. Exact-revision certification, independent review, CI, merge, and release remain separate observed states; consult PR evidence for their current status.
 
 ## Global Constraints
 
@@ -192,7 +192,7 @@ All six Review Focus rows have named tests. The plan specifies signatures and be
 
 ## Execution Handoff
 
-This plan awaits review. On the owner's plan approval and execution-method selection (expected **Native**: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review), implementation may begin. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
+The owner approved this written plan and selected **Native** on 2026-11-02: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
 
 
 
