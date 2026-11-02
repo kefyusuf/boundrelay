@@ -1,6 +1,6 @@
 # D-016 — M5 Idempotent Approved Effects
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-02
 
 ## Context
@@ -37,4 +37,4 @@ Use exactly six canonical cases: approval-granted effect-once, approval-rejected
 
 ## Acceptance gate
 
-This decision is proposed together with the written design. Owner approval of both is required before detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
+The owner approved the written design and this decision on 2026-11-02. Detailed implementation planning is the next artifact; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.

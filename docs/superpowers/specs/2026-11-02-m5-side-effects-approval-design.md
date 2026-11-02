@@ -1,7 +1,7 @@
 # M5 Side Effects, Idempotency, and Human Approval Design
 
 - **Date:** 2026-11-02
-- **Status:** Proposed — awaiting owner review and written-design approval
+- **Status:** Accepted by the owner on 2026-11-02; implementation planning follows
 - **Milestone:** M5 — Side effects, idempotency, and human approval
 - **Project:** BoundRelay
 - **Baseline:** merged M4 at `dc27e8a1684f93094c064f63b5e0b67c86eb3102`
@@ -141,5 +141,7 @@ M5 does not introduce real networks, real payment/refund services, transactional
 
 ## 15. Written-design review gate
 
-This design is **Proposed**. The owner's written-design approval — covering the order-closure scenario, approval binding, idempotency-key semantics, the UNKNOWN boundary, the scripted ledger, canonical cases, and the revision-bound authority — is required before the implementation plan is drafted. Design acceptance alone does not authorize product implementation.
+The owner approved this written design and D-016 on 2026-11-02, covering the order-closure scenario, approval binding, idempotency-key semantics, the UNKNOWN boundary, the scripted ledger, the six canonical cases, and the revision-bound authority.
+
+The implementation plan is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product code, schema, fixture, dependency, or workflow implementation.
 
