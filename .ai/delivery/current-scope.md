@@ -2,11 +2,11 @@
 
 ## Active phase
 
-M3 — Bounded read-only fan-out/fan-in implemented and revision-verifiable.
+M4 — Durable state and recovery implemented and revision-verifiable.
 
-Accepted scope: D-014 and `docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md`. Implementation plan: `docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md`, approved for Native execution.
+Accepted scope: D-015 and `docs/superpowers/specs/2026-11-01-m4-durable-state-recovery-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-01-m4-durable-state-recovery.md`, approved for Native execution.
 
-M3 fixes three independent order-brief workers, sequential cap1 / parallel cap2, once-only invocation, explicit partial/all-failed outcomes, complete canonical fan-in, one deterministic synthesis owner and six offline paired cases. The new authority includes independent worker-body proof, raw-first trace validation and the M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+M4 reuses the three M3 order-brief workers and adds a typed run-state document, write-ahead atomic checkpoints, fail-closed resume/replay, deterministic cancellation, and six paired multi-phase offline cases (clean, crash-resume, crash-resume-partial, cancel-resume, replay-from-checkpoint, corrupt-state). The new authority includes multi-phase subprocess evidence, raw-first trace/state validation, and the M3→M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,17 +14,17 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M3 fan-out/fan-in design](../../docs/superpowers/specs/2026-10-05-m3-bounded-fanout-fanin-design.md), D-014, and the [implementation plan](../../docs/superpowers/plans/2026-10-05-m3-bounded-fanout-fanin.md) on 2026-10-05, selecting Native execution. A fresh whole-branch review identified two Important boundary findings, addressed through RED→GREEN tests: reject hidden/symbol/accessor worker fields before cloning and remove stale evidence before dirty preflight. The complete authority must be rerun on every changed candidate. No M4/M5 work is included.
+The owner accepted [the written M4 durable state and recovery design](../../docs/superpowers/specs/2026-11-01-m4-durable-state-recovery-design.md), D-015, and the [implementation plan](../../docs/superpowers/plans/2026-11-01-m4-durable-state-recovery.md) on 2026-11-01, selecting Native execution. Rulings recorded in the plan ledger: run-state status includes PARTIAL; sequence_cursor counts recorded terminals; control-shaping caps guarantee deterministic crash/cancel boundaries. The complete authority must be rerun on every changed candidate. No M5 work is included.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m3.py` (runs M2, which runs M1/M0)
-- CI workflow: `.github/workflows/m3.yml`
+- Local gate: `python scripts/verify_m4.py` (runs M3, which runs M2→M1→M0)
+- CI workflow: `.github/workflows/m4.yml`
 - Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m3-verification-<revision>`
-- Evidence root: `.boundrelay/m3/`
+- CI artifact: `m4-verification-<revision>`
+- Evidence root: `.boundrelay/m4/`
 
-M3 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and twelve language-specific traces. It requires lower PASSED proofs on the same revision and passed identities of all four independent executor probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M4 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and all phase traces. It requires lower PASSED proofs on the same revision and passed identities of the independent executor and recovery probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 

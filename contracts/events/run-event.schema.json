@@ -41,7 +41,10 @@
         "budget.exceeded",
         "handoff.requested",
         "handoff.accepted",
-        "handoff.rejected"
+        "handoff.rejected",
+        "checkpoint.saved",
+        "checkpoint.restored",
+        "run.cancelled"
       ]
     },
     "timestamp": {"type": "string", "format": "date-time"},

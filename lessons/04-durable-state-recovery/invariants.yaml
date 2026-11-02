@@ -1,0 +1,106 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-brief-recovery",
+  "invariants": [
+    {
+      "id": "M4-01",
+      "description": "Run state is the only recovery authority; traces and results are never read back to reconstruct it.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-02",
+      "description": "Every step terminal is checkpointed before the next admission.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-03",
+      "description": "Checkpoint writes are atomic; a truncated file is never loaded.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-04",
+      "description": "State loading fails closed on version, schema, binding, or digest mismatch with zero worker invocations.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-05",
+      "description": "Recorded SUCCEEDED outcomes are never re-executed on resume.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-06",
+      "description": "Recorded FAILED outcomes are never re-executed on resume.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-07",
+      "description": "A worker without a recorded terminal is re-executed exactly once on resume.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-08",
+      "description": "Each worker contributes exactly one recorded outcome to the merged run, however many processes it spans.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-09",
+      "description": "Resume preserves case/mode/order binding; a mismatched resume is a tooling error.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-10",
+      "description": "Retry is a fresh run and re-executes every worker; it consults no durable state.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-11",
+      "description": "Cancellation stops admission, drains entered workers, and records and checkpoints their terminals before terminating.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-12",
+      "description": "CANCELLED is a domain outcome with a result line, exit 0, and no failure code.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-13",
+      "description": "Resume after CANCELLED completes only the remaining workers.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-14",
+      "description": "Replay seeds a new run identity and never mutates the source state.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-15",
+      "description": "Exactly one synthesis call occurs, in the process that completes the run, after all outcomes settle.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-16",
+      "description": "The envelope stays at version 1.0; new event types are only the foundation-declared checkpoint, restore, and cancel members.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-17",
+      "description": "Events and state documents carry safe identifiers only; raw payloads never persist.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-18",
+      "description": "Bounded-executor rules (limit 1/2, once-only, slot ownership) hold in every phase.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-19",
+      "description": "Same-case TypeScript/Python parity holds across multi-phase flows, including normalized state documents.",
+      "spec_section": 16
+    },
+    {
+      "id": "M4-20",
+      "description": "All six canonical cases run offline; M0-M3 remain valid; all evidence is bound to the current candidate revision.",
+      "spec_section": 16
+    }
+  ]
+}

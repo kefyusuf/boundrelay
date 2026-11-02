@@ -222,6 +222,12 @@ Reviewed this plan against all spec sections and twenty invariants. Tasks 1–2 
 
 All six Review Focus rows have named tests. Interfaces and wire names are consistent across tasks; internal language naming differs deliberately. The plan specifies signatures and behavioral assertions rather than implementation bodies. Crash control is a scripted fixture boundary (a real subprocess exit), not a runtime timeout/recovery feature. Future-file paths above are planned artifacts, not claims they already exist.
 
+## Execution Ledger
+
+- **Ruling 1 (2026-11-01):** The run-state `status` enum gains `PARTIAL` (and the result's `run_state_status` binds 1:1 to the result status), so a partially completed run's state document mirrors its terminal status only when the run completes without cancellation; `CANCELLED` remains its own terminal. This refines spec section 4's otherwise four-value enum; no other boundary changes. Recorded during Task 1.
+- **Ruling 2 (2026-11-01):** `sequence_cursor` = count of steps with recorded terminals (`SUCCEEDED`|`FAILED`), not a next-admission index; resume pending set = steps whose status is `PENDING`|`RUNNING`|`CANCELLED`, admitted in canonical queue order. Recorded during Task 2/3.
+- **Ruling 3 (2026-11-01):** While a control is armed, admission is shaped to guarantee deterministic boundaries: `crash_after X` caps admission at `min(limit, pos(X))` until X's terminal is recorded (X settles last in its wave → quiescent boundary); `cancel_before X` caps admission at `pos(X)-1`, so X is never admitted and cancel fires at the quiescent moment after the first `pos(X)-1` workers settle. Recorded during Task 3.
+
 ## Execution Handoff
 
 The owner approved this written plan and selected **Native** on 2026-11-01: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. These tasks share close interfaces and have no external business writes. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
