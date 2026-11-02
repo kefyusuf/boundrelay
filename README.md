@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M3 bounded fan-out/fan-in implemented; certify the checked-out revision with `python scripts/verify_m3.py`.
+**Phase:** M4 durable state and recovery implemented; certify the checked-out revision with `python scripts/verify_m4.py`.
+
+M4 adds a typed run-state document, write-ahead atomic checkpoints, fail-closed resume/replay, and deterministic cancellation on top of the M3 order-brief workers. Six paired multi-phase cases cover clean completion, crash-resume (full and partial), cancel-resume, replay-from-checkpoint, and corrupt-state rejection. Recorded outcomes are never re-executed; a crash can lose at most the in-flight step; traces gain `checkpoint.saved`, `checkpoint.restored`, and `run.cancelled`. M4 certification invokes M3 once, retaining the M3→M2→M1→M0 chain.
 
 M3 adds three independent offline order-brief workers, sequential limit 1 and parallel limit 2, typed partial/all-failed outcomes, complete canonical fan-in and one deterministic synthesizer. Six paired cases demonstrate bounded overlap, out-of-order completion, declared failures and invalid output. Independent worker-body probes prove real overlap and once-only invocation; raw-first trace validation preserves failure evidence. M3 certification invokes M2 once, retaining the M2→M1→M0 chain.
 
@@ -61,6 +63,20 @@ python scripts/verify_m2.py
 ```
 
 The gate requires a clean Git worktree, runs M1 (including M0), verifies both M2 implementations and five paired CLI cases, and publishes `.boundrelay/m2/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m2-verification-<revision>`. See [Lesson 02](lessons/02-routing-handoff/README.md) for setup, lifecycle, failure semantics, and exercises. M2 keeps receivers deterministic and read-only; real providers, retries, persistence, side effects, Go, parallelism, and framework adapters remain deferred.
+
+## Verify M4 locally
+
+After installing M0–M2 as above, install Lessons 03 and 04:
+
+```bash
+python -m pip install -e lessons/03-parallel-fanout-fanin/python
+python -m pip install -e lessons/04-durable-state-recovery/python
+npm ci --prefix lessons/03-parallel-fanout-fanin/typescript
+npm ci --prefix lessons/04-durable-state-recovery/typescript
+python scripts/verify_m4.py
+```
+
+The gate requires a clean Git worktree, runs M3 (including M2→M0), verifies both M4 implementations and six multi-phase CLI case flows with real subprocess exits, validates traces, state documents, and digests, and publishes `.boundrelay/m4/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m4-verification-<revision>`. See [Lesson 04](lessons/04-durable-state-recovery/README.md) for the history/state boundary, checkpoint/resume/replay/cancel semantics, and exercises.
 
 ## Verify M3 locally
 
