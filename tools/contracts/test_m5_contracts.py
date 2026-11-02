@@ -41,12 +41,6 @@ def outcome(index, failed=False):
             'failure_code': 'WORKER_EXECUTION_FAILED' if failed else None}
 
 
-def brief(complete=True, failed=()):
-    return {'order_id': 'ORD-1001', 'sections': [
-                {'worker_id': IDS[i], 'output': deepcopy(OUTPUTS[i])}
-                for i in range(3) if i not in failed],
-            'missing_workers': [IDS[i] for i in failed], 'complete': complete}
-
 def m5_result(status='SUCCEEDED'):
     approval_rejected = status == 'APPROVAL_REJECTED'
     all_failed = status == 'ALL_FAILED'
@@ -64,9 +58,8 @@ def m5_result(status='SUCCEEDED'):
             'execution_mode': 'parallel', 'concurrency_limit': 2,
             'peak_concurrency': 2, 'order_id': 'ORD-1001', 'status': run_status,
             'worker_outcomes': [outcome(i, i in workers_failed) for i in range(3)],
-            'synthesis_invoked': not all_failed,
-            'brief': None if all_failed else brief(complete=not partial,
-                                                   failed=workers_failed),
+            'synthesis_invoked': False,
+            'brief': None,
             'failure_code': ('APPROVAL_REJECTED' if approval_rejected
                              else ('ALL_WORKERS_FAILED' if all_failed else None)),
             'approval_decision': decision, 'effect_status': effect_status,

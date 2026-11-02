@@ -110,6 +110,93 @@
     "digest": {
       "type": "string",
       "pattern": "^[0-9a-f]{64}$"
+    },
+    "submit_marker": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "payload_digest"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "payload_digest",
+            "status",
+            "outcome",
+            "duplicate"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "status": {
+              "enum": [
+                "EFFECT_COMPLETED",
+                "EFFECT_REJECTED"
+              ]
+            },
+            "outcome": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "refund_id",
+                    "refunded_at"
+                  ],
+                  "properties": {
+                    "refund_id": {
+                      "type": "string",
+                      "pattern": "^RFL-[0-9]{4}$"
+                    },
+                    "refunded_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              ]
+            },
+            "duplicate": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
     }
   },
   "$defs": {

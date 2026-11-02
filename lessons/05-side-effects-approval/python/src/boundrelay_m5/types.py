@@ -68,6 +68,14 @@ WorkerLifecycle=dict[str,object]
 WorkerObserver=Callable[[WorkerLifecycle],None]
 
 @dataclass(frozen=True)
+class EffectWiring:
+    ledger:object
+    approval_gate:object
+    audit:object=None
+    controls:RecoveryControls|None=None
+    on_crash:Callable[[],object]|None=None
+
+@dataclass(frozen=True)
 class ExecutorOptions:
     mode:ExecutionMode
     input:WorkerInput
@@ -75,16 +83,16 @@ class ExecutorOptions:
     control:WorkerControl
     observer:WorkerObserver
     store:object=None
-    controls:RecoveryControls|None=None
     completion_order:tuple[WorkerId,...]|None=None
-    on_crash:Callable[[],object]|None=None
     queue:tuple[WorkerId,...]|None=None
+    effect:EffectWiring|None=None
 
 @dataclass(frozen=True)
 class ExecutionSummary:
-    outcomes:list[WorkerOutcome]
+    reads:list[WorkerOutcome]
     peak_concurrency:int
-    cancelled_before:WorkerId|None=None
+    effect:dict[str,object]|None=None
+    rejected:bool=False
 
 @dataclass(frozen=True)
 class CaseSpec:

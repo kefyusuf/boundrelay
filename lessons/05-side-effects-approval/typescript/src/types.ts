@@ -16,7 +16,8 @@ export class WorkerExecutionError extends Error {}
 export type StepStatus='PENDING'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 export type RunStateStatus='RUNNING'|'SUCCEEDED'|'PARTIAL'|'FAILED'|'CANCELLED'|'UNKNOWN';
 export interface StepRecord {worker_id:WorkerId;status:StepStatus;output:WorkerOutput|null;failure_code:'WORKER_EXECUTION_FAILED'|'INVALID_WORKER_OUTPUT'|null}
-export interface RunStateDocument {state_schema_version:'1.0';run_id:string;scenario_id:'order-closure';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;requested_order_id:string;status:RunStateStatus;steps:[StepRecord,StepRecord,StepRecord];sequence_cursor:number;digest:string}
+export interface EffectConfirmation {key:string;payload_digest:string;status:'EFFECT_COMPLETED'|'EFFECT_REJECTED';outcome:RefundOutcome|null;duplicate:boolean}
+export interface RunStateDocument {state_schema_version:'1.0';run_id:string;scenario_id:'order-closure';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;requested_order_id:string;status:RunStateStatus;steps:[StepRecord,StepRecord,StepRecord];sequence_cursor:number;digest:string;submit_marker:{key:string;payload_digest:string}|null;effect:EffectConfirmation|null}
 export interface StateBinding {case_id:string;execution_mode:ExecutionMode;requested_order_id:string;concurrency_limit:number}
 export type StateLoadReason='UNKNOWN_VERSION'|'SCHEMA_INVALID'|'DIGEST_MISMATCH'|'BINDING_MISMATCH'|'TRUNCATED'|'MISSING_SNAPSHOT';
 export class StateLoadError extends Error {constructor(public readonly reason:StateLoadReason,detail:string){super(`Run state load failed: ${reason} (${detail})`);this.name='StateLoadError';}}
@@ -30,15 +31,19 @@ export interface ApprovalMetadata {decision:'granted'|'rejected';approver:string
 export interface ApprovalRecord {operation:'cancel-and-refund';order_id:string;payload_digest:string;decision:'granted'|'rejected';approver:string}
 export type AuditRecord={kind:'approval';operation:'cancel-and-refund';order_id:string;payload_digest:string;decision:'granted'|'rejected';approver:string}|{kind:'effect';operation:'cancel-and-refund';order_id:string;idempotency_key:string;effect_status:'EFFECT_COMPLETED'|'EFFECT_REJECTED'|'EFFECT_UNPROVABLE';duplicate:boolean};
 export interface RecoveryControls {crash_before_submit?:true;crash_in_submit_window?:true;sink_unavailable?:true}
+export interface EffectSink {submit(key:string,digest:string,payload:EffectPayload):SubmitResult;lookup(key:string):LookupResult|null}
+export interface ApprovalSink {decide(payload:EffectPayload):{decision:'granted'|'rejected';record:ApprovalRecord}}
+export interface AuditSink {append(record:AuditRecord):void}
+export interface EffectWiring {ledger:EffectSink;approvalGate:ApprovalSink;audit?:AuditSink|undefined;controls?:RecoveryControls|undefined;on_crash?:(()=>never)|undefined}
 export interface WorkerControl {acknowledgeOutcome(id:WorkerId):void;beginDrain():void}
 export interface WorkerProvider extends WorkerControl {read(id:WorkerId,input:WorkerInput):Promise<unknown>}
 export interface WorkerDefinition {id:WorkerId;handle(input:WorkerInput):Promise<unknown>}
 export interface WorkerDirectory {resolve(id:WorkerId):WorkerDefinition|undefined}
 export type WorkerLifecycle={kind:'started';worker_id:WorkerId;input:WorkerInput}|{kind:'terminal';outcome:WorkerOutcome};
 export type WorkerObserver=(event:WorkerLifecycle)=>void;
-export interface StateStore {markRunning(worker:WorkerId):void;recordStepTerminal(worker:WorkerId,outcome:WorkerOutcome):void;markCancelledFrom(worker:WorkerId):void;markTerminal(status:Exclude<RunStateStatus,'RUNNING'>,failureCode?:'ALL_WORKERS_FAILED'|'APPROVAL_REJECTED'):void;state():RunStateDocument;statePath():string;snapshotPath(seq:number):string}
-export interface ExecutorOptions {mode:ExecutionMode;input:WorkerInput;directory:WorkerDirectory;control:WorkerControl;observer:WorkerObserver;store?:StateStore;controls?:RecoveryControls;completion_order?:WorkerId[];on_crash?:()=>never;queue?:readonly WorkerId[]}
-export interface ExecutionSummary {outcomes:WorkerOutcome[];peakConcurrency:number;cancelled_before?:WorkerId}
+export interface StateStore {markRunning(worker:WorkerId):void;recordStepTerminal(worker:WorkerId,outcome:WorkerOutcome):void;markCancelledFrom(worker:WorkerId):void;markTerminal(status:Exclude<RunStateStatus,'RUNNING'>,failureCode?:'ALL_WORKERS_FAILED'|'APPROVAL_REJECTED'):void;markSubmitted(key:string,payloadDigest:string):void;recordEffectOutcome(effect:EffectConfirmation):void;state():RunStateDocument;statePath():string;snapshotPath(seq:number):string}
+export interface ExecutorOptions {mode:ExecutionMode;input:WorkerInput;directory:WorkerDirectory;control:WorkerControl;observer:WorkerObserver;store?:StateStore;completion_order?:WorkerId[];queue?:readonly WorkerId[];effect?:EffectWiring}
+export interface ExecutionSummary {reads:WorkerOutcome[];effect:EffectConfirmation|null;rejected:boolean;peakConcurrency:number}
 export interface CaseSpec {case_id:string;execution_mode:ExecutionMode;worker_fixture:string;completion_order:WorkerId[];approval:ApprovalMetadata;controls?:RecoveryControls;duplicate_key?:boolean}
 export interface Scenario {schema_version:'1.0';scenario_id:'order-closure';order_id:string;cases:CaseSpec[]}
 export type WorkerInstruction={operation:'return';output:unknown}|{operation:'raise';failure_code:'WORKER_EXECUTION_FAILED'};

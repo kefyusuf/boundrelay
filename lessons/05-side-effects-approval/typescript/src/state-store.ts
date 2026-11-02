@@ -1,13 +1,13 @@
 import {randomUUID} from 'node:crypto';
 import {existsSync,mkdirSync,readdirSync,readFileSync,renameSync,rmSync,writeFileSync} from 'node:fs';
 import {basename,dirname,join} from 'node:path';
-import {WORKER_IDS,StateLoadError,type RunStateDocument,type RunStateStatus,type StateBinding,type StepRecord,type WorkerId,type WorkerOutcome,type WorkerOutput} from './types.js';
+import {WORKER_IDS,StateLoadError,type EffectConfirmation,type RunStateDocument,type RunStateStatus,type StateBinding,type StepRecord,type WorkerId,type WorkerOutcome,type WorkerOutput} from './types.js';
 import {canonicalJson,canonicalStateBody,stateDigest,validateRunStateDocument} from './schemas.js';
 const TERMINAL=new Set(['SUCCEEDED','FAILED']);
 export class StateStore {
  private readonly document:RunStateDocument;
  constructor(private readonly root:string,private readonly binding:StateBinding,queue:readonly WorkerId[],runId:string=randomUUID(),seed?:RunStateDocument){
-  this.document=seed===undefined?{state_schema_version:'1.0',run_id:runId,scenario_id:'order-closure',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,requested_order_id:binding.requested_order_id,status:'RUNNING',steps:queue.map(id=>({worker_id:id,status:'PENDING',output:null,failure_code:null})) as [StepRecord,StepRecord,StepRecord],sequence_cursor:0,digest:''}:{...structuredClone(seed),status:'RUNNING'};
+  this.document=seed===undefined?{state_schema_version:'1.0',run_id:runId,scenario_id:'order-closure',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,requested_order_id:binding.requested_order_id,status:'RUNNING',steps:queue.map(id=>({worker_id:id,status:'PENDING',output:null,failure_code:null})) as [StepRecord,StepRecord,StepRecord],sequence_cursor:0,digest:'',submit_marker:null,effect:null}:{...structuredClone(seed),status:'RUNNING'};
   mkdirSync(dirname(this.statePath()),{recursive:true});mkdirSync(dirname(this.snapshotPath(1)),{recursive:true});
   this.flush();
  }
@@ -34,6 +34,14 @@ export class StateStore {
  markTerminal(status:Exclude<RunStateStatus,'RUNNING'>,failureCode?:'ALL_WORKERS_FAILED'|'APPROVAL_REJECTED'):void {
   if(status==='FAILED'&&failureCode!=='ALL_WORKERS_FAILED'&&failureCode!=='APPROVAL_REJECTED')throw new Error('Invalid terminal failure code');
   this.document.status=status;this.flush();
+ }
+ markSubmitted(key:string,payloadDigest:string):void {
+  this.document.submit_marker={key,payload_digest:payloadDigest};
+  this.flush();
+ }
+ recordEffectOutcome(effect:EffectConfirmation):void {
+  this.document.effect=structuredClone(effect);
+  this.flush();
  }
  private step(worker:WorkerId):StepRecord {return this.document.steps[WORKER_IDS.indexOf(worker)]!;}
  private flush(snapshotSeq?:number):void {

@@ -262,26 +262,13 @@
             "maxItems": 3
           },
           "synthesis_invoked": {
-            "const": true
+            "const": false
           },
           "failure_code": {
             "const": null
           },
           "brief": {
-            "properties": {
-              "complete": {
-                "const": true
-              },
-              "sections": {
-                "minItems": 3,
-                "maxItems": 3
-              },
-              "missing_workers": {
-                "minItems": 0,
-                "maxItems": 0
-              }
-            },
-            "$ref": "#/$defs/brief"
+            "type": "null"
           },
           "run_state_status": {
             "const": "SUCCEEDED"
@@ -323,26 +310,13 @@
             "maxItems": 3
           },
           "synthesis_invoked": {
-            "const": true
+            "const": false
           },
           "failure_code": {
             "const": null
           },
           "brief": {
-            "properties": {
-              "complete": {
-                "const": false
-              },
-              "sections": {
-                "minItems": 1,
-                "maxItems": 2
-              },
-              "missing_workers": {
-                "minItems": 1,
-                "maxItems": 2
-              }
-            },
-            "$ref": "#/$defs/brief"
+            "type": "null"
           },
           "run_state_status": {
             "const": "PARTIAL"
@@ -505,7 +479,7 @@
             "maxContains": 3
           },
           "synthesis_invoked": {
-            "const": true
+            "const": false
           },
           "failure_code": {
             "const": "APPROVAL_REJECTED"
@@ -526,12 +500,7 @@
             "const": "FAILED"
           },
           "brief": {
-            "properties": {
-              "complete": {
-                "const": true
-              }
-            },
-            "$ref": "#/$defs/brief"
+            "type": "null"
           }
         }
       }
@@ -560,7 +529,7 @@
             "maxContains": 3
           },
           "synthesis_invoked": {
-            "const": true
+            "const": false
           },
           "failure_code": {
             "const": null
@@ -582,12 +551,7 @@
             "const": "UNKNOWN"
           },
           "brief": {
-            "properties": {
-              "complete": {
-                "const": true
-              }
-            },
-            "$ref": "#/$defs/brief"
+            "type": "null"
           }
         }
       }

@@ -16,7 +16,7 @@ class StateStore:
             self._run_id=str(document['run_id']);self._document:RunStateDocument={**deepcopy(document),'status':'RUNNING'}
         else:
             self._run_id=run_id or str(uuid4())
-            self._document={'state_schema_version':'1.0','run_id':self._run_id,'scenario_id':'order-closure','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'requested_order_id':binding.requested_order_id,'status':'RUNNING','steps':[{'worker_id':worker_id,'status':'PENDING','output':None,'failure_code':None} for worker_id in queue],'sequence_cursor':0,'digest':''}
+            self._document={'state_schema_version':'1.0','run_id':self._run_id,'scenario_id':'order-closure','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'requested_order_id':binding.requested_order_id,'status':'RUNNING','steps':[{'worker_id':worker_id,'status':'PENDING','output':None,'failure_code':None} for worker_id in queue],'sequence_cursor':0,'digest':'','submit_marker':None,'effect':None}
         self.state_path().parent.mkdir(parents=True,exist_ok=True)
         self.snapshot_path(1).parent.mkdir(parents=True,exist_ok=True)
         self._flush()
@@ -51,6 +51,11 @@ class StateStore:
     def mark_terminal(self,status,failure_code=None)->None:
         if status=='FAILED' and failure_code not in TERMINAL_FAILURE_CODES:raise ValueError('Invalid terminal failure code')
         self._document['status']=status;self._flush()
+    def mark_submitted(self,key:str,payload_digest:str)->None:
+        self._document['submit_marker']={'key':key,'payload_digest':payload_digest}
+        self._flush()
+    def record_effect_outcome(self,effect:dict[str,object])->None:
+        self._document['effect']=deepcopy(effect);self._flush()
 
     def _step(self,worker_id:WorkerId):
         return self._document['steps'][WORKER_IDS.index(worker_id)]

@@ -12,7 +12,7 @@ def outcome(index,failed=False):
     if failed:return {'worker_id':IDS[index],'status':'FAILED','output':None,'failure_code':'WORKER_EXECUTION_FAILED'}
     return {'worker_id':IDS[index],'status':'SUCCEEDED','output':dict(OUTPUTS[index]),'failure_code':None}
 def result():
-    return {'schema_version':'1.0','run_id':'r1','scenario_id':'order-closure','case_id':'c','execution_mode':'parallel','concurrency_limit':2,'peak_concurrency':2,'order_id':'ORD-1001','status':'SUCCEEDED','worker_outcomes':[outcome(0),outcome(1),outcome(2)],'synthesis_invoked':True,'brief':{'order_id':'ORD-1001','sections':[{'worker_id':IDS[i],'output':dict(OUTPUTS[i])} for i in range(3)],'missing_workers':[],'complete':True},'failure_code':None,'approval_decision':'granted','effect_status':'EFFECT_COMPLETED','idempotency_key':'cancel-and-refund:ORD-1001','reconciled':False,'trace_path':'t.jsonl','resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':'state','run_state_status':'SUCCEEDED'}
+    return {'schema_version':'1.0','run_id':'r1','scenario_id':'order-closure','case_id':'c','execution_mode':'parallel','concurrency_limit':2,'peak_concurrency':2,'order_id':'ORD-1001','status':'SUCCEEDED','worker_outcomes':[outcome(0),outcome(1),outcome(2)],'synthesis_invoked':False,'brief':None,'failure_code':None,'approval_decision':'granted','effect_status':'EFFECT_COMPLETED','idempotency_key':'cancel-and-refund:ORD-1001','reconciled':False,'trace_path':'t.jsonl','resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':'state','run_state_status':'SUCCEEDED'}
 class SchemaTests(unittest.TestCase):
     def test_reject_original_invalid_output(self):
         valid={'order_id':'ORD-1001','payment_status':'PAID'}
@@ -43,6 +43,7 @@ class SchemaTests(unittest.TestCase):
         bad_partial={**good,'status':'PARTIAL','reconciled':True,'approval_decision':'none','effect_status':None,'idempotency_key':None,'run_state_status':'PARTIAL'}
         self.assertFalse(validate_run_result(bad_partial))
         self.assertFalse(validate_run_result({**good,'extra':1}))
+        self.assertFalse(validate_run_result({**good,'synthesis_invoked':True}))
     def test_effect_payload_and_ledger_records_validate_against_closed_schema(self):
         payload={'operation':'cancel-and-refund','order_id':'ORD-1001','refund_amount_cents':4200,'currency':'EUR'}
         self.assertTrue(validate_effect_payload(payload).valid)

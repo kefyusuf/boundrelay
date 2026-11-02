@@ -194,6 +194,13 @@ All six Review Focus rows have named tests. The plan specifies signatures and be
 
 The owner approved this written plan and selected **Native** on 2026-11-02: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
 
+## Execution Ledger
+
+| Date | Task | Ruling | Effect |
+|---|---|---|---|
+| 2026-11-02 | Task 3 | Ruling 4: `order-closure` has no synthesis step. | The M5 result schema pins `synthesis_invoked` to `false` and `brief` to `null` in every status branch (SUCCEEDED/PARTIAL/FAILED+ALL_WORKERS_FAILED/FAILED+APPROVAL_REJECTED/CANCELLED/UNKNOWN). Result builders and downstream consumers treat the M4 brief/synthesis fields as vestigial; no brief is ever produced. |
+
+
 
 
 

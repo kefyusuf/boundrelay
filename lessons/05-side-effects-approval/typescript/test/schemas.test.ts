@@ -27,7 +27,7 @@ test('validate_run_state_document_enforces_closed_m5_schema',()=>{
  expect(validateRunStateDocument(unknown).valid).toBe(true);
 });
 test('validate_run_result_uses_m5_schema_with_effect_fields',()=>{
- const result:RunResult={schema_version:'1.0',run_id:'r1',scenario_id:'order-closure',case_id:'c',execution_mode:'parallel',concurrency_limit:2,peak_concurrency:2,order_id:'ORD-1001',status:'SUCCEEDED',worker_outcomes:[outcome(0),outcome(1),outcome(2)],synthesis_invoked:true,brief:{order_id:'ORD-1001',sections:[{worker_id:IDS[0]!,output:OUTPUTS[0]},{worker_id:IDS[1]!,output:OUTPUTS[1]},{worker_id:IDS[2]!,output:OUTPUTS[2]}],missing_workers:[],complete:true},failure_code:null,approval_decision:'granted',effect_status:'EFFECT_COMPLETED',idempotency_key:'cancel-and-refund:ORD-1001',reconciled:false,trace_path:'t.jsonl',resumed:false,restored_cursor:null,restored_worker_ids:[],state_dir:'state',run_state_status:'SUCCEEDED'};
+ const result:RunResult={schema_version:'1.0',run_id:'r1',scenario_id:'order-closure',case_id:'c',execution_mode:'parallel',concurrency_limit:2,peak_concurrency:2,order_id:'ORD-1001',status:'SUCCEEDED',worker_outcomes:[outcome(0),outcome(1),outcome(2)],synthesis_invoked:false,brief:null,failure_code:null,approval_decision:'granted',effect_status:'EFFECT_COMPLETED',idempotency_key:'cancel-and-refund:ORD-1001',reconciled:false,trace_path:'t.jsonl',resumed:false,restored_cursor:null,restored_worker_ids:[],state_dir:'state',run_state_status:'SUCCEEDED'};
  expect(validateRunResult(result)).toBe(true);
  expect(validateRunResult({...result,reconciled:true})).toBe(true);
  expect(validateRunResult({...result,status:'UNKNOWN',failure_code:null,approval_decision:'granted',effect_status:'EFFECT_UNPROVABLE',reconciled:false,run_state_status:'UNKNOWN'})).toBe(true);
@@ -35,6 +35,7 @@ test('validate_run_result_uses_m5_schema_with_effect_fields',()=>{
  expect(validateRunResult({...result,status:'UNKNOWN',failure_code:'ALL_WORKERS_FAILED',effect_status:'EFFECT_UNPROVABLE',run_state_status:'UNKNOWN'})).toBe(false);
  expect(validateRunResult({...result,status:'PARTIAL',reconciled:true,approval_decision:'none',effect_status:null,idempotency:null,run_state_status:'PARTIAL'} as unknown as RunResult)).toBe(false);
  expect(validateRunResult({...result,extra:1})).toBe(false);
+ expect(validateRunResult({...result,synthesis_invoked:true})).toBe(false);
 });
 const PAYLOAD={operation:'cancel-and-refund',order_id:'ORD-1001',refund_amount_cents:4200,currency:'EUR'};
 const DIGEST='c'.repeat(64);
