@@ -1,5 +1,4 @@
 import os
-from uuid import uuid4
 from .scenario import load_scenario
 from .scripted_workers import ScriptedWorkers
 from .workers import create_worker_directory
@@ -68,20 +67,24 @@ async def run_case(*,case_id,trace_path,state_dir,resume=False,replay_from=None,
     replay_document=load_run_state_document(replay_from,binding) if replay_from is not None else None
     pending=derive_pending(loaded['document']) if loaded is not None else (derive_pending(replay_document) if replay_document is not None else [])
     resume_spec=CaseSpec(spec.case_id,'sequential' if len(pending)<2 else spec.execution_mode,spec.worker_fixture,tuple(worker_id for worker_id in spec.completion_order if worker_id in pending))
-    run_id=loaded['document']['run_id'] if loaded else str(uuid4())
+    if loaded is not None:run_id=loaded['document']['run_id']
+    else:
+        store=state_store if state_store is not None else StateStore.create(state_dir,binding,WORKER_IDS)
+        if state_store is None and replay_document is not None:
+            for outcome in recorded_outcomes(replay_document):store.record_step_terminal(outcome['worker_id'],outcome)
+        run_id=store.state()['run_id']
     sink=sink if sink is not None else TraceSink(run_id,trace_path)
     try:
         sink.emit('run.created',context);sink.emit('run.started',context)
         provider=ScriptedWorkers(resume_spec,binding.requested_order_id) if directory is None else None
         resolved_directory=directory or create_worker_directory(provider);resolved_control=control or provider
         if loaded is not None:
-            options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,resume=True,sink=sink,directory=resolved_directory,control=resolved_control,synthesizer=synthesizer,state_store=StateStore.resume(loaded['document'],loaded['restored_from']),observer=_step_observer(sink))
+            options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,resume=True,sink=sink,directory=resolved_directory,control=resolved_control,synthesizer=synthesizer,state_store=None,observer=_step_observer(sink))
             result=await resume_run(options)
         elif replay_from is not None:
-            options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,replay_from=replay_from,sink=sink,directory=resolved_directory,control=resolved_control,synthesizer=synthesizer,observer=_step_observer(sink))
+            options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,replay_from=replay_from,sink=sink,directory=resolved_directory,control=resolved_control,synthesizer=synthesizer,state_store=store,observer=_step_observer(sink))
             result=await replay_from_snapshot(replay_from,options)
         else:
-            store=state_store if state_store is not None else StateStore.create(state_dir,binding,WORKER_IDS)
             options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,sink=sink,directory=directory,control=control,synthesizer=synthesizer,state_store=store,on_crash=on_crash)
             result=await _fresh_run(options,binding,spec,store,sink)
         if result['status']!='CANCELLED':

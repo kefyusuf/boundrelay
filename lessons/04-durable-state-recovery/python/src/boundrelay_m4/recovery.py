@@ -92,6 +92,9 @@ async def replay_from(snapshot_path,options)->RunResult:
     document=load_run_state_document(snapshot_path,binding)
     _require_resumable(document)
     _emit_restored(options.sink,binding,document)
-    store=StateStore.create(options.state_dir,binding,WORKER_IDS)
-    for outcome in recorded_outcomes(document):store.record_step_terminal(outcome['worker_id'],outcome)
+    if options.state_store is not None:
+        store=options.state_store
+    else:
+        store=StateStore.create(options.state_dir,binding,WORKER_IDS)
+        for outcome in recorded_outcomes(document):store.record_step_terminal(outcome['worker_id'],outcome)
     return await _complete_recovered_run(store,options,binding,store.state())

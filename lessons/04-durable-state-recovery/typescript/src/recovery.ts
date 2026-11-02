@@ -68,7 +68,6 @@ export async function replayFrom(snapshotPath:string,options:RunOptions):Promise
  const document=loadRunStateDocument(snapshotPath,binding);
  requireResumable(document);
  emitRestored(options.sink??{emit:()=>{}},binding,document);
- const store=options.stateStore??StateStore.create(options.stateDir,binding,[...WORKER_IDS]);
- for(const outcome of recordedOutcomes(document))store.recordStepTerminal(outcome.worker_id,outcome);
+ const store=options.stateStore??(():StateStore=>{const created=StateStore.create(options.stateDir,binding,[...WORKER_IDS]);for(const outcome of recordedOutcomes(document))created.recordStepTerminal(outcome.worker_id,outcome);return created;})();
  return completeRecoveredRun(store,options,binding,store.state());
 }

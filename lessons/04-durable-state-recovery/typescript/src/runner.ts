@@ -1,8 +1,7 @@
-import {randomUUID} from 'node:crypto';
 import {loadScenario} from './scenario.js';import {ScriptedWorkers} from './scripted-workers.js';import {createWorkerDirectory} from './workers.js';import {executeWorkers} from './executor.js';import {canonicalizeOutcomes} from './collector.js';import {synthesizeBrief} from './synthesizer.js';import {TraceSink} from './trace.js';import {validateRunResult} from './schemas.js';import {StateStore,loadRunState,loadRunStateDocument} from './state-store.js';import {resumeRun,replayFrom,recordedOutcomes,derivePending,type RunOptions,type RecoverySink} from './recovery.js';
 export type {RunOptions} from './recovery.js';
 import {WORKER_IDS} from './types.js';
-import type {Brief,CaseSpec,Scenario,StateBinding,WorkerObserver,WorkerOutcome} from './types.js';
+import type {Brief,CaseSpec,Scenario,StateBinding,WorkerControl,WorkerDirectory,WorkerObserver,WorkerOutcome} from './types.js';
 import type {RunResult} from './types.js';
 type EventSink=RecoverySink&{flush:()=>void};
 function checkpointSaved(binding:StateBinding,store:StateStore,workerId:string):Record<string,unknown> {
@@ -56,7 +55,11 @@ export async function runCase(options:RunOptions):Promise<RunResult>{
  const loaded=options.resume?loadRunState(options.stateDir,binding):undefined;
  const replayDocument=options.replayFrom!==undefined?loadRunStateDocument(options.replayFrom,binding):undefined;
  const pending=loaded?derivePending(loaded.document):replayDocument?derivePending(replayDocument):[];
- const runId=loaded?loaded.document.run_id:randomUUID();
+ const store=loaded?undefined:(():StateStore=>{
+  const created=options.stateStore??StateStore.create(options.stateDir,binding,[...WORKER_IDS]);
+  if(options.stateStore===undefined&&replayDocument!==undefined)for(const outcome of recordedOutcomes(replayDocument))created.recordStepTerminal(outcome.worker_id,outcome);
+  return created;})();
+ const runId=loaded?loaded.document.run_id:store!.state().run_id;
  const created=new TraceSink(runId,options.tracePath);
  const sink=(options.sink as (RecoverySink&{flush:()=>void})|undefined)??created;
  try{
@@ -64,9 +67,9 @@ export async function runCase(options:RunOptions):Promise<RunResult>{
   const resumeSpec:CaseSpec={...spec,execution_mode:pending.length>1?spec.execution_mode:'sequential',completion_order:spec.completion_order.filter(id=>pending.includes(id))};
   const provider=options.directory===undefined?new ScriptedWorkers(resumeSpec,scenario.order_id):undefined;
   const directory=options.directory??createWorkerDirectory(provider!),control=options.control??provider!;
-  const result=loaded?await resumeRun({...options,sink,observer:stepObserver(sink),stateStore:StateStore.resume(loaded.document,loaded.restored_from),directory,control}):
-   options.replayFrom!==undefined?await replayFrom(options.replayFrom,{...options,sink,observer:stepObserver(sink),directory,control}):
-   await freshRun(options,spec,scenario,binding,options.stateStore??StateStore.create(options.stateDir,binding,[...WORKER_IDS]),sink);
+  const result=loaded?await resumeRun((({stateStore:_unused,...rest}:typeof options&{sink:typeof sink;observer:WorkerObserver;directory:WorkerDirectory;control:WorkerControl})=>rest)({...options,sink,observer:stepObserver(sink),directory,control})):
+   options.replayFrom!==undefined?await replayFrom(options.replayFrom,{...options,sink,observer:stepObserver(sink),stateStore:store!,directory,control}):
+   await freshRun(options,spec,scenario,binding,store!,sink);
   if(result.status!=='CANCELLED')sink.emit(result.status==='FAILED'?'run.failed':'run.completed',{status:result.status,worker_outcomes:result.worker_outcomes,synthesis_invoked:result.synthesis_invoked,brief:result.brief,failure_code:result.failure_code,peak_concurrency:result.peak_concurrency});
   return result;
  }finally{sink.flush();}
