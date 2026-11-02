@@ -19,3 +19,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-013](D-013-m2-typed-support-handoff-boundary.md) | Bound M2 to typed support handoff with deterministic confidence fallback and receivers | Accepted | 2026-09-30 |
 | [D-014](D-014-m3-bounded-read-only-fanout-fanin.md) | Bound M3 to read-only fan-out/fan-in with explicit partial results and deterministic synthesis | Accepted | 2026-10-05 |
 | [D-015](D-015-m4-durable-state-and-recovery.md) | Bound M4 to file-backed run state with fail-closed checkpoints, resume, cancellation, and replay | Accepted | 2026-11-01 |
+| [D-016](D-016-m5-idempotent-approved-effects.md) | Bound M5 to approved, idempotent effects with audit records and an explicit UNKNOWN outcome | Accepted | 2026-11-02 |
