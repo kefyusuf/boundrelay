@@ -22,12 +22,23 @@ describe("M2 shared schema boundaries", () => {
     expect(validateHandoff({...validHandoff, receiver_input: {...validHandoff.receiver_input, model_prompt: "no"}}).ok).toBe(false);
   });
   it("validates canonical successful M2 result", () => {
-    expect(validateHandoffResult({
+    const result = {
       schema_version: "1.0", run_id: "run-1", scenario_id: "support-handoff",
       case_id: "code-billing-handoff", router_mode: "code", status: "SUCCEEDED",
       proposed_route: "billing", selected_route: "billing", receiver: "billing-specialist",
       fallback_applied: false, specialist_invoked: true, failure_code: null,
       trace_path: ".boundrelay/m2/trace.jsonl",
-    }).ok).toBe(true);
+      attribution: {
+        steps: [
+          {step_name: "classify", latency_ms: 30, cost_cents: 0, attempts: 1},
+          {step_name: "receiver.billing-specialist", latency_ms: 10, cost_cents: 0, attempts: 1},
+        ],
+        totals: {latency_ms: 40, cost_cents: 0, attempts: 2},
+      },
+    };
+    expect(validateHandoffResult(result).ok).toBe(true);
+    expect(validateHandoffResult(
+      Object.fromEntries(Object.entries(result).filter(([key]) => key !== "attribution"))).ok,
+    ).toBe(false);
   });
 });

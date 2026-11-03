@@ -65,7 +65,14 @@ def result(failed=(), cancelled=False, resumed=False):
             'trace_path': 'trace.jsonl', 'resumed': resumed,
             'restored_cursor': 1 if resumed else None,
             'restored_worker_ids': ['order-details'] if resumed else [],
-            'state_dir': 'state', 'run_state_status': status}
+            'state_dir': 'state', 'run_state_status': status,
+            'attribution': {
+                'steps': [
+                    {'step_name': 'worker.order-details', 'latency_ms': 10, 'cost_cents': 0, 'attempts': 1},
+                    {'step_name': 'worker.payment-status', 'latency_ms': 11, 'cost_cents': 0, 'attempts': 1},
+                    {'step_name': 'worker.delivery-status', 'latency_ms': 12, 'cost_cents': 0, 'attempts': 1},
+                    {'step_name': 'synthesize', 'latency_ms': 15, 'cost_cents': 0, 'attempts': 1}],
+                'totals': {'latency_ms': 48, 'cost_cents': 0, 'attempts': 4}}}
 
 
 class M4ContractsTests(unittest.TestCase):

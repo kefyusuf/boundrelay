@@ -3,10 +3,38 @@ import {readFileSync} from "node:fs";
 import {parse} from "yaml";
 
 import {SCENARIO_PATH} from "./paths.js";
+import {STEP_KINDS, type AttributionTables} from "./attribution.js";
 import {ROUTES, type FailureCode, type Route, type ScenarioCase, type ScenarioDefinition} from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonNegativeInt(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+export function parseAttribution(raw: unknown): AttributionTables | null {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (!isRecord(raw) || Object.keys(raw).sort().join("|") !== "latency_ms|price_table") {
+    throw new Error("Invalid attribution tables.");
+  }
+  const latency = raw.latency_ms, prices = raw.price_table;
+  if (!isRecord(latency) || Object.keys(latency).length === 0 ||
+      Object.entries(latency).some(([key, value]) => !key || !isNonNegativeInt(value))) {
+    throw new Error("Invalid attribution latency table.");
+  }
+  if (!isRecord(prices) || Object.keys(prices).length === 0 ||
+      Object.entries(prices).some(([key, value]) =>
+        !(STEP_KINDS as readonly string[]).includes(key) || !isNonNegativeInt(value))) {
+    throw new Error("Invalid attribution price table.");
+  }
+  if ("read" in prices && prices.read !== 0) {
+    throw new Error("Attribution reads must price zero.");
+  }
+  return {latency_ms: {...latency} as Record<string, number>, price_table: {...prices} as Record<string, number>};
 }
 
 function isRoute(value: unknown): value is Route {
@@ -54,6 +82,7 @@ export function loadScenario(path: string = SCENARIO_PATH): ScenarioDefinition {
     scenario_id: "support-triage",
     routes: [...ROUTES],
     cases: raw.cases.map(parseCase),
+    attribution: parseAttribution(raw.attribution),
   };
 }
 

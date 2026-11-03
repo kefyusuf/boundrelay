@@ -9,6 +9,7 @@ from .trace import TraceSink
 from .schemas import validate_run_result
 from .state_store import StateStore,load_run_state,load_run_state_document
 from .recovery import RunOptions,resume_run,replay_from as replay_from_snapshot,recorded_outcomes,derive_pending
+from .attribution import build_attribution,worker_records,restored_running
 from .types import WORKER_IDS,CaseSpec,ExecutorOptions,RunResult,StateBinding,WorkerInput
 
 def _context(binding:StateBinding,state_dir:str)->dict:
@@ -30,10 +31,14 @@ def _observer(sink,binding:StateBinding,store):
             sink.emit('checkpoint.saved',{'case_id':binding.case_id,'execution_mode':binding.execution_mode,'requested_order_id':binding.requested_order_id,'concurrency_limit':binding.concurrency_limit,'step_name':event['outcome']['worker_id'],'state_status':document['status'],'sequence_cursor':document['sequence_cursor']})
     return observe
 
-def _assemble(options,binding:StateBinding,run_id,peak,status,outcomes,synthesis_invoked,brief,failure_code)->RunResult:
-    return {'schema_version':'1.0','run_id':run_id,'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(peak,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':list(outcomes),'synthesis_invoked':synthesis_invoked,'brief':brief,'failure_code':failure_code,'trace_path':options.trace_path,'resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':options.state_dir,'run_state_status':status}
+def _assemble(options,binding:StateBinding,run_id,peak,status,outcomes,synthesis_invoked,brief,failure_code,attribution)->RunResult:
+    return {'schema_version':'1.0','run_id':run_id,'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(peak,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':list(outcomes),'synthesis_invoked':synthesis_invoked,'brief':brief,'failure_code':failure_code,'trace_path':options.trace_path,'resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':options.state_dir,'run_state_status':status,'attribution':attribution}
 
-async def _fresh_run(options,binding:StateBinding,spec,store,sink)->RunResult:
+def _attributed(tables,outcomes,synthesis_invoked,restored_running=()):
+    records=worker_records(outcomes,restored_running)+([('synthesize',1)] if synthesis_invoked else [])
+    return build_attribution(records,tables['price_table'],tables['latency_ms'])
+
+async def _fresh_run(options,binding:StateBinding,spec,store,sink,tables)->RunResult:
     provider=ScriptedWorkers(spec,binding.requested_order_id) if options.directory is None else None
     def on_crash():
         sink.flush();os._exit(2)
@@ -42,7 +47,7 @@ async def _fresh_run(options,binding:StateBinding,spec,store,sink)->RunResult:
         store.mark_cancelled_from(execution.cancelled_before)
         sink.emit('run.cancelled',{'case_id':binding.case_id,'execution_mode':binding.execution_mode,'requested_order_id':binding.requested_order_id,'concurrency_limit':binding.concurrency_limit,'cancelled_before':execution.cancelled_before,'code':'CANCELLED_BEFORE_STEP'})
         store.mark_terminal('CANCELLED')
-        result=_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,'CANCELLED',recorded_outcomes(store.state()),False,None,None)
+        result=_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,'CANCELLED',recorded_outcomes(store.state()),False,None,None,_attributed(tables,recorded_outcomes(store.state()),False))
         if not validate_run_result(result):raise ValueError('Invalid run result')
         return result
     outcomes=canonicalize_outcomes(execution.outcomes,binding.requested_order_id);successes=sum(o['status']=='SUCCEEDED' for o in outcomes)
@@ -52,13 +57,15 @@ async def _fresh_run(options,binding:StateBinding,spec,store,sink)->RunResult:
     status='SUCCEEDED' if successes==3 else 'PARTIAL' if successes else 'FAILED';failure_code=None if successes else 'ALL_WORKERS_FAILED'
     if failure_code is None:store.mark_terminal(status)
     else:store.mark_terminal(status,failure_code)
-    result=_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,status,outcomes,bool(successes),brief,failure_code)
+    result=_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,status,outcomes,bool(successes),brief,failure_code,_attributed(tables,outcomes,bool(successes)))
     if not validate_run_result(result):raise ValueError('Invalid run result')
     return result
 
 async def run_case(*,case_id,trace_path,state_dir,resume=False,replay_from=None,sink=None,directory=None,control=None,synthesizer=None,state_store=None,on_crash=None)->RunResult:
     scenario=load_scenario();spec=next((c for c in scenario.cases if c.case_id==case_id),None)
     if spec is None or not trace_path or not state_dir:raise ValueError('Unknown case or missing options')
+    tables=scenario.attribution
+    if tables is None:raise ValueError('Scenario is missing attribution tables')
     if (directory is None)!=(control is None):raise ValueError('Directory and control must be supplied together')
     if resume and replay_from is not None:raise ValueError('Resume and replay are mutually exclusive')
     binding=StateBinding(case_id=spec.case_id,execution_mode=spec.execution_mode,requested_order_id=scenario.order_id,concurrency_limit=1 if spec.execution_mode=='sequential' else 2)
@@ -86,7 +93,7 @@ async def run_case(*,case_id,trace_path,state_dir,resume=False,replay_from=None,
             result=await replay_from_snapshot(replay_from,options)
         else:
             options=RunOptions(case_id=case_id,trace_path=trace_path,state_dir=state_dir,sink=sink,directory=directory,control=control,synthesizer=synthesizer,state_store=store,on_crash=on_crash)
-            result=await _fresh_run(options,binding,spec,store,sink)
+            result=await _fresh_run(options,binding,spec,store,sink,tables)
         if result['status']!='CANCELLED':
             terminal='run.failed' if result['status']=='FAILED' else 'run.completed'
             sink.emit(terminal,{key:result[key] for key in ('status','worker_outcomes','synthesis_invoked','brief','failure_code','peak_concurrency')})

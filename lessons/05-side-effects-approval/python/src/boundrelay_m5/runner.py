@@ -6,6 +6,7 @@ from .effect_ledger import EffectLedger
 from .executor import execute_workers
 from .recovery import RecoveryOptions,resume_run
 from .scenario import load_scenario
+from .attribution import build_attribution,effect_records
 from .schemas import validate_run_result
 from .scripted_workers import ScriptedWorkers
 from .state_store import StateStore,load_run_state
@@ -43,9 +44,11 @@ def _crash(sink):
 
 def _effect_wiring(options,spec,sink,controls=None):
     return EffectWiring(ledger=EffectLedger(options['state_dir']),approval_gate=ApprovalGate(spec.approval),audit=AuditWriter(options['state_dir']),controls=controls,on_crash=options.get('on_crash') or _crash(sink),events=sink)
-def _assemble(options,binding:StateBinding,run_id,peak,status,reads,decision,effect,effect_status,key,failure_code,reconciled,resumed,restored_cursor,restored_worker_ids)->RunResult:
+def _assemble(options,binding:StateBinding,run_id,peak,status,reads,decision,effect,effect_status,key,failure_code,reconciled,resumed,restored_cursor,restored_worker_ids,tables)->RunResult:
     canonical=[next((outcome for outcome in reads if outcome['worker_id']==worker_id),None) for worker_id in WORKER_IDS]
-    return {'schema_version':'1.0','run_id':run_id,'scenario_id':'order-closure','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(peak,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':canonical,'synthesis_invoked':False,'brief':None,'failure_code':failure_code,'approval_decision':decision,'effect_status':effect_status,'idempotency_key':key,'reconciled':reconciled,'trace_path':options['trace_path'],'resumed':resumed,'restored_cursor':restored_cursor,'restored_worker_ids':restored_worker_ids,'state_dir':options['state_dir'],'run_state_status':status}
+    records=[(f'worker.{worker_id}',1) for worker_id,outcome in zip(WORKER_IDS,canonical) if outcome is not None]+effect_records(key)
+    attribution=build_attribution(records,tables['price_table'],tables['latency_ms'])
+    return {'schema_version':'1.0','run_id':run_id,'scenario_id':'order-closure','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(peak,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':canonical,'synthesis_invoked':False,'brief':None,'failure_code':failure_code,'approval_decision':decision,'effect_status':effect_status,'idempotency_key':key,'reconciled':reconciled,'trace_path':options['trace_path'],'resumed':resumed,'restored_cursor':restored_cursor,'restored_worker_ids':restored_worker_ids,'state_dir':options['state_dir'],'run_state_status':status,'attribution':attribution}
 
 def _publish(sink,result:RunResult)->RunResult:
     if not validate_run_result(result):raise ValueError('Invalid run result')
@@ -57,7 +60,7 @@ def _finish(store,sink,status,failure_code,result:RunResult)->RunResult:
     else:store.mark_terminal(status)
     return _publish(sink,result)
 
-async def _fresh_run(options,binding:StateBinding,spec,store,sink)->RunResult:
+async def _fresh_run(options,binding:StateBinding,spec,store,sink,tables)->RunResult:
     provider=ScriptedWorkers(spec,binding.requested_order_id) if options.get('directory') is None else None
     execution=await execute_workers(ExecutorOptions(spec.execution_mode,WorkerInput(binding.requested_order_id),options.get('directory') or create_worker_directory(provider),options.get('control') or provider,_observer(sink,binding,store,options.get('observer')),store=store,completion_order=spec.completion_order,effect=_effect_wiring(options,spec,sink,spec.controls)))
     reads=execution.reads;successes=sum(outcome['status']=='SUCCEEDED' for outcome in reads)
@@ -71,8 +74,8 @@ async def _fresh_run(options,binding:StateBinding,spec,store,sink)->RunResult:
         status,decision,effect,effect_status,key,failure_code='PARTIAL','none',None,None,None,None
     else:
         status,decision,effect,effect_status,key,failure_code='FAILED','none',None,None,None,'ALL_WORKERS_FAILED'
-    return _finish(store,sink,status,failure_code,_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,status,reads,decision,effect,effect_status,key,failure_code,False,False,None,[]))
-async def _resumed_run(options,binding:StateBinding,spec,loaded,sink)->RunResult:
+    return _finish(store,sink,status,failure_code,_assemble(options,binding,store.state()['run_id'],execution.peak_concurrency,status,reads,decision,effect,effect_status,key,failure_code,False,False,None,[],tables))
+async def _resumed_run(options,binding:StateBinding,spec,loaded,sink,tables)->RunResult:
     document=loaded['document']
     resumed_store=StateStore.resume(document,loaded['restored_from'])
     statuses={step['worker_id']:step['status'] for step in document['steps']}
@@ -91,19 +94,21 @@ async def _resumed_run(options,binding:StateBinding,spec,loaded,sink)->RunResult
         recovery=resume_run(RecoveryOptions(state_root=options['state_dir'],binding=binding,ledger=EffectLedger(options['state_dir']),audit=AuditWriter(options['state_dir']),controls=controls))
         status='UNKNOWN' if recovery.status=='UNKNOWN' else 'SUCCEEDED'
         effect_status='EFFECT_UNPROVABLE' if status=='UNKNOWN' else (recovery.effect['status'] if recovery.effect is not None else None)
-        result=_assemble(options,binding,resumed_store.state()['run_id'],peak,status,reads,'granted',recovery.effect,effect_status,recovery.idempotency_key,None,recovery.reconciled,True,restored_cursor,restored_worker_ids)
+        result=_assemble(options,binding,resumed_store.state()['run_id'],peak,status,reads,'granted',recovery.effect,effect_status,recovery.idempotency_key,None,recovery.reconciled,True,restored_cursor,restored_worker_ids,tables)
         return _publish(sink,result)
     if successes==3:
         provider=ScriptedWorkers(spec,binding.requested_order_id)
         execution=await execute_workers(ExecutorOptions('sequential',WorkerInput(binding.requested_order_id),create_worker_directory(provider),provider,_step_observer(sink),store=resumed_store,queue=[],completion_order=spec.completion_order,effect=_effect_wiring(options,spec,sink)))
         effect=execution.effect
-        result=_assemble(options,binding,resumed_store.state()['run_id'],max(execution.peak_concurrency,1),'SUCCEEDED',reads,'granted',effect,'EFFECT_COMPLETED',effect['key'],None,False,True,restored_cursor,restored_worker_ids)
+        result=_assemble(options,binding,resumed_store.state()['run_id'],max(execution.peak_concurrency,1),'SUCCEEDED',reads,'granted',effect,'EFFECT_COMPLETED',effect['key'],None,False,True,restored_cursor,restored_worker_ids,tables)
         return _finish(resumed_store,sink,'SUCCEEDED',None,result)
     status,failure_code=('PARTIAL',None) if successes else ('FAILED','ALL_WORKERS_FAILED')
-    return _finish(resumed_store,sink,status,failure_code,_assemble(options,binding,resumed_store.state()['run_id'],peak,status,reads,'none',None,None,None,failure_code,False,True,restored_cursor,restored_worker_ids))
+    return _finish(resumed_store,sink,status,failure_code,_assemble(options,binding,resumed_store.state()['run_id'],peak,status,reads,'none',None,None,None,failure_code,False,True,restored_cursor,restored_worker_ids,tables))
 async def run_case(*,case_id,trace_path,state_dir,resume=False,sink=None,directory=None,control=None,state_store=None,observer=None,on_crash=None)->RunResult:
     scenario=load_scenario();spec=next((c for c in scenario.cases if c.case_id==case_id),None)
     if spec is None or not trace_path or not state_dir:raise ValueError('Unknown case or missing options')
+    tables=scenario.attribution
+    if tables is None:raise ValueError('Scenario is missing attribution tables')
     if (directory is None)!=(control is None):raise ValueError('Directory and control must be supplied together')
     binding=StateBinding(case_id=spec.case_id,execution_mode=spec.execution_mode,requested_order_id=scenario.order_id,concurrency_limit=1 if spec.execution_mode=='sequential' else 2)
     context={'scenario_id':'order-closure','case_id':spec.case_id,'execution_mode':spec.execution_mode,'order_id':scenario.order_id,'concurrency_limit':binding.concurrency_limit,'state_dir':state_dir}
@@ -116,7 +121,7 @@ async def run_case(*,case_id,trace_path,state_dir,resume=False,sink=None,directo
     sink=sink if sink is not None else TraceSink(run_id,trace_path)
     try:
         sink.emit('run.created',context);sink.emit('run.started',context)
-        result=await (_resumed_run(options,binding,spec,loaded,sink) if loaded is not None else _fresh_run(options,binding,spec,store,sink))
+        result=await (_resumed_run(options,binding,spec,loaded,sink,tables) if loaded is not None else _fresh_run(options,binding,spec,store,sink,tables))
         return result
     finally:sink.flush()
 

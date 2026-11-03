@@ -27,6 +27,15 @@ def outcome(index, failed=False):
             'failure_code': 'WORKER_EXECUTION_FAILED' if failed else None}
 
 
+ATTRIBUTION = {
+    'steps': [
+        {'step_name': 'worker.order-details', 'latency_ms': 10, 'cost_cents': 0, 'attempts': 1},
+        {'step_name': 'worker.payment-status', 'latency_ms': 11, 'cost_cents': 0, 'attempts': 1},
+        {'step_name': 'worker.delivery-status', 'latency_ms': 12, 'cost_cents': 0, 'attempts': 1},
+        {'step_name': 'synthesize', 'latency_ms': 15, 'cost_cents': 0, 'attempts': 1}],
+    'totals': {'latency_ms': 48, 'cost_cents': 0, 'attempts': 4}}
+
+
 def result(failed=()):
     return {'schema_version': '1.0', 'run_id': 'test-run', 'scenario_id': 'order-brief',
             'case_id': 'test-case', 'execution_mode': 'parallel', 'concurrency_limit': 2,
@@ -39,7 +48,7 @@ def result(failed=()):
                     {'worker_id': IDS[i], 'output': deepcopy(OUTPUTS[i])} for i in range(3) if i not in failed],
                 'missing_workers': [IDS[i] for i in failed], 'complete': not failed},
             'failure_code': 'ALL_WORKERS_FAILED' if len(failed) == 3 else None,
-            'trace_path': 'trace.jsonl'}
+            'trace_path': 'trace.jsonl', 'attribution': ATTRIBUTION}
 
 
 class M3ContractsTests(unittest.TestCase):

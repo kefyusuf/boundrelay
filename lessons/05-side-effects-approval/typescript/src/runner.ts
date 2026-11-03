@@ -1,4 +1,4 @@
-import {loadScenario} from './scenario.js';import {ScriptedWorkers} from './scripted-workers.js';import {createWorkerDirectory} from './workers.js';import {executeWorkers} from './executor.js';import {TraceSink} from './trace.js';import {validateRunResult} from './schemas.js';import {StateStore,loadRunState} from './state-store.js';import {resumeRun} from './recovery.js';import {EffectLedger} from './effect-ledger.js';import {AuditWriter} from './audit.js';import {ApprovalGate} from './approval.js';
+import {loadScenario} from './scenario.js';import {buildAttribution,effectRecords,type AttributionTables} from './attribution.js';import {ScriptedWorkers} from './scripted-workers.js';import {createWorkerDirectory} from './workers.js';import {executeWorkers} from './executor.js';import {TraceSink} from './trace.js';import {validateRunResult} from './schemas.js';import {StateStore,loadRunState} from './state-store.js';import {resumeRun} from './recovery.js';import {EffectLedger} from './effect-ledger.js';import {AuditWriter} from './audit.js';import {ApprovalGate} from './approval.js';
 import {WORKER_IDS} from './types.js';
 import type {ApprovalDecision,CaseSpec,EffectConfirmation,EffectStatus,EventSink,FailureCode,ResultStatus,RunResult,RunStateDocument,Scenario,StateBinding,WorkerControl,WorkerDirectory,WorkerId,WorkerObserver,WorkerOutcome} from './types.js';
 export interface RunOptions {caseId:string;tracePath:string;stateDir:string;resume?:boolean;sink?:(EventSink&{flush:()=>void})|undefined;directory?:WorkerDirectory|undefined;control?:WorkerControl|undefined;stateStore?:StateStore|undefined;observer?:WorkerObserver|undefined;on_crash?:(()=>never)|undefined}
@@ -27,9 +27,11 @@ function effectWiring(options:RunOptions,spec:CaseSpec,sink:Sink,controls?:CaseS
  return {ledger:new EffectLedger(options.stateDir),approvalGate:new ApprovalGate(spec.approval),audit:new AuditWriter(options.stateDir),
   ...(controls!==undefined?{controls}:{}),on_crash:options.on_crash??(()=>{sink.flush();process.exit(2);}),events:sink};
 }
-function assemble(options:RunOptions,binding:StateBinding,runId:string,peak:number,status:ResultStatus,reads:readonly WorkerOutcome[],decision:ApprovalDecision,effect:EffectConfirmation|null,effectStatus:EffectStatus,key:string|null,failureCode:FailureCode,reconciled:boolean,resumed:boolean,restoredCursor:number|null,restoredWorkerIds:WorkerId[]):RunResult {
+function assemble(options:RunOptions,binding:StateBinding,runId:string,peak:number,status:ResultStatus,reads:readonly WorkerOutcome[],decision:ApprovalDecision,effect:EffectConfirmation|null,effectStatus:EffectStatus,key:string|null,failureCode:FailureCode,reconciled:boolean,resumed:boolean,restoredCursor:number|null,restoredWorkerIds:WorkerId[],tables:AttributionTables):RunResult {
  const canonical=WORKER_IDS.map(id=>reads.find(outcome=>outcome.worker_id===id)) as unknown as RunResult['worker_outcomes'];
- return {schema_version:'1.0',run_id:runId,scenario_id:'order-closure',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(peak,1),order_id:binding.requested_order_id,status,worker_outcomes:canonical,synthesis_invoked:false,brief:null,failure_code:failureCode,approval_decision:decision,effect_status:effectStatus,idempotency_key:key,reconciled,trace_path:options.tracePath,resumed,restored_cursor:restoredCursor,restored_worker_ids:restoredWorkerIds,state_dir:options.stateDir,run_state_status:status};
+ const records=[...WORKER_IDS.map(id=>[`worker.${id}`,1] as const).filter(([stepName])=>reads.some(outcome=>`worker.${outcome.worker_id}`===stepName)),...effectRecords(key)];
+ const attribution=buildAttribution(records,tables.price_table,tables.latency_ms);
+ return {schema_version:'1.0',run_id:runId,scenario_id:'order-closure',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(peak,1),order_id:binding.requested_order_id,status,worker_outcomes:canonical,synthesis_invoked:false,brief:null,failure_code:failureCode,approval_decision:decision,effect_status:effectStatus,idempotency_key:key,reconciled,trace_path:options.tracePath,resumed,restored_cursor:restoredCursor,restored_worker_ids:restoredWorkerIds,state_dir:options.stateDir,run_state_status:status,attribution};
 }
 function finish(store:StateStore,sink:Sink,status:ResultStatus,failureCode:FailureCode,result:RunResult):RunResult {
  if(status==='FAILED')store.markTerminal('FAILED',failureCode??'ALL_WORKERS_FAILED');else store.markTerminal(status);
@@ -41,6 +43,8 @@ function publish(sink:Sink,result:RunResult):RunResult {
  return result;
 }
 async function resumedRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,binding:StateBinding,loaded:{document:RunStateDocument;restored_from:string},sink:Sink):Promise<RunResult> {
+ const tables=scenario.attribution;
+ if(tables===null)throw new Error('Scenario is missing attribution tables');
  const document=loaded.document;
  const resumedStore=StateStore.resume(document,loaded.restored_from);
  const statuses=new Map(document.steps.map(step=>[step.worker_id,step.status]));
@@ -58,22 +62,24 @@ async function resumedRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,bin
   const recovery=resumeRun({stateRoot:options.stateDir,binding,ledger:new EffectLedger(options.stateDir),audit:new AuditWriter(options.stateDir),...(spec.controls?.sink_unavailable===true?{controls:{sink_unavailable:true}}:{})});
   const status:ResultStatus=recovery.status==='UNKNOWN'?'UNKNOWN':'SUCCEEDED';
   const effectStatus:EffectStatus=status==='UNKNOWN'?'EFFECT_UNPROVABLE':recovery.effect?.status??null;
-  const result=assemble(options,binding,resumedStore.state().run_id,peak,status,reads,'granted',recovery.effect,effectStatus,recovery.idempotency_key,null,recovery.reconciled,true,restoredCursor,restoredWorkerIds);
+  const result=assemble(options,binding,resumedStore.state().run_id,peak,status,reads,'granted',recovery.effect,effectStatus,recovery.idempotency_key,null,recovery.reconciled,true,restoredCursor,restoredWorkerIds,tables);
   return publish(sink,result);
  }
  if(successes===3){
   const provider=new ScriptedWorkers(spec,scenario.order_id);
   const execution=await executeWorkers({mode:'sequential',input:{order_id:scenario.order_id},directory:createWorkerDirectory(provider),control:provider,observer:stepObserver(sink),store:resumedStore,queue:[],completion_order:[...spec.completion_order],effect:effectWiring(options,spec,sink)});
   const effect=execution.effect!;
-  const result=assemble(options,binding,resumedStore.state().run_id,Math.max(execution.peakConcurrency,1),'SUCCEEDED',reads,'granted',effect,'EFFECT_COMPLETED',effect.key,null,false,true,restoredCursor,restoredWorkerIds);
+  const result=assemble(options,binding,resumedStore.state().run_id,Math.max(execution.peakConcurrency,1),'SUCCEEDED',reads,'granted',effect,'EFFECT_COMPLETED',effect.key,null,false,true,restoredCursor,restoredWorkerIds,tables);
   return finish(resumedStore,sink,'SUCCEEDED',null,result);
  }
  let status:ResultStatus;let failureCode:FailureCode;
  if(successes>0){status='PARTIAL';failureCode=null;}else{status='FAILED';failureCode='ALL_WORKERS_FAILED';}
- return finish(resumedStore,sink,status,failureCode,assemble(options,binding,resumedStore.state().run_id,peak,status,reads,'none',null,null,null,failureCode,false,true,restoredCursor,restoredWorkerIds));
+ return finish(resumedStore,sink,status,failureCode,assemble(options,binding,resumedStore.state().run_id,peak,status,reads,'none',null,null,null,failureCode,false,true,restoredCursor,restoredWorkerIds,tables));
 }
 
 async function freshRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,binding:StateBinding,store:StateStore,sink:Sink):Promise<RunResult> {
+ const tables=scenario.attribution;
+ if(tables===null)throw new Error('Scenario is missing attribution tables');
  const provider=options.directory===undefined?new ScriptedWorkers(spec,scenario.order_id):undefined;
  const execution=await executeWorkers({mode:spec.execution_mode,input:{order_id:scenario.order_id},directory:options.directory??createWorkerDirectory(provider!),control:options.control??provider!,observer:observerFor(sink,binding,store,options.observer),store,completion_order:[...spec.completion_order],effect:effectWiring(options,spec,sink,spec.controls)});
  const reads=execution.reads,successes=reads.filter(o=>o.status==='SUCCEEDED').length;
@@ -82,7 +88,7 @@ async function freshRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,bindi
  else if(successes===3){status='SUCCEEDED';decision='granted';}
  else if(successes>0){status='PARTIAL';decision='none';effect=null;effectStatus=null;key=null;}
  else{status='FAILED';decision='none';effect=null;effectStatus=null;key=null;failureCode='ALL_WORKERS_FAILED';}
- return finish(store,sink,status,failureCode,assemble(options,binding,store.state().run_id,execution.peakConcurrency,status,reads,decision,effect,effectStatus,key,failureCode,false,false,null,[]));
+ return finish(store,sink,status,failureCode,assemble(options,binding,store.state().run_id,execution.peakConcurrency,status,reads,decision,effect,effectStatus,key,failureCode,false,false,null,[],tables));
 }
 export async function runCase(options:RunOptions):Promise<RunResult>{
  const scenario=loadScenario(),spec=scenario.cases.find(c=>c.case_id===options.caseId);

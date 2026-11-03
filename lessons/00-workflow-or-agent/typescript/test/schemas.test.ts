@@ -26,7 +26,20 @@ describe("shared schema adapters", () => {
       specialist_invoked: true,
       failure_code: null,
       trace_path: ".boundrelay/m0/trace.jsonl",
+      attribution: {
+        steps: [
+          {step_name: "classify", latency_ms: 30, cost_cents: 0, attempts: 1},
+          {step_name: "specialist.billing", latency_ms: 10, cost_cents: 0, attempts: 1},
+        ],
+        totals: {latency_ms: 40, cost_cents: 0, attempts: 2},
+      },
     }).ok).toBe(true);
+    expect(validateRunResult({
+      schema_version: "1.0", run_id: "run-1", scenario_id: "support-triage",
+      case_id: "billing-duplicate-charge", mode: "deterministic", status: "SUCCEEDED",
+      selected_route: "billing", specialist_invoked: true, failure_code: null,
+      trace_path: ".boundrelay/m0/trace.jsonl",
+    }).ok).toBe(false);
   });
 
   it("rejects invalid route and inconsistent result values", () => {

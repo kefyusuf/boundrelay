@@ -92,6 +92,7 @@ class RunResult:
     tokens_used: int
     tool_invocations: int
     trace_path: str
+    attribution: dict[str, object]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -138,6 +139,7 @@ class ScenarioDefinition:
     schema_version: Literal["1.0"]
     scenario_id: Literal["order-investigation"]
     cases: tuple[ScenarioCase, ...]
+    attribution: dict[str, object] | None = None
 
 
 class ModelProvider(Protocol):

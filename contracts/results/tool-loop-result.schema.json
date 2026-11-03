@@ -16,9 +16,42 @@
     "model_steps",
     "tokens_used",
     "tool_invocations",
-    "trace_path"
+    "trace_path",
+    "attribution"
   ],
   "properties": {
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["steps", "totals"],
+      "properties": {
+        "steps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step_name", "latency_ms", "cost_cents", "attempts"],
+            "properties": {
+              "step_name": {"type": "string", "minLength": 1},
+              "latency_ms": {"type": "integer", "minimum": 0},
+              "cost_cents": {"type": "integer", "minimum": 0},
+              "attempts": {"type": "integer", "minimum": 1}
+            }
+          }
+        },
+        "totals": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["latency_ms", "cost_cents", "attempts"],
+          "properties": {
+            "latency_ms": {"type": "integer", "minimum": 0},
+            "cost_cents": {"type": "integer", "minimum": 0},
+            "attempts": {"type": "integer", "minimum": 1}
+          }
+        }
+      }
+    },
     "schema_version": {"const": "1.0"},
     "run_id": {"type": "string", "minLength": 1},
     "scenario_id": {"const": "order-investigation"},

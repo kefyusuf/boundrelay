@@ -2,6 +2,7 @@ from copy import deepcopy
 from dataclasses import dataclass
 from .collector import canonicalize_outcomes
 from .executor import execute_workers
+from .attribution import build_attribution,worker_records,restored_running
 from .scenario import load_scenario
 from .schemas import validate_run_result
 from .state_store import StateStore,load_run_state,load_run_state_document
@@ -74,7 +75,10 @@ async def _complete_recovered_run(store,options,binding:StateBinding,document:Ru
         if options.sink is not None:options.sink.emit('step.completed',{'step_name':'synthesize','brief':brief})
     if failure_code is not None:store.mark_terminal(status,failure_code)
     else:store.mark_terminal(status)
-    result={'schema_version':'1.0','run_id':store.state()['run_id'],'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(summary.peak_concurrency,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':list(canonical),'synthesis_invoked':synthesis_invoked,'brief':brief,'failure_code':failure_code,'trace_path':options.trace_path,'resumed':True,'restored_cursor':document['sequence_cursor'],'restored_worker_ids':recorded_worker_ids(document),'state_dir':options.state_dir,'run_state_status':status}
+    tables=load_scenario().attribution
+    if tables is None:raise ValueError('Scenario is missing attribution tables')
+    attribution=build_attribution(worker_records(canonical,restored_running(document))+([('synthesize',1)] if synthesis_invoked else []),tables['price_table'],tables['latency_ms'])
+    result={'schema_version':'1.0','run_id':store.state()['run_id'],'scenario_id':'order-brief-recovery','case_id':binding.case_id,'execution_mode':binding.execution_mode,'concurrency_limit':binding.concurrency_limit,'peak_concurrency':max(summary.peak_concurrency,1),'order_id':binding.requested_order_id,'status':status,'worker_outcomes':list(canonical),'synthesis_invoked':synthesis_invoked,'brief':brief,'failure_code':failure_code,'trace_path':options.trace_path,'resumed':True,'restored_cursor':document['sequence_cursor'],'restored_worker_ids':recorded_worker_ids(document),'state_dir':options.state_dir,'run_state_status':status,'attribution':attribution}
     if not validate_run_result(result):raise ValueError('Invalid recovery result')
     return result
 

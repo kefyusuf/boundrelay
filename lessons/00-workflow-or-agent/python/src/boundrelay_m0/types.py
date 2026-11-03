@@ -43,6 +43,7 @@ class RunResult:
     specialist_invoked: bool
     failure_code: FailureCode | None
     trace_path: str
+    attribution: dict[str, object]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -71,6 +72,7 @@ class ScenarioDefinition:
     scenario_id: Literal["support-triage"]
     routes: tuple[Route, ...]
     cases: tuple[ScenarioCase, ...]
+    attribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

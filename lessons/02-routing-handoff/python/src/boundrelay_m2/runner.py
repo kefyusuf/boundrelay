@@ -3,6 +3,7 @@ from dataclasses import asdict
 from datetime import datetime
 from uuid import uuid4
 from .scenario import load_scenario, find_scenario_case, load_failure_fixtures
+from .attribution import build_attribution
 from .scripted_router import ScriptedRouteProvider
 from .policy import apply_confidence_policy, classify_with_code
 from .receivers import create_receiver_directory
@@ -31,8 +32,11 @@ async def run_scenario_case(
     clock: Callable[[], datetime] | None = None,
     id_factory: Callable[[], str] | None = None,
 ) -> HandoffResult:
-    case = find_scenario_case(load_scenario(), case_id)
+    scenario = load_scenario()
+    case = find_scenario_case(scenario, case_id)
     if case.router_mode != mode: raise ValueError('Requested mode does not match canonical case mode')
+    tables = scenario.attribution
+    if tables is None: raise ValueError('Scenario is missing attribution tables')
     next_id = id_factory or (lambda: str(uuid4()))
     run_id = next_id()
     sink = MemoryEventSink(run_id=run_id,source='python',clock=clock,id_factory=next_id)
@@ -40,7 +44,9 @@ async def run_scenario_case(
 
     def finish(failure: FailureCode | None) -> HandoffResult:
         fields = {'proposed_route': selection.proposed_route if selection else None, 'selected_route': selection.selected_route if selection else None, 'receiver': selection.receiver if selection else None, 'fallback_applied': selection.fallback_applied if selection else False, 'specialist_invoked': failure is None}
-        result = HandoffResult(schema_version='1.0',run_id=run_id,scenario_id='support-handoff',case_id=case.id,router_mode=mode,status='FAILED' if failure else 'SUCCEEDED',**fields,failure_code=failure,trace_path=trace_path)
+        records = [('classify',1)]+([(f"receiver.{selection.receiver}",1)] if failure is None else [])
+        attribution = build_attribution(records,tables['price_table'],tables['latency_ms'],mode)
+        result = HandoffResult(schema_version='1.0',run_id=run_id,scenario_id='support-handoff',case_id=case.id,router_mode=mode,status='FAILED' if failure else 'SUCCEEDED',**fields,failure_code=failure,trace_path=trace_path,attribution=attribution)
         validation = validate_run_result(result.to_dict())
         if not validation.ok: raise ValueError('Invalid result: '+'; '.join(validation.errors))
         sink.emit('run.failed' if failure else 'run.completed', {'status': result.status, **fields, **({'failure_code':failure} if failure else {})})

@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from .executor import ToolExecutionError, ToolTimeoutError, invoke_tool
+from .attribution import build_attribution
 from .scenario import find_scenario_case, load_scenario
 from .schemas import validate_model_turn, validate_run_result
 from .scripted_model import ScriptedModelProvider
@@ -49,6 +50,17 @@ async def run_scenario_case(
     model_steps = 0
     tokens_used = 0
     tool_invocations = 0
+    tool_counts: dict[str, int] = {}
+    tables = scenario.attribution
+    if tables is None:
+        raise ValueError("Scenario is missing attribution tables")
+
+    def attribute(step_records):
+        return build_attribution(step_records, tables["price_table"], tables["latency_ms"])
+
+    def step_records() -> list[tuple[str, int]]:
+        model = [] if mode == "direct" else [("model", model_steps)]
+        return model + [(f"tool.{name}", count) for name, count in tool_counts.items()]
 
     sink.emit("run.created", {"scenario_id": scenario.scenario_id, "case_id": scenario_case.id, "mode": mode})
     sink.emit("run.started", {"case_id": scenario_case.id, "mode": mode})
@@ -64,7 +76,7 @@ async def run_scenario_case(
         result = RunResult(
             "1.0", run_id, "order-investigation", scenario_case.id, mode,
             "FAILED", None, failure_code, model_steps, tokens_used,
-            tool_invocations, trace_path,
+            tool_invocations, trace_path, attribute(step_records()),
         )
         validation = validate_run_result(result.to_dict())
         if not validation.ok:
@@ -83,7 +95,7 @@ async def run_scenario_case(
         result = RunResult(
             "1.0", run_id, "order-investigation", scenario_case.id, mode,
             "SUCCEEDED", answer, None, model_steps, tokens_used,
-            tool_invocations, trace_path,
+            tool_invocations, trace_path, attribute(step_records()),
         )
         validation = validate_run_result(result.to_dict())
         if not validation.ok:
@@ -103,6 +115,7 @@ async def run_scenario_case(
             return await finish_failure("INVALID_TOOL_ARGUMENTS")
         sink.emit("tool.requested", {"call_id": call.call_id, "tool": call.tool, "arguments": arguments_validation.value})
         tool_invocations += 1
+        tool_counts[definition.name] = tool_counts.get(definition.name, 0) + 1
         try:
             output = await invoke_tool(definition, arguments_validation.value)
             observation = ToolObservation(call.call_id, definition.name, output)
@@ -184,6 +197,7 @@ async def run_scenario_case(
         call_id = str(decision["call_id"])
         sink.emit("tool.requested", {"call_id": call_id, "tool": definition.name, "arguments": arguments_validation.value})
         tool_invocations += 1
+        tool_counts[definition.name] = tool_counts.get(definition.name, 0) + 1
         try:
             output = await invoke_tool(definition, arguments_validation.value)
             observation = ToolObservation(call_id, definition.name, output)

@@ -150,6 +150,10 @@ Tasks 1–2 fix attribution contracts/tables and runtime wiring; Task 3–4 own 
 | 11 (privacy) | Tasks 1–4 (projection allowlists) |
 | 12 (chain + revision evidence) | Task 6 |
 
+## Execution Ledger
+
+- **Ruling 5 (2026-11-03, Task 1/2):** Step-name and audit-key conventions are fixed. The event-surface audit keys M0 as `<case_id>@<mode>` (seven canonical case/mode combinations); other scenarios key by case id. Attribution step names: M0 `classify` + `specialist.<route>`; M1 `model` + `tool.<tool>` (M1/M2 emit no `step.*` events, so the loaders' tables fix the names); M2 `classify` + `receiver.<receiver>`; M3/M4 `worker.<id>` + `synthesize`; M5 `worker.<id>` + `effect.submit`. Per-step latency = fixture table × attempts; step cost = fixture price × attempts by kind. M4 crash controls fire after the worker's outcome is recorded, so canonical multi-phase runs never restore a RUNNING worker and every recorded worker counts attempts 1 (crash-resume p2 = [1,1,1]); the restored-RUNNING ×2 rule stays implemented for any future genuinely re-executed worker. M5 counts the invocation of record: workers 1 each, `effect.submit` 1 when an effect of record exists (landed or adopted — adoption counts the original attempt), and a rejected approval omits the effect step record entirely (totals span executed steps only). Result schemas embed the canonical attribution block inline (kept self-contained, no cross-file `$ref`); the six loaders accept the tables optionally and each runner fails closed when they are missing.
+
 ## Execution Handoff
 
 The owner approved this written plan and selected **Native** on 2026-11-03: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.

@@ -121,6 +121,14 @@ class M1ContractTests(unittest.TestCase):
             "tokens_used": 129,
             "tool_invocations": 2,
             "trace_path": ".boundrelay/m1/trace.jsonl",
+            "attribution": {
+                "steps": [
+                    {"step_name": "model", "latency_ms": 90, "cost_cents": 6, "attempts": 3},
+                    {"step_name": "tool.lookup_order", "latency_ms": 8, "cost_cents": 1, "attempts": 1},
+                    {"step_name": "tool.lookup_shipment", "latency_ms": 9, "cost_cents": 1, "attempts": 1},
+                ],
+                "totals": {"latency_ms": 107, "cost_cents": 8, "attempts": 5},
+            },
         }
         failure = dict(success)
         failure.update({
@@ -131,12 +139,18 @@ class M1ContractTests(unittest.TestCase):
             "model_steps": 1,
             "tokens_used": 25,
             "tool_invocations": 0,
+            "attribution": {
+                "steps": [{"step_name": "model", "latency_ms": 30, "cost_cents": 2, "attempts": 1}],
+                "totals": {"latency_ms": 30, "cost_cents": 2, "attempts": 1},
+            },
         })
         invalid = dict(failure)
         invalid["answer"] = "must be null on failure"
         self.assertEqual(schema_errors(RESULT_SCHEMA, success), [])
         self.assertEqual(schema_errors(RESULT_SCHEMA, failure), [])
         self.assertNotEqual(schema_errors(RESULT_SCHEMA, invalid), [])
+        self.assertNotEqual(
+            schema_errors(RESULT_SCHEMA, {k: v for k, v in success.items() if k != "attribution"}), [])
 
     def test_event_schema_remains_m0_compatible_and_accepts_m1_types(self) -> None:
         base_event = {

@@ -131,6 +131,7 @@ class HandoffResult:
     specialist_invoked: bool
     failure_code: FailureCode | None
     trace_path: str
+    attribution: dict[str, object]
 
     def to_dict(self) -> dict[str, object]:
         return asdict(self)
@@ -173,6 +174,7 @@ class ScenarioDefinition:
     confidence_threshold: float
     route_receivers: dict[Route, ReceiverName]
     cases: tuple[ScenarioCase, ...]
+    attribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True)

@@ -1,3 +1,5 @@
+import type {AttributionBlock, AttributionTables} from "./attribution.js";
+
 export const ROUTES = ["billing", "technical", "general"] as const;
 export type Route = (typeof ROUTES)[number];
 
@@ -53,6 +55,7 @@ export interface RunResult {
   specialist_invoked: boolean;
   failure_code: FailureCode | null;
   trace_path: string;
+  attribution: AttributionBlock;
 }
 
 export interface ScenarioSuccessCase {
@@ -74,6 +77,7 @@ export interface ScenarioDefinition {
   scenario_id: "support-triage";
   routes: Route[];
   cases: ScenarioCase[];
+  attribution: AttributionTables | null;
 }
 
 export interface SpecialistInvocation {

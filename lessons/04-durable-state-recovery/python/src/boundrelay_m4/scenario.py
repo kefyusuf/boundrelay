@@ -19,7 +19,7 @@ def parse_attribution(raw):
     latency,prices=raw['latency_ms'],raw['price_table']
     if type(latency) is not dict or not latency or any(not k or type(v) is not int or v<0 for k,v in latency.items()):raise ValueError('Invalid scenario')
     if type(prices) is not dict or not prices or any(k not in STEP_KINDS or type(v) is not int or v<0 for k,v in prices.items()):raise ValueError('Invalid scenario')
-    if prices.get('read',1)!=0:raise ValueError('Invalid scenario')
+    if 'read' in prices and prices['read']!=0:raise ValueError('Invalid scenario')
     return {'latency_ms':dict(latency),'price_table':dict(prices)}
 
 def case_fields(raw):
@@ -81,7 +81,7 @@ def parse_scenario(raw)->Scenario:
             while len(active)<limit and pending:active.add(pending.pop(0))
             if next_id not in active:raise ValueError('Infeasible completion schedule')
             active.remove(next_id)
-    return Scenario('1.0','order-brief-recovery',s['order_id'],tuple(cases))
+    return Scenario('1.0','order-brief-recovery',s['order_id'],tuple(cases),parse_attribution(s.get('attribution')))
 
 def load_scenario()->Scenario:
     return parse_scenario(yaml.safe_load(SCENARIO_PATH.read_text(encoding='utf-8')))

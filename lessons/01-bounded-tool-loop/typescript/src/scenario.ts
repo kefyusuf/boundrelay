@@ -3,6 +3,7 @@ import {readFileSync} from "node:fs";
 import {parse} from "yaml";
 
 import {SCENARIO_PATH} from "./paths.js";
+import {STEP_KINDS, type AttributionTables} from "./attribution.js";
 import {
   FAILURE_CODES,
   TOOL_NAMES,
@@ -115,6 +116,31 @@ function parseCase(raw: unknown): ScenarioCase {
   throw new Error(`${common.id} expected_status must be SUCCEEDED or FAILED.`);
 }
 
+export function parseAttribution(raw: unknown): AttributionTables | null {
+  if (raw === undefined || raw === null) {
+    return null;
+  }
+  if (!isRecord(raw) || Object.keys(raw).sort().join("|") !== "latency_ms|price_table") {
+    throw new Error("Invalid attribution tables.");
+  }
+  const latency = raw.latency_ms, prices = raw.price_table;
+  const nonNegativeInt = (value: unknown): value is number =>
+    typeof value === "number" && Number.isInteger(value) && value >= 0;
+  if (!isRecord(latency) || Object.keys(latency).length === 0 ||
+      Object.entries(latency).some(([key, value]) => !key || !nonNegativeInt(value))) {
+    throw new Error("Invalid attribution latency table.");
+  }
+  if (!isRecord(prices) || Object.keys(prices).length === 0 ||
+      Object.entries(prices).some(([key, value]) =>
+        !(STEP_KINDS as readonly string[]).includes(key) || !nonNegativeInt(value))) {
+    throw new Error("Invalid attribution price table.");
+  }
+  if ("read" in prices && prices.read !== 0) {
+    throw new Error("Attribution reads must price zero.");
+  }
+  return {latency_ms: {...latency} as Record<string, number>, price_table: {...prices} as Record<string, number>};
+}
+
 export function loadScenario(path: string = SCENARIO_PATH): ScenarioDefinition {
   const raw = parse(readFileSync(path, "utf8"));
   if (!isRecord(raw) || raw.schema_version !== "1.0" || raw.scenario_id !== "order-investigation") {
@@ -128,7 +154,7 @@ export function loadScenario(path: string = SCENARIO_PATH): ScenarioDefinition {
   if (ids.size !== cases.length) {
     throw new Error("Scenario case ids must be unique.");
   }
-  return {schema_version: "1.0", scenario_id: "order-investigation", cases};
+  return {schema_version: "1.0", scenario_id: "order-investigation", cases, attribution: parseAttribution(raw.attribution)};
 }
 
 export function findScenarioCase(scenario: ScenarioDefinition, caseId: string): ScenarioCase {

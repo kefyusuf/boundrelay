@@ -10,8 +10,15 @@ def outcome(index,failed=False):
     if failed:return {'worker_id':IDS[index],'status':'FAILED','output':None,'failure_code':'WORKER_EXECUTION_FAILED'}
     return {'worker_id':IDS[index],'status':'SUCCEEDED','output':dict(OUTPUTS[index]),'failure_code':None}
 
+ATTRIBUTION={'steps':[
+    {'step_name':'worker.order-details','latency_ms':10,'cost_cents':0,'attempts':1},
+    {'step_name':'worker.payment-status','latency_ms':11,'cost_cents':0,'attempts':1},
+    {'step_name':'worker.delivery-status','latency_ms':12,'cost_cents':0,'attempts':1},
+    {'step_name':'synthesize','latency_ms':15,'cost_cents':0,'attempts':1}],
+    'totals':{'latency_ms':48,'cost_cents':0,'attempts':4}}
+
 def result():
-    return {'schema_version':'1.0','run_id':'r1','scenario_id':'order-brief-recovery','case_id':'c','execution_mode':'parallel','concurrency_limit':2,'peak_concurrency':2,'order_id':'ORD-1001','status':'SUCCEEDED','worker_outcomes':[outcome(0),outcome(1),outcome(2)],'synthesis_invoked':True,'brief':{'order_id':'ORD-1001','sections':[{'worker_id':IDS[i],'output':dict(OUTPUTS[i])} for i in range(3)],'missing_workers':[],'complete':True},'failure_code':None,'trace_path':'t.jsonl','resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':'state','run_state_status':'SUCCEEDED'}
+    return {'schema_version':'1.0','run_id':'r1','scenario_id':'order-brief-recovery','case_id':'c','execution_mode':'parallel','concurrency_limit':2,'peak_concurrency':2,'order_id':'ORD-1001','status':'SUCCEEDED','worker_outcomes':[outcome(0),outcome(1),outcome(2)],'synthesis_invoked':True,'brief':{'order_id':'ORD-1001','sections':[{'worker_id':IDS[i],'output':dict(OUTPUTS[i])} for i in range(3)],'missing_workers':[],'complete':True},'failure_code':None,'trace_path':'t.jsonl','resumed':False,'restored_cursor':None,'restored_worker_ids':[],'state_dir':'state','run_state_status':'SUCCEEDED','attribution':ATTRIBUTION}
 
 class SchemaTests(unittest.TestCase):
     def test_reject_original_invalid_output(self):

@@ -5,6 +5,7 @@ import {StateStore,loadRunState,loadRunStateDocument} from './state-store.js';
 import {canonicalizeOutcomes} from './collector.js';
 import {synthesizeBrief} from './synthesizer.js';
 import {loadScenario} from './scenario.js';
+import {buildAttribution,workerRecords,restoredRunning} from './attribution.js';
 export interface RecoverySink {emit(type:string,data:Record<string,unknown>):void}
 export interface RunOptions {caseId:string;tracePath:string;stateDir:string;resume?:boolean;replayFrom?:string;sink?:RecoverySink;directory?:WorkerDirectory;control?:WorkerControl;synthesizer?:(orderId:string,outcomes:CanonicalOutcomes)=>Brief;stateStore?:StateStore;observer?:WorkerObserver;on_crash?:()=>never}
 function emitCheckpointSaved(sink:RecoverySink|undefined,binding:StateBinding,store:StateStore,workerId:WorkerId):void {
@@ -51,7 +52,10 @@ async function completeRecoveredRun(store:StateStore,options:RunOptions,binding:
   options.sink?.emit('step.completed',{step_name:'synthesize',brief});
  }
  if(failureCode===null)store.markTerminal(status);else store.markTerminal(status,failureCode);
- const result:RunResult={schema_version:'1.0',run_id:store.state().run_id,scenario_id:'order-brief-recovery',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(summary.peakConcurrency,1),order_id:binding.requested_order_id,status,worker_outcomes:canonical,synthesis_invoked:synthesisInvoked,brief,failure_code:failureCode,trace_path:options.tracePath,resumed:true,restored_cursor:document.sequence_cursor,restored_worker_ids:recordedWorkerIds(document),state_dir:options.stateDir,run_state_status:status};
+ const tables=loadScenario().attribution;
+ if(tables===null)throw new Error('Scenario is missing attribution tables');
+ const attribution=buildAttribution([...workerRecords(canonical,restoredRunning(document)),...(synthesisInvoked?[['synthesize',1] as const]:[])],tables.price_table,tables.latency_ms);
+ const result:RunResult={schema_version:'1.0',run_id:store.state().run_id,scenario_id:'order-brief-recovery',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(summary.peakConcurrency,1),order_id:binding.requested_order_id,status,worker_outcomes:canonical,synthesis_invoked:synthesisInvoked,brief,failure_code:failureCode,trace_path:options.tracePath,resumed:true,restored_cursor:document.sequence_cursor,restored_worker_ids:recordedWorkerIds(document),state_dir:options.stateDir,run_state_status:status,attribution};
  if(!validateRunResult(result))throw new Error('Invalid recovery result');
  return result;
 }

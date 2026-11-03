@@ -1,6 +1,7 @@
 import {randomUUID} from "node:crypto";
 
 import {routeDecision} from "./bounded-router.js";
+import {buildAttribution} from "./attribution.js";
 import {classifyDeterministically} from "./deterministic-router.js";
 import {ScriptedDecisionProvider} from "./fake-decision-provider.js";
 import {findScenarioCase, loadScenario} from "./scenario.js";
@@ -22,6 +23,12 @@ export interface RunScenarioCaseOptions {
 export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<RunResult> {
   const scenario = loadScenario();
   const scenarioCase = findScenarioCase(scenario, options.caseId);
+  const tables = scenario.attribution;
+  if (tables === null) {
+    throw new Error("Scenario is missing attribution tables");
+  }
+  const attribute = (stepRecords: ReadonlyArray<readonly [string, number]>): RunResult["attribution"] =>
+    buildAttribution(stepRecords, tables.price_table, tables.latency_ms, options.mode);
   const idFactory = options.idFactory ?? randomUUID;
   const runId = idFactory();
   const sink = new MemoryEventSink({
@@ -70,6 +77,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
       specialist_invoked: false,
       failure_code: routed.failureCode,
       trace_path: options.tracePath,
+      attribution: attribute([["classify", 1]]),
     };
     const validation = validateRunResult(result);
     if (!validation.ok) {
@@ -99,6 +107,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
     specialist_invoked: true,
     failure_code: null,
     trace_path: options.tracePath,
+    attribution: attribute([["classify", 1], [`specialist.${decision.route}`, 1]]),
   };
   const validation = validateRunResult(result);
   if (!validation.ok) {

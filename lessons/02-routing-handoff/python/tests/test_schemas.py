@@ -58,8 +58,17 @@ class SchemaTests(unittest.TestCase):
             "specialist_invoked": True,
             "failure_code": None,
             "trace_path": ".boundrelay/m2/trace.jsonl",
+            "attribution": {
+                "steps": [
+                    {"step_name": "classify", "latency_ms": 30, "cost_cents": 0, "attempts": 1},
+                    {"step_name": "receiver.billing-specialist", "latency_ms": 10, "cost_cents": 0, "attempts": 1},
+                ],
+                "totals": {"latency_ms": 40, "cost_cents": 0, "attempts": 2},
+            },
         }
         self.assertTrue(validate_run_result(result).ok)
+        self.assertFalse(validate_run_result(
+            {key: value for key, value in result.items() if key != "attribution"}).ok)
 
     def test_event_validator_accepts_handoff_family(self) -> None:
         event = {

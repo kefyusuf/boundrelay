@@ -16,6 +16,9 @@ from jsonschema import Draft202012Validator
 ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_PATH = ROOT / "contracts/observability/attribution.schema.json"
 EVENT_SCHEMA_PATH = ROOT / "contracts/events/run-event.schema.json"
+RESULT_SCHEMAS = ("run-result", "tool-loop-result", "handoff-result",
+                  "order-brief-result", "order-brief-recovery-result",
+                  "order-closure-result")
 SCENARIOS = ("support-triage", "order-investigation", "support-handoff",
              "order-brief", "order-brief-recovery", "order-closure")
 CASE_COUNTS = {"support-triage": 7, "order-investigation": 8,
@@ -399,6 +402,18 @@ class M6AttributionContractTests(unittest.TestCase):
 
 
 class M6EventSurfaceAuditTests(unittest.TestCase):
+    def test_result_schemas_embed_the_canonical_attribution_block(self):
+        schema = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
+        canonical = {key: value for key, value in schema.items()
+                     if key not in ("$schema", "$id", "title", "description")}
+        for name in RESULT_SCHEMAS:
+            result_schema = json.loads(
+                (ROOT / f"contracts/results/{name}.schema.json").read_text(encoding="utf-8"))
+            self.assertIn("attribution", result_schema.get("required", []),
+                          f"{name}: attribution must be required")
+            self.assertEqual(result_schema["properties"].get("attribution"), canonical,
+                             f"{name}: attribution block must equal the canonical shape")
+
     def test_event_surface_audit(self):
         surface = EXPECTED_EVENT_SURFACE
         self.assertEqual(set(surface), set(SCENARIOS),

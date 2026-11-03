@@ -140,6 +140,13 @@ class M2ContractTests(unittest.TestCase):
             "specialist_invoked": True,
             "failure_code": None,
             "trace_path": ".boundrelay/m2/code.jsonl",
+            "attribution": {
+                "steps": [
+                    {"step_name": "classify", "latency_ms": 30, "cost_cents": 0, "attempts": 1},
+                    {"step_name": "receiver.billing-specialist", "latency_ms": 10, "cost_cents": 0, "attempts": 1},
+                ],
+                "totals": {"latency_ms": 40, "cost_cents": 0, "attempts": 2},
+            },
         }
         context_failure = dict(success)
         context_failure.update({
@@ -148,6 +155,10 @@ class M2ContractTests(unittest.TestCase):
             "status": "FAILED",
             "specialist_invoked": False,
             "failure_code": "HANDOFF_CONTEXT_INVALID",
+            "attribution": {
+                "steps": [{"step_name": "classify", "latency_ms": 30, "cost_cents": 2, "attempts": 1}],
+                "totals": {"latency_ms": 30, "cost_cents": 2, "attempts": 1},
+            },
         })
         unavailable = dict(success)
         unavailable.update({

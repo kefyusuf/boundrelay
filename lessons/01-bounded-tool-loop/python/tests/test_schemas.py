@@ -41,8 +41,18 @@ class SchemaTests(unittest.TestCase):
             "tokens_used": 129,
             "tool_invocations": 2,
             "trace_path": ".boundrelay/m1/trace.jsonl",
+            "attribution": {
+                "steps": [
+                    {"step_name": "model", "latency_ms": 90, "cost_cents": 6, "attempts": 3},
+                    {"step_name": "tool.lookup_order", "latency_ms": 8, "cost_cents": 1, "attempts": 1},
+                    {"step_name": "tool.lookup_shipment", "latency_ms": 9, "cost_cents": 1, "attempts": 1},
+                ],
+                "totals": {"latency_ms": 107, "cost_cents": 8, "attempts": 5},
+            },
         }
         self.assertTrue(validate_run_result(result).ok)
+        self.assertFalse(validate_run_result(
+            {key: value for key, value in result.items() if key != "attribution"}).ok)
 
 
 if __name__ == "__main__":
