@@ -1,0 +1,133 @@
+{
+  "scenario_id": "order-brief",
+  "case_key": "parallel-all-failed",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-brief",
+    "case_id": "parallel-all-failed",
+    "execution_mode": "parallel",
+    "order_id": "ORD-1001",
+    "concurrency_limit": 2,
+    "peak_concurrency": 2,
+    "status": "FAILED",
+    "worker_outcomes": [
+      {
+        "worker_id": "order-details",
+        "status": "FAILED",
+        "output": null,
+        "failure_code": "WORKER_EXECUTION_FAILED"
+      },
+      {
+        "worker_id": "payment-status",
+        "status": "FAILED",
+        "output": null,
+        "failure_code": "WORKER_EXECUTION_FAILED"
+      },
+      {
+        "worker_id": "delivery-status",
+        "status": "FAILED",
+        "output": null,
+        "failure_code": "WORKER_EXECUTION_FAILED"
+      }
+    ],
+    "synthesis_invoked": false,
+    "brief": null,
+    "failure_code": "ALL_WORKERS_FAILED",
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "worker.order-details",
+          "latency_ms": 10,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.payment-status",
+          "latency_ms": 11,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.delivery-status",
+          "latency_ms": 12,
+          "cost_cents": 0,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 33,
+        "cost_cents": 0,
+        "attempts": 3
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "step.failed",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "step.failed",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "step.failed",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "worker.order-details",
+        "latency_ms": 10,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.payment-status",
+        "latency_ms": 11,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.delivery-status",
+        "latency_ms": 12,
+        "cost_cents": 0,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 33,
+      "cost_cents": 0,
+      "attempts": 3
+    }
+  }
+}

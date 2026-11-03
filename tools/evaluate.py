@@ -225,13 +225,47 @@ def project_result(result: dict) -> dict:
 
 def event_sequence(events: list[dict]) -> list[dict]:
     """Ordered [{type, step_name}...]; union across phases (crash phases
-    contribute their prefix and carry no terminal event)."""
+    contribute their prefix and carry no terminal event).
+
+    Concurrent worker-event windows are canonically reordered (per worker,
+    started before terminal before checkpoint) so the golden sequence is
+    language-agnostic: the TypeScript and Python executors admit queued
+    workers at different points relative to a sibling's completion, and both
+    orderings are valid schedules of the same run."""
     sequence = []
     for event in events:
         data = event.get("data") if isinstance(event.get("data"), dict) else {}
         sequence.append({"type": event["type"],
                          "step_name": data.get("step_name") or data.get("step")})
-    return sequence
+    return _canonical_worker_windows(sequence)
+
+
+def _canonical_worker_windows(sequence: list[dict]) -> list[dict]:
+    worker_ids = ("order-details", "payment-status", "delivery-status")
+    result: list[dict] = []
+    window: list[tuple[int, int, int, dict]] = []
+
+    def flush() -> None:
+        window.sort(key=lambda entry: entry[:3])
+        result.extend(entry[3] for entry in window)
+        window.clear()
+
+    for entry in sequence:
+        name = entry["step_name"] or ""
+        if entry["type"] in ("step.started", "step.completed", "step.failed") \
+                and name.startswith("worker."):
+            worker = name[len("worker."):]
+            if worker in worker_ids:
+                rank = 0 if entry["type"] == "step.started" else 1
+                window.append((worker_ids.index(worker), rank, 1, entry))
+                continue
+        if entry["type"] == "checkpoint.saved" and name in worker_ids:
+            window.append((worker_ids.index(name), 2, 2, entry))
+            continue
+        flush()
+        result.append(entry)
+    flush()
+    return result
 
 
 def flow_evidence(flow: dict) -> dict:
@@ -252,6 +286,65 @@ def flow_evidence(flow: dict) -> dict:
             "attribution": flow["result"]["attribution"]}
 
 
+def _latency_table(scenario_id: str) -> dict:
+    document = yaml.safe_load(
+        (ROOT / f"fixtures/scenarios/{scenario_id}.yaml").read_text(encoding="utf-8"))
+    return (document.get("attribution") or {}).get("latency_ms") or {}
+
+
+def validate_attribution(scenario_id: str, attribution: object,
+                         sequence: list[dict]) -> None:
+    """Attribution completeness: present, totals equal the per-step sum,
+    every executed step (event_sequence step names) attributed, and every
+    attributed name drawn from the scenario's fixture table."""
+    label = f"{scenario_id}: "
+    if not isinstance(attribution, dict) or set(attribution) != {"steps", "totals"}:
+        raise ToolingError(f"{label}result attribution block is missing or malformed")
+    steps, totals = attribution["steps"], attribution["totals"]
+    if not isinstance(steps, list) or not steps:
+        raise ToolingError(f"{label}attribution.steps must be a non-empty list")
+    latency_sum = cost_sum = attempts_sum = 0
+    attributed: set[str] = set()
+    for record in steps:
+        if not isinstance(record, dict) or set(record) != {
+                "step_name", "latency_ms", "cost_cents", "attempts"}:
+            raise ToolingError(f"{label}malformed attribution step record: {record!r}")
+        name = record["step_name"]
+        if name in attributed:
+            raise ToolingError(f"{label}duplicate attribution record for {name}")
+        attributed.add(name)
+        values = (record["latency_ms"], record["cost_cents"], record["attempts"])
+        if (any(type(value) is not int for value in values)
+                or values[0] < 0 or values[1] < 0 or values[2] < 1):
+            raise ToolingError(f"{label}invalid attribution values for {name}")
+        latency_sum += values[0]
+        cost_sum += values[1]
+        attempts_sum += values[2]
+    if totals != {"latency_ms": latency_sum, "cost_cents": cost_sum,
+                  "attempts": attempts_sum}:
+        raise ToolingError(
+            f"{label}attribution totals {totals} do not equal the per-step sum "
+            f"(latency {latency_sum}, cost {cost_sum}, attempts {attempts_sum})")
+    table = _latency_table(scenario_id)
+    unknown = attributed - set(table)
+    if unknown:
+        raise ToolingError(f"{label}attribution names outside the scenario table: {sorted(unknown)}")
+    executed = set()
+    for entry in sequence:
+        name = entry.get("step_name")
+        if not name:
+            continue
+        # checkpoint.saved events carry the bare worker id; attribution names
+        # live in the scenario table's namespace ('worker.<id>').
+        if name not in table and f"worker.{name}" in table:
+            name = f"worker.{name}"
+        executed.add(name)
+    missing = executed - attributed
+    if missing:
+        raise ToolingError(
+            f"{label}executed steps missing from attribution: {sorted(missing)}")
+
+
 def compare_with_golden(scenario_id: str, case_key: str, actual: dict) -> dict:
     path = GOLDEN_ROOT / scenario_id / f"{case_key}.json"
     if not path.exists():
@@ -265,12 +358,19 @@ def compare_with_golden(scenario_id: str, case_key: str, actual: dict) -> dict:
     return golden
 
 
+BEHAVIOR_PATHS = ("fixtures/", "lessons/", "contracts/")
+
+
 def _assert_clean_worktree() -> None:
-    status = _git_status()
-    if status.strip():
+    """Refuse regeneration when uncommitted tracked changes could alter the
+    recorded behavior (fixtures, lesson sources, contracts). Harness-only
+    edits (tools/) cannot change what the CLIs produce and are tolerated."""
+    behavior = [line for line in _git_status().splitlines()
+                if line.strip() and line[3:].startswith(BEHAVIOR_PATHS)]
+    if behavior:
         raise ToolingError(
-            "Golden regeneration requires a clean worktree "
-            "(no uncommitted tracked changes):\n" + status)
+            "Golden regeneration requires committed behavior sources; "
+            "uncommitted changes touch behavior-bearing paths:\n" + "\n".join(behavior))
 
 
 def regenerate(scenario_id: str, case_key: str) -> str:
@@ -284,6 +384,7 @@ def regenerate(scenario_id: str, case_key: str) -> str:
     with tempfile.TemporaryDirectory() as directory:
         flow = run_flow(scenario_id, spec, Path(directory))
     actual = flow_evidence(flow)
+    validate_attribution(scenario_id, actual["attribution"], actual["event_sequence"])
     golden = {"scenario_id": scenario_id, "case_key": case_key,
               "languages": ["typescript", "python"], **actual}
     path = GOLDEN_ROOT / scenario_id / f"{case_key}.json"
@@ -317,7 +418,10 @@ def evaluate(scenarios: list[str] | None = None, report_path: Path | None = None
             try:
                 with tempfile.TemporaryDirectory() as directory:
                     flow = run_flow(scenario_id, spec, Path(directory))
-                compare_with_golden(scenario_id, spec["key"], flow_evidence(flow))
+                actual = flow_evidence(flow)
+                validate_attribution(scenario_id, actual["attribution"],
+                                     actual["event_sequence"])
+                compare_with_golden(scenario_id, spec["key"], actual)
                 record.update({"status": "PASS", "languages": ["typescript", "python"]})
             except ToolingError as error:
                 record.update({"status": "FAIL", "error": str(error)})

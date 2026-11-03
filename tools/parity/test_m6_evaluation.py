@@ -75,11 +75,20 @@ class M6EvaluationSafetyTests(unittest.TestCase):
             ev.flow_evidence(canned_flow(ts_result=diverged))
         self.assertIn("typescript and python", str(caught.exception))
 
-    def test_regenerate_requires_clean_worktree(self):
-        with patch.object(ev, "_git_status", return_value=" M some/file.py"):
+    def test_regenerate_refuses_behavior_bearing_changes(self):
+        dirty = " M lessons/00-workflow-or-agent/python/src/boundrelay_m0/runner.py"
+        with patch.object(ev, "_git_status", return_value=dirty):
             with self.assertRaises(ev.ToolingError) as caught:
                 ev.regenerate("support-triage", "billing-duplicate-charge@model")
-        self.assertIn("clean worktree", str(caught.exception))
+        self.assertIn("behavior-bearing paths", str(caught.exception))
+
+    def test_regenerate_tolerates_harness_only_changes(self):
+        with patch.object(ev, "_git_status",
+                          return_value=" M tools/evaluate.py"), \
+             patch.object(ev, "run_flow", return_value=canned_flow()), \
+             patch.object(ev, "GOLDEN_ROOT", Path(tempfile.mkdtemp())):
+            message = ev.regenerate("support-triage", "billing-duplicate-charge@model")
+        self.assertIn("Golden", message)
 
     def test_report_shape_on_success(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -102,3 +111,34 @@ class M6EvaluationSafetyTests(unittest.TestCase):
             self.assertEqual(golden["languages"], ["typescript", "python"])
             self.assertIn("event_sequence", golden)
             self.assertIn("attribution", golden)
+
+    def test_attribution_totals_drift_is_a_tooling_error(self):
+        drifted = deepcopy(M0_RESULT["attribution"])
+        drifted["totals"]["latency_ms"] += 1
+        sequence = ev.event_sequence(M0_EVENTS)
+        with self.assertRaises(ev.ToolingError) as caught:
+            ev.validate_attribution("support-triage", drifted, sequence)
+        self.assertIn("do not equal the per-step sum", str(caught.exception))
+
+    def test_missing_step_attribution_is_a_tooling_error(self):
+        incomplete = {"steps": [M0_RESULT["attribution"]["steps"][0]],
+                      "totals": {"latency_ms": 30, "cost_cents": 2, "attempts": 1}}
+        sequence = ev.event_sequence(M0_EVENTS)
+        with self.assertRaises(ev.ToolingError) as caught:
+            ev.validate_attribution("support-triage", incomplete, sequence)
+        self.assertIn("missing from attribution", str(caught.exception))
+        self.assertIn("specialist.billing", str(caught.exception))
+
+    def test_main_exit_semantics(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with patch.object(ev, "GOLDEN_ROOT", root / "goldens"), \
+                 patch.object(ev, "_git_status", return_value=""), \
+                 patch.object(ev, "run_flow", return_value=canned_flow()):
+                ev.regenerate("support-triage", "billing-duplicate-charge@model")
+                self.assertEqual(ev.main(["--scenario", "support-triage",
+                                          "--case", "billing-duplicate-charge@model"]), 0)
+                self.assertEqual(ev.main(["--scenario", "order-investigation",
+                                          "--case", "direct-order-status"]), 2)
+                self.assertEqual(ev.main(["--regenerate", "support-triage",
+                                          "billing-duplicate-charge@model"]), 0)

@@ -1,0 +1,170 @@
+{
+  "scenario_id": "order-closure",
+  "case_key": "approval-rejected-no-effect",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-closure",
+    "case_id": "approval-rejected-no-effect",
+    "execution_mode": "parallel",
+    "concurrency_limit": 2,
+    "peak_concurrency": 2,
+    "order_id": "ORD-1001",
+    "status": "FAILED",
+    "worker_outcomes": [
+      {
+        "worker_id": "order-details",
+        "status": "SUCCEEDED",
+        "output": {
+          "order_id": "ORD-1001",
+          "order_status": "SHIPPED"
+        },
+        "failure_code": null
+      },
+      {
+        "worker_id": "payment-status",
+        "status": "SUCCEEDED",
+        "output": {
+          "order_id": "ORD-1001",
+          "payment_status": "PAID"
+        },
+        "failure_code": null
+      },
+      {
+        "worker_id": "delivery-status",
+        "status": "SUCCEEDED",
+        "output": {
+          "order_id": "ORD-1001",
+          "delivery_status": "DELAYED"
+        },
+        "failure_code": null
+      }
+    ],
+    "synthesis_invoked": false,
+    "brief": null,
+    "failure_code": "APPROVAL_REJECTED",
+    "approval_decision": "rejected",
+    "effect_status": null,
+    "idempotency_key": null,
+    "reconciled": false,
+    "resumed": false,
+    "restored_cursor": null,
+    "restored_worker_ids": [],
+    "run_state_status": "FAILED",
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "worker.order-details",
+          "latency_ms": 10,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.payment-status",
+          "latency_ms": 11,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.delivery-status",
+          "latency_ms": 12,
+          "cost_cents": 0,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 33,
+        "cost_cents": 0,
+        "attempts": 3
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "order-details"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "payment-status"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "delivery-status"
+    },
+    {
+      "type": "approval.requested",
+      "step_name": null
+    },
+    {
+      "type": "approval.rejected",
+      "step_name": null
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "worker.order-details",
+        "latency_ms": 10,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.payment-status",
+        "latency_ms": 11,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.delivery-status",
+        "latency_ms": 12,
+        "cost_cents": 0,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 33,
+      "cost_cents": 0,
+      "attempts": 3
+    }
+  }
+}

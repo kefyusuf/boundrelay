@@ -1,0 +1,198 @@
+{
+  "scenario_id": "order-closure",
+  "case_key": "crash-submit-window-resolved",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-closure",
+    "case_id": "crash-submit-window-resolved",
+    "execution_mode": "parallel",
+    "concurrency_limit": 2,
+    "peak_concurrency": 1,
+    "order_id": "ORD-1001",
+    "status": "SUCCEEDED",
+    "worker_outcomes": [
+      {
+        "worker_id": "order-details",
+        "status": "SUCCEEDED",
+        "output": {
+          "order_id": "ORD-1001",
+          "order_status": "SHIPPED"
+        },
+        "failure_code": null
+      },
+      {
+        "worker_id": "payment-status",
+        "status": "SUCCEEDED",
+        "output": {
+          "order_id": "ORD-1001",
+          "payment_status": "PAID"
+        },
+        "failure_code": null
+      },
+      {
+        "worker_id": "delivery-status",
+        "status": "SUCCEEDED",
+        "output": {
+          "delivery_status": "DELAYED",
+          "order_id": "ORD-1001"
+        },
+        "failure_code": null
+      }
+    ],
+    "synthesis_invoked": false,
+    "brief": null,
+    "failure_code": null,
+    "approval_decision": "granted",
+    "effect_status": "EFFECT_COMPLETED",
+    "idempotency_key": "cancel-and-refund:ORD-1001",
+    "reconciled": true,
+    "resumed": true,
+    "restored_cursor": 3,
+    "restored_worker_ids": [
+      "order-details",
+      "payment-status",
+      "delivery-status"
+    ],
+    "run_state_status": "SUCCEEDED",
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "worker.order-details",
+          "latency_ms": 10,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.payment-status",
+          "latency_ms": 11,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "worker.delivery-status",
+          "latency_ms": 12,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "effect.submit",
+          "latency_ms": 40,
+          "cost_cents": 25,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 73,
+        "cost_cents": 25,
+        "attempts": 4
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.order-details"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "order-details"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.payment-status"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "payment-status"
+    },
+    {
+      "type": "step.started",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "worker.delivery-status"
+    },
+    {
+      "type": "checkpoint.saved",
+      "step_name": "delivery-status"
+    },
+    {
+      "type": "approval.requested",
+      "step_name": null
+    },
+    {
+      "type": "approval.granted",
+      "step_name": null
+    },
+    {
+      "type": "tool.requested",
+      "step_name": null
+    },
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "worker.order-details",
+        "latency_ms": 10,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.payment-status",
+        "latency_ms": 11,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "worker.delivery-status",
+        "latency_ms": 12,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "effect.submit",
+        "latency_ms": 40,
+        "cost_cents": 25,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 73,
+      "cost_cents": 25,
+      "attempts": 4
+    }
+  }
+}
