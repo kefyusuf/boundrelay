@@ -50,8 +50,11 @@ async def execute_workers(options:ExecutorOptions)->ExecutionSummary:
         if wiring is None or store is None or any(outcome['status']!='SUCCEEDED' for outcome in reads):
             return ExecutionSummary(reads=reads,peak_concurrency=peak,effect=None,rejected=False)
         payload=_effect_payload(input.order_id);key=effect_key(payload);digest=effect_digest(payload)
+        events=wiring.events
+        if events is not None:events.emit('approval.requested',{'operation':'cancel-and-refund','order_id':input.order_id,'payload_digest':digest})
         decision_record=wiring.approval_gate.decide(payload)
         record=decision_record['record']
+        if events is not None:events.emit('approval.granted' if decision_record['decision']=='granted' else 'approval.rejected',{'operation':'cancel-and-refund','order_id':input.order_id,'payload_digest':digest})
         if wiring.audit is not None:
             wiring.audit.append({'kind':'approval',**record})
         if decision_record['decision']!='granted':
@@ -62,12 +65,17 @@ async def execute_workers(options:ExecutorOptions)->ExecutionSummary:
             if wiring.on_crash is None:raise ValueError('Crash control requires on_crash')
             wiring.on_crash()
         store.mark_submitted(key,digest)
-        submitted=wiring.ledger.submit(key,digest,payload)
+        if events is not None:events.emit('tool.requested',{'key':key,'payload_digest':digest,'side_effect_class':'external'})
+        try:submitted=wiring.ledger.submit(key,digest,payload)
+        except Exception:
+            if events is not None:events.emit('tool.failed',{'key':key})
+            raise
         if controls.get('crash_in_submit_window') is True:
             if wiring.on_crash is None:raise ValueError('Crash control requires on_crash')
             wiring.on_crash()
         effect={'key':key,'payload_digest':digest,'status':submitted['status'],
                 'outcome':submitted['outcome'],'duplicate':submitted['duplicate']}
+        if events is not None:events.emit('tool.completed',{'key':key,'status':submitted['status'],'duplicate':submitted['duplicate']})
         store.record_effect_outcome(effect)
         if wiring.audit is not None:
             wiring.audit.append({'kind':'effect','operation':'cancel-and-refund','order_id':input.order_id,'idempotency_key':key,'effect_status':submitted['status'],'duplicate':submitted['duplicate']})

@@ -34,7 +34,8 @@ export interface RecoveryControls {crash_before_submit?:true;crash_in_submit_win
 export interface EffectSink {submit(key:string,digest:string,payload:EffectPayload):SubmitResult;lookup(key:string):LookupResult|null}
 export interface ApprovalSink {decide(payload:EffectPayload):{decision:'granted'|'rejected';record:ApprovalRecord}}
 export interface AuditSink {append(record:AuditRecord):void}
-export interface EffectWiring {ledger:EffectSink;approvalGate:ApprovalSink;audit?:AuditSink|undefined;controls?:RecoveryControls|undefined;on_crash?:(()=>never)|undefined}
+export interface EventSink {emit(type:string,data:Record<string,unknown>):void}
+export interface EffectWiring {ledger:EffectSink;approvalGate:ApprovalSink;audit?:AuditSink|undefined;controls?:RecoveryControls|undefined;on_crash?:(()=>never)|undefined;events?:EventSink|undefined}
 export interface WorkerControl {acknowledgeOutcome(id:WorkerId):void;beginDrain():void}
 export interface WorkerProvider extends WorkerControl {read(id:WorkerId,input:WorkerInput):Promise<unknown>}
 export interface WorkerDefinition {id:WorkerId;handle(input:WorkerInput):Promise<unknown>}

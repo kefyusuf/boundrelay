@@ -75,6 +75,7 @@ class EffectWiring:
     audit:object=None
     controls:RecoveryControls|None=None
     on_crash:Callable[[],object]|None=None
+    events:object=None
 
 @dataclass(frozen=True)
 class ExecutorOptions:
