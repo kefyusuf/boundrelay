@@ -1,0 +1,43 @@
+import {expect,test} from 'vitest';
+import {mkdtempSync,rmSync} from 'node:fs';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+import {CrashSignal,executeWorkers} from '../src/executor.js';
+import {resumeRun} from '../src/recovery.js';
+import {StateStore} from '../src/state-store.js';
+import {EffectLedger} from '../src/effect-ledger.js';
+import {AuditWriter} from '../src/audit.js';
+import {ApprovalGate} from '../src/approval.js';
+import {effectDigest,effectKey} from '../src/idempotency.js';
+import {ScriptedWorkers} from '../src/scripted-workers.js';
+import {createWorkerDirectory} from '../src/workers.js';
+import {WORKER_IDS,type CaseSpec,type EffectPayload,type RecoveryControls,type StateBinding} from '../src/types.js';
+const PAYLOAD:EffectPayload={operation:'cancel-and-refund',order_id:'ORD-1001',refund_amount_cents:4200,currency:'EUR'};
+const KEY=effectKey(PAYLOAD),DIGEST=effectDigest(PAYLOAD);
+const BINDING:StateBinding={case_id:'seed',execution_mode:'parallel',requested_order_id:'ORD-1001',concurrency_limit:2};
+test('naive_retry_refires_the_effect',async()=>{
+ const root=mkdtempSync(join(tmpdir(),'br-m5-naive-'));
+ try{
+  const store=new StateStore(root,BINDING,[...WORKER_IDS]);
+  const spec:CaseSpec={case_id:'seed',execution_mode:'parallel',worker_fixture:'fixtures/workers/order-brief/complete.yaml',completion_order:[...WORKER_IDS],approval:{decision:'granted',approver:'approver-primary'}};
+  const provider=new ScriptedWorkers(spec,'ORD-1001');
+  const controls:RecoveryControls={crash_in_submit_window:true};
+  const wiring={ledger:new EffectLedger(root),approvalGate:new ApprovalGate({decision:'granted',approver:'approver-primary'}),audit:new AuditWriter(root),controls,on_crash:()=>{throw new CrashSignal('crash');}};
+  await executeWorkers({mode:'parallel',input:{order_id:'ORD-1001'},directory:createWorkerDirectory(provider),control:provider,observer:()=>{},store,effect:wiring,completion_order:[...WORKER_IDS]}).then(()=>undefined,error=>{if(!(error instanceof CrashSignal))throw error;});
+  const real=new EffectLedger(root);
+  expect(real.records()).toHaveLength(1);
+  let naiveSubmits=0;
+  const refire=real.submit(KEY,DIGEST,structuredClone(PAYLOAD));
+  naiveSubmits++;
+  expect(refire.duplicate).toBe(true);
+  expect(naiveSubmits).toBe(1);
+  expect(real.records()).toHaveLength(1);
+  let resumedSubmits=0;
+  const resumedLedger={submit:(k:string,d:string,p:EffectPayload)=>{resumedSubmits++;return real.submit(k,d,p);},lookup:(k:string)=>real.lookup(k)};
+  const resumed=await resumeRun({stateRoot:root,binding:BINDING,ledger:resumedLedger,audit:new AuditWriter(root)});
+  expect(resumed.status).toBe('SUCCEEDED');
+  expect(resumed.reconciled).toBe(true);
+  expect(resumedSubmits).toBe(0);
+  expect(real.records()).toHaveLength(1);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});

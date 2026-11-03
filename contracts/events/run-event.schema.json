@@ -15,10 +15,21 @@
     "data"
   ],
   "properties": {
-    "schema_version": {"const": "1.0"},
-    "event_id": {"type": "string", "minLength": 1},
-    "run_id": {"type": "string", "minLength": 1},
-    "sequence": {"type": "integer", "minimum": 1},
+    "schema_version": {
+      "const": "1.0"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sequence": {
+      "type": "integer",
+      "minimum": 1
+    },
     "type": {
       "type": "string",
       "enum": [
@@ -44,11 +55,25 @@
         "handoff.rejected",
         "checkpoint.saved",
         "checkpoint.restored",
-        "run.cancelled"
+        "run.cancelled",
+        "approval.requested",
+        "approval.granted",
+        "approval.rejected"
       ]
     },
-    "timestamp": {"type": "string", "format": "date-time"},
-    "source": {"type": "string", "enum": ["typescript", "python"]},
-    "data": {"type": "object"}
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "string",
+      "enum": [
+        "typescript",
+        "python"
+      ]
+    },
+    "data": {
+      "type": "object"
+    }
   }
 }

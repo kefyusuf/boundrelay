@@ -1,0 +1,431 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/state/order-closure-run-state.schema.json",
+  "title": "M5 Order Closure Run State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "state_schema_version",
+    "run_id",
+    "scenario_id",
+    "case_id",
+    "execution_mode",
+    "concurrency_limit",
+    "requested_order_id",
+    "status",
+    "steps",
+    "sequence_cursor",
+    "digest"
+  ],
+  "properties": {
+    "state_schema_version": {
+      "const": "1.0"
+    },
+    "run_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scenario_id": {
+      "const": "order-closure"
+    },
+    "case_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "execution_mode": {
+      "enum": [
+        "sequential",
+        "parallel"
+      ]
+    },
+    "concurrency_limit": {
+      "enum": [
+        1,
+        2
+      ]
+    },
+    "requested_order_id": {
+      "type": "string",
+      "pattern": "^ORD-[0-9]{4}$"
+    },
+    "status": {
+      "enum": [
+        "RUNNING",
+        "SUCCEEDED",
+        "PARTIAL",
+        "FAILED",
+        "CANCELLED",
+        "UNKNOWN"
+      ]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "prefixItems": [
+        {
+          "$ref": "#/$defs/stepRecord",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "order-details"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "$ref": "#/$defs/stepRecord",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "payment-status"
+                }
+              }
+            }
+          ]
+        },
+        {
+          "$ref": "#/$defs/stepRecord",
+          "allOf": [
+            {
+              "properties": {
+                "worker_id": {
+                  "const": "delivery-status"
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "items": false
+    },
+    "sequence_cursor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "submit_marker": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "payload_digest"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        }
+      ]
+    },
+    "effect": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "key",
+            "payload_digest",
+            "status",
+            "outcome",
+            "duplicate"
+          ],
+          "properties": {
+            "key": {
+              "type": "string",
+              "minLength": 1
+            },
+            "payload_digest": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "status": {
+              "enum": [
+                "EFFECT_COMPLETED",
+                "EFFECT_REJECTED"
+              ]
+            },
+            "outcome": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "refund_id",
+                    "refunded_at"
+                  ],
+                  "properties": {
+                    "refund_id": {
+                      "type": "string",
+                      "pattern": "^RFL-[0-9]{4}$"
+                    },
+                    "refunded_at": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              ]
+            },
+            "duplicate": {
+              "type": "boolean"
+            }
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "orderOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "order_status"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "order_status": {
+          "enum": [
+            "PROCESSING",
+            "SHIPPED",
+            "CANCELLED"
+          ]
+        }
+      }
+    },
+    "paymentOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "payment_status"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "payment_status": {
+          "enum": [
+            "PAID",
+            "UNPAID"
+          ]
+        }
+      }
+    },
+    "deliveryOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "delivery_status"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "delivery_status": {
+          "enum": [
+            "PENDING",
+            "IN_TRANSIT",
+            "DELIVERED",
+            "DELAYED"
+          ]
+        }
+      }
+    },
+    "unsetStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_id",
+        "status",
+        "output",
+        "failure_code"
+      ],
+      "properties": {
+        "worker_id": {
+          "enum": [
+            "order-details",
+            "payment-status",
+            "delivery-status"
+          ]
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "CANCELLED"
+          ]
+        },
+        "output": {
+          "type": "null"
+        },
+        "failure_code": {
+          "type": "null"
+        }
+      }
+    },
+    "failedStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_id",
+        "status",
+        "output",
+        "failure_code"
+      ],
+      "properties": {
+        "worker_id": {
+          "enum": [
+            "order-details",
+            "payment-status",
+            "delivery-status"
+          ]
+        },
+        "status": {
+          "const": "FAILED"
+        },
+        "output": {
+          "type": "null"
+        },
+        "failure_code": {
+          "enum": [
+            "WORKER_EXECUTION_FAILED",
+            "INVALID_WORKER_OUTPUT"
+          ]
+        }
+      }
+    },
+    "succeededStep": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "worker_id",
+        "status",
+        "output",
+        "failure_code"
+      ],
+      "properties": {
+        "worker_id": {
+          "enum": [
+            "order-details",
+            "payment-status",
+            "delivery-status"
+          ]
+        },
+        "status": {
+          "const": "SUCCEEDED"
+        },
+        "output": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/orderOutput"
+            },
+            {
+              "$ref": "#/$defs/paymentOutput"
+            },
+            {
+              "$ref": "#/$defs/deliveryOutput"
+            }
+          ]
+        },
+        "failure_code": {
+          "type": "null"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "order-details"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "$ref": "#/$defs/orderOutput"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "payment-status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "$ref": "#/$defs/paymentOutput"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "worker_id": {
+                "const": "delivery-status"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "output": {
+                "$ref": "#/$defs/deliveryOutput"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "stepRecord": {
+      "oneOf": [
+        {
+          "$ref": "#/$defs/succeededStep"
+        },
+        {
+          "$ref": "#/$defs/failedStep"
+        },
+        {
+          "$ref": "#/$defs/unsetStep"
+        }
+      ]
+    }
+  }
+}

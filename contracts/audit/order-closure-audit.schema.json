@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/audit/order-closure-audit.schema.json",
+  "title": "M5 Order Closure Audit Record",
+  "type": "object",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operation",
+        "order_id",
+        "payload_digest",
+        "decision",
+        "approver"
+      ],
+      "properties": {
+        "kind": {
+          "const": "approval"
+        },
+        "operation": {
+          "const": "cancel-and-refund"
+        },
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "payload_digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "decision": {
+          "enum": [
+            "granted",
+            "rejected"
+          ]
+        },
+        "approver": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "operation",
+        "order_id",
+        "idempotency_key",
+        "effect_status",
+        "duplicate"
+      ],
+      "properties": {
+        "kind": {
+          "const": "effect"
+        },
+        "operation": {
+          "const": "cancel-and-refund"
+        },
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "effect_status": {
+          "enum": [
+            "EFFECT_COMPLETED",
+            "EFFECT_REJECTED",
+            "EFFECT_UNPROVABLE"
+          ]
+        },
+        "duplicate": {
+          "type": "boolean"
+        }
+      }
+    }
+  ]
+}

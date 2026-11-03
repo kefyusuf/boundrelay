@@ -1,0 +1,107 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-closure",
+  "invariants": [
+    {
+      "id": "M5-01",
+      "description": "The idempotency key is derived deterministically from operation and order id, stable across attempts, and never accepted from model output.",
+      "spec_section": 4
+    },
+    {
+      "id": "M5-02",
+      "description": "The ledger records at most one outcome per key; duplicate submissions adopt the original recorded outcome and mutate nothing.",
+      "spec_section": 4
+    },
+    {
+      "id": "M5-03",
+      "description": "No effect submission occurs without a recorded granted approval bound to the exact operation, order id, and payload digest.",
+      "spec_section": 6
+    },
+    {
+      "id": "M5-04",
+      "description": "An approval rejection is terminal for the run: FAILED with APPROVAL_REJECTED, zero submissions, and an audit record.",
+      "spec_section": 6
+    },
+    {
+      "id": "M5-05",
+      "description": "Retries before submission (reads and the approval request) are always safe and run as ordinary resume.",
+      "spec_section": 4
+    },
+    {
+      "id": "M5-06",
+      "description": "The submit-to-confirm window is the only unsafe window; crash_in_submit_window and sink_unavailable fire exactly there.",
+      "spec_section": 4
+    },
+    {
+      "id": "M5-07",
+      "description": "The submit-marker checkpoint is written before the ledger submit is called; the outcome is recorded through the store only after it returns.",
+      "spec_section": 3
+    },
+    {
+      "id": "M5-08",
+      "description": "Resume after a submit-window crash proves reality by key lookup: a present key adopts the original outcome with reconciled true and never re-submits.",
+      "spec_section": 5
+    },
+    {
+      "id": "M5-09",
+      "description": "When the key is absent on resume, the run re-submits exactly once under the same deterministic key.",
+      "spec_section": 5
+    },
+    {
+      "id": "M5-10",
+      "description": "An unprovable effect keeps the run UNKNOWN with a result line and exit 0; it is never flattened into SUCCEEDED or FAILED.",
+      "spec_section": 5
+    },
+    {
+      "id": "M5-11",
+      "description": "UNKNOWN results carry the idempotency key and the reason code EFFECT_UNPROVABLE, and the state document keeps status UNKNOWN.",
+      "spec_section": 9
+    },
+    {
+      "id": "M5-12",
+      "description": "A fresh run against an already-keyed ledger adopts the recorded outcome as duplicate:true and leaves the ledger unchanged.",
+      "spec_section": 4
+    },
+    {
+      "id": "M5-13",
+      "description": "The audit writer is append-only (one JSON line per record); the runtime never reads audit back and never consults it for recovery decisions.",
+      "spec_section": 3
+    },
+    {
+      "id": "M5-14",
+      "description": "Approval and tool events carry only safe identifiers, digests, and the idempotency key; raw payloads and ledger contents never persist.",
+      "spec_section": 9
+    },
+    {
+      "id": "M5-15",
+      "description": "The event envelope stays at version 1.0; the type enum gains exactly the foundation-declared approval and tool members.",
+      "spec_section": 9
+    },
+    {
+      "id": "M5-16",
+      "description": "Precondition reads keep M4's bounded-executor rules: concurrency limit 1/2, once-only reads, and slot ownership in every phase.",
+      "spec_section": 3
+    },
+    {
+      "id": "M5-17",
+      "description": "M4's durable-state invariants (store, checkpoints, resume, cancellation) hold unchanged beneath M5.",
+      "spec_section": 3
+    },
+    {
+      "id": "M5-18",
+      "description": "Exactly six canonical cases run offline with per-phase exit-code and stdout assertions; exactly one nonblank JSON result line per completed phase.",
+      "spec_section": 8
+    },
+    {
+      "id": "M5-19",
+      "description": "Same-case TypeScript/Python parity holds across multi-phase flows, including normalized ledger and audit contents.",
+      "spec_section": 10
+    },
+    {
+      "id": "M5-20",
+      "description": "M0-M4 stay valid on the same revision; M5 evidence is published only on a clean, unchanged candidate head.",
+      "spec_section": 11
+    }
+  ]
+}
+

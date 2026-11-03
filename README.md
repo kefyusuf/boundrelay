@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M4 durable state and recovery implemented; certify the checked-out revision with `python scripts/verify_m4.py`.
+**Phase:** M5 side effects, idempotency, and approval implemented; certify the checked-out revision with `python scripts/verify_m5.py`.
+
+M5 adds the project's first mutating operation: the `order-closure` scenario runs the three M3 workers as read-only preconditions, gates one idempotent `cancel-and-refund` effect behind a payload-digest-bound approval, enforces once-per-key through a scripted file-backed ledger, records append-only audit, and terminates `UNKNOWN` when reality cannot be proven. Six paired multi-phase cases cover effect-once, rejection, pre-submit retry, submit-window crash reconciliation, unprovable UNKNOWN, and duplicate-key suppression. M5 certification invokes M4 once, retaining the M4→M3→M2→M1→M0 chain.
 
 M4 adds a typed run-state document, write-ahead atomic checkpoints, fail-closed resume/replay, and deterministic cancellation on top of the M3 order-brief workers. Six paired multi-phase cases cover clean completion, crash-resume (full and partial), cancel-resume, replay-from-checkpoint, and corrupt-state rejection. Recorded outcomes are never re-executed; a crash can lose at most the in-flight step; traces gain `checkpoint.saved`, `checkpoint.restored`, and `run.cancelled`. M4 certification invokes M3 once, retaining the M3→M2→M1→M0 chain.
 
@@ -77,6 +79,20 @@ python scripts/verify_m4.py
 ```
 
 The gate requires a clean Git worktree, runs M3 (including M2→M0), verifies both M4 implementations and six multi-phase CLI case flows with real subprocess exits, validates traces, state documents, and digests, and publishes `.boundrelay/m4/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m4-verification-<revision>`. See [Lesson 04](lessons/04-durable-state-recovery/README.md) for the history/state boundary, checkpoint/resume/replay/cancel semantics, and exercises.
+
+## Verify M5 locally
+
+After installing M0–M3 as above, install Lessons 04 and 05:
+
+```bash
+python -m pip install -e lessons/04-durable-state-recovery/python
+python -m pip install -e lessons/05-side-effects-approval/python
+npm ci --prefix lessons/04-durable-state-recovery/typescript
+npm ci --prefix lessons/05-side-effects-approval/typescript
+python scripts/verify_m5.py
+```
+
+The gate requires a clean Git worktree, runs M4 (including M3→M0), verifies both M5 implementations and six multi-phase case flows with real subprocess exits, validates traces, state documents, ledgers, and audit logs, and publishes `.boundrelay/m5/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m5-verification-<revision>`. See [Lesson 05](lessons/05-side-effects-approval/README.md) for approval binding, idempotency keys, the UNKNOWN boundary, and exercises.
 
 ## Verify M3 locally
 

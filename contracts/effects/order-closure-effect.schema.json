@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://boundrelay.dev/contracts/effects/order-closure-effect.schema.json",
+  "title": "M5 Order Closure Effect Record",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "key",
+    "payload_digest",
+    "effect"
+  ],
+  "properties": {
+    "key": {
+      "type": "string",
+      "minLength": 1
+    },
+    "payload_digest": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "effect": {
+      "$ref": "#/$defs/effectOutcome"
+    }
+  },
+  "$defs": {
+    "effectPayload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "operation",
+        "order_id",
+        "refund_amount_cents",
+        "currency"
+      ],
+      "properties": {
+        "operation": {
+          "const": "cancel-and-refund"
+        },
+        "order_id": {
+          "type": "string",
+          "pattern": "^ORD-[0-9]{4}$"
+        },
+        "refund_amount_cents": {
+          "const": 4200
+        },
+        "currency": {
+          "const": "EUR"
+        }
+      }
+    },
+    "effectOutcome": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "outcome"
+          ],
+          "properties": {
+            "status": {
+              "const": "EFFECT_COMPLETED"
+            },
+            "outcome": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "refund_id",
+                "refunded_at"
+              ],
+              "properties": {
+                "refund_id": {
+                  "type": "string",
+                  "pattern": "^RFL-[0-9]{4}$"
+                },
+                "refunded_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "outcome",
+            "reason"
+          ],
+          "properties": {
+            "status": {
+              "const": "EFFECT_REJECTED"
+            },
+            "outcome": {
+              "type": "null"
+            },
+            "reason": {
+              "const": "INVALID_PAYLOAD"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

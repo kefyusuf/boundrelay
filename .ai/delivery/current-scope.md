@@ -2,11 +2,11 @@
 
 ## Active phase
 
-M4 — Durable state and recovery implemented and revision-verifiable.
+M5 — Side effects, idempotency, and human approval implemented and revision-verifiable.
 
-Accepted scope: D-015 and `docs/superpowers/specs/2026-11-01-m4-durable-state-recovery-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-01-m4-durable-state-recovery.md`, approved for Native execution.
+Accepted scope: D-016 and `docs/superpowers/specs/2026-11-02-m5-side-effects-approval-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-02-m5-side-effects-approval.md`, approved for Native execution.
 
-M4 reuses the three M3 order-brief workers and adds a typed run-state document, write-ahead atomic checkpoints, fail-closed resume/replay, deterministic cancellation, and six paired multi-phase offline cases (clean, crash-resume, crash-resume-partial, cancel-resume, replay-from-checkpoint, corrupt-state). The new authority includes multi-phase subprocess evidence, raw-first trace/state validation, and the M3→M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+M5 reuses the three M3 workers as read-only preconditions and adds the first mutating operation: a payload-digest-bound approval gate, a deterministic idempotency key (`cancel-and-refund:ORD-1001`), a scripted file-backed effect ledger with once-per-key enforcement, append-only audit never read back, write-ahead submit markers, and an explicit UNKNOWN terminal when reality cannot be proven. Six paired multi-phase cases cover effect-once, rejection, pre-submit retry, submit-window reconciliation, UNKNOWN, and duplicate-key suppression. The new authority includes ledger/audit parity and the M4→M3→M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,17 +14,17 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M4 durable state and recovery design](../../docs/superpowers/specs/2026-11-01-m4-durable-state-recovery-design.md), D-015, and the [implementation plan](../../docs/superpowers/plans/2026-11-01-m4-durable-state-recovery.md) on 2026-11-01, selecting Native execution. Rulings recorded in the plan ledger: run-state status includes PARTIAL; sequence_cursor counts recorded terminals; control-shaping caps guarantee deterministic crash/cancel boundaries. The complete authority must be rerun on every changed candidate. No M5 work is included.
+The owner accepted [the written M5 side effects and approval design](../../docs/superpowers/specs/2026-11-02-m5-side-effects-approval-design.md), D-016, and the [implementation plan](../../docs/superpowers/plans/2026-11-02-m5-side-effects-approval.md) on 2026-11-02, selecting Native execution. Rulings recorded in the plan ledger: Ruling 4 — order-closure has no synthesis step; the result carries brief null + synthesis_invoked false in every status. The complete authority must be rerun on every changed candidate. No M6 work is included.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m4.py` (runs M3, which runs M2→M1→M0)
-- CI workflow: `.github/workflows/m4.yml`
+- Local gate: `python scripts/verify_m5.py` (runs M4, which runs M3→M2→M1→M0)
+- CI workflow: `.github/workflows/m5.yml`
 - Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m4-verification-<revision>`
-- Evidence root: `.boundrelay/m4/`
+- CI artifact: `m5-verification-<revision>`
+- Evidence root: `.boundrelay/m5/`
 
-M4 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and all phase traces. It requires lower PASSED proofs on the same revision and passed identities of the independent executor and recovery probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M5 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and all phase traces. It requires lower PASSED proofs on the same revision and passed identities of the independent executor and recovery probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 
