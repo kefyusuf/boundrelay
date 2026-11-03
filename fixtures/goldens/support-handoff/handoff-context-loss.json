@@ -1,0 +1,85 @@
+{
+  "scenario_id": "support-handoff",
+  "case_key": "handoff-context-loss",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "support-handoff",
+    "case_id": "handoff-context-loss",
+    "router_mode": "model",
+    "status": "FAILED",
+    "proposed_route": "billing",
+    "selected_route": "billing",
+    "receiver": "billing-specialist",
+    "fallback_applied": false,
+    "specialist_invoked": false,
+    "failure_code": "HANDOFF_CONTEXT_INVALID",
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "classify",
+          "latency_ms": 30,
+          "cost_cents": 2,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "route.selected",
+      "step_name": null
+    },
+    {
+      "type": "handoff.requested",
+      "step_name": null
+    },
+    {
+      "type": "handoff.rejected",
+      "step_name": null
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "classify",
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 30,
+      "cost_cents": 2,
+      "attempts": 1
+    }
+  }
+}

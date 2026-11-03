@@ -1,0 +1,97 @@
+{
+  "scenario_id": "support-handoff",
+  "case_key": "model-technical-handoff",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "support-handoff",
+    "case_id": "model-technical-handoff",
+    "router_mode": "model",
+    "status": "SUCCEEDED",
+    "proposed_route": "technical",
+    "selected_route": "technical",
+    "receiver": "technical-specialist",
+    "fallback_applied": false,
+    "specialist_invoked": true,
+    "failure_code": null,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "classify",
+          "latency_ms": 30,
+          "cost_cents": 2,
+          "attempts": 1
+        },
+        {
+          "step_name": "receiver.technical-specialist",
+          "latency_ms": 11,
+          "cost_cents": 0,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 41,
+        "cost_cents": 2,
+        "attempts": 2
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "route.selected",
+      "step_name": null
+    },
+    {
+      "type": "handoff.requested",
+      "step_name": null
+    },
+    {
+      "type": "handoff.accepted",
+      "step_name": null
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "classify",
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      },
+      {
+        "step_name": "receiver.technical-specialist",
+        "latency_ms": 11,
+        "cost_cents": 0,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 41,
+      "cost_cents": 2,
+      "attempts": 2
+    }
+  }
+}

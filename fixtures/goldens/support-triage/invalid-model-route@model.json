@@ -1,0 +1,82 @@
+{
+  "scenario_id": "support-triage",
+  "case_key": "invalid-model-route@model",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "support-triage",
+    "case_id": "invalid-model-route",
+    "mode": "model",
+    "status": "FAILED",
+    "selected_route": null,
+    "specialist_invoked": false,
+    "failure_code": "INVALID_ROUTE_DECISION",
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "classify",
+          "latency_ms": 30,
+          "cost_cents": 2,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "step.started",
+      "step_name": "classify"
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "route.rejected",
+      "step_name": null
+    },
+    {
+      "type": "step.failed",
+      "step_name": "classify"
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "classify",
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 30,
+      "cost_cents": 2,
+      "attempts": 1
+    }
+  }
+}

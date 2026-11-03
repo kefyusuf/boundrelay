@@ -1,0 +1,112 @@
+{
+  "scenario_id": "order-investigation",
+  "case_key": "agent-token-budget",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-investigation",
+    "case_id": "agent-token-budget",
+    "mode": "agent",
+    "status": "FAILED",
+    "answer": null,
+    "failure_code": "TOKEN_BUDGET_EXCEEDED",
+    "model_steps": 2,
+    "tokens_used": 75,
+    "tool_invocations": 1,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "model",
+          "latency_ms": 60,
+          "cost_cents": 4,
+          "attempts": 2
+        },
+        {
+          "step_name": "tool.lookup_order",
+          "latency_ms": 8,
+          "cost_cents": 1,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 68,
+        "cost_cents": 5,
+        "attempts": 3
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "tool.requested",
+      "step_name": null
+    },
+    {
+      "type": "tool.completed",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "budget.exceeded",
+      "step_name": null
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "model",
+        "latency_ms": 60,
+        "cost_cents": 4,
+        "attempts": 2
+      },
+      {
+        "step_name": "tool.lookup_order",
+        "latency_ms": 8,
+        "cost_cents": 1,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 68,
+      "cost_cents": 5,
+      "attempts": 3
+    }
+  }
+}

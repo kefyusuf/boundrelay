@@ -1,0 +1,72 @@
+{
+  "scenario_id": "order-investigation",
+  "case_key": "direct-order-status",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-investigation",
+    "case_id": "direct-order-status",
+    "mode": "direct",
+    "status": "SUCCEEDED",
+    "answer": "Order ORD-1001 status is SHIPPED.",
+    "failure_code": null,
+    "model_steps": 0,
+    "tokens_used": 0,
+    "tool_invocations": 1,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "tool.lookup_order",
+          "latency_ms": 8,
+          "cost_cents": 1,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 8,
+        "cost_cents": 1,
+        "attempts": 1
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "tool.requested",
+      "step_name": null
+    },
+    {
+      "type": "tool.completed",
+      "step_name": null
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "tool.lookup_order",
+        "latency_ms": 8,
+        "cost_cents": 1,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 8,
+      "cost_cents": 1,
+      "attempts": 1
+    }
+  }
+}
