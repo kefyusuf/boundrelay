@@ -1,6 +1,6 @@
 # M6 Observability, Evaluation, and Fault Injection Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Plan review and execution-method selection precede product implementation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The owner selected Native execution on 2026-11-03.
 
 **Goal:** Deliver the cross-cutting M6 layer: deterministic attribution on every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases, an independent fail-closed regression evaluator, a machine-readable failure matrix proven live by deterministic chaos exercises, and exact-revision evidence chaining M5→M0.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M6 design](../specs/2026-11-03-m6-observability-evaluation-design.md), [D-017](../../decisions/D-017-m6-observability-evaluation-faults.md), accepted 2026-11-03.
 
-**Status:** Written design accepted on 2026-11-03 (PR #19). This plan is the next review artifact; reviewed-plan approval and execution-method selection are required before product implementation. No product code is included in this planning change.
+**Status:** Written design and implementation plan accepted on 2026-11-03. The owner selected Native execution; implementation proceeds on the feature branch. Exact-revision certification, independent review, CI, merge, and release remain separate observed states; consult PR evidence for their current status.
 
 ## Global Constraints
 
@@ -152,7 +152,7 @@ Tasks 1–2 fix attribution contracts/tables and runtime wiring; Task 3–4 own 
 
 ## Execution Handoff
 
-This plan awaits review. On the owner's plan approval and execution-method selection (expected **Native**), implementation may begin. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
+The owner approved this written plan and selected **Native** on 2026-11-03: implement the seven tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
 
 
 
