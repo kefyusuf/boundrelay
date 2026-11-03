@@ -1,7 +1,7 @@
 # M6 Observability, Evaluation, and Fault Injection Design
 
 - **Date:** 2026-11-03
-- **Status:** Proposed — awaiting owner review and written-design approval
+- **Status:** Accepted by the owner on 2026-11-03; implementation planning follows
 - **Milestone:** M6 — Observability, evaluation, and fault injection
 - **Project:** BoundRelay
 - **Baseline:** merged M5 at `fa8ae49357eb16e2ac95352c1ad30278dc48b10f`
@@ -125,5 +125,7 @@ M6 does not introduce real metrics backends, OpenTelemetry, dashboards, trace in
 
 ## 11. Written-design review gate
 
-This design is **Proposed**. The owner's written-design approval — covering the attribution contract, golden mechanics, the evaluator's independence, the failure matrix, and the chaos-harness scope — is required before the implementation plan is drafted. Design acceptance alone does not authorize product implementation.
+The owner approved this written design and D-017 on 2026-11-03, covering the attribution contract, golden mechanics, the evaluator's independence, the failure matrix, and the chaos-harness scope.
+
+The implementation plan is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product code, schema, fixture, dependency, or workflow implementation.
 
