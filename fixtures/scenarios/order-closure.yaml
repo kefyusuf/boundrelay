@@ -2,6 +2,18 @@
   "schema_version": "1.0",
   "scenario_id": "order-closure",
   "order_id": "ORD-1001",
+  "attribution": {
+    "latency_ms": {
+      "worker.order-details": 10,
+      "worker.payment-status": 11,
+      "worker.delivery-status": 12,
+      "effect.submit": 40
+    },
+    "price_table": {
+      "read": 0,
+      "effect": 25
+    }
+  },
   "cases": [
     {
       "case_id": "approval-granted-effect-once",

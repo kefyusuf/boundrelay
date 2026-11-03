@@ -17,3 +17,14 @@ class ScenarioTests(unittest.TestCase):
         scenario=load_scenario();self.assertEqual(len(scenario.cases),6)
         case=next(c for c in scenario.cases if c.case_id=='parallel-invalid-output')
         self.assertEqual(load_worker_fixture(case.worker_fixture)['payment-status'],{'operation':'return','output':{'order_id':'ORD-1001','payment_status':'UNKNOWN'}})
+    def test_attribution_table_is_optional_and_validated(self):
+        raw=yaml.safe_load(SCENARIO_PATH.read_text())
+        parse_scenario(raw)
+        missing=deepcopy(raw);del missing['attribution']
+        parse_scenario(missing)
+        unknown_kind=deepcopy(raw);unknown_kind['attribution']['price_table']['malformed']=1
+        with self.assertRaises(ValueError):parse_scenario(unknown_kind)
+        priced_read=deepcopy(raw);priced_read['attribution']['price_table']['read']=1
+        with self.assertRaises(ValueError):parse_scenario(priced_read)
+        no_latency=deepcopy(raw);del no_latency['attribution']['latency_ms']
+        with self.assertRaises(ValueError):parse_scenario(no_latency)

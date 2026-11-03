@@ -30,3 +30,12 @@ test('reject_fixture_symlink_escaping_worker_directory',()=>{
   expect(()=>loadWorkerFixture('fixtures/workers/order-brief/'+basename(escaped))).toThrow('Worker fixture escapes root');
  } finally {rmSync(escaped,{force:true});rmSync(external,{recursive:true,force:true});}
 });
+
+test('attribution_table_is_optional_and_validated',()=>{
+ const raw=parse(readFileSync(SCENARIO_PATH,'utf8'));
+ parseScenario(raw);
+ const missing=structuredClone(raw);delete missing.attribution;parseScenario(missing);
+ const unknownKind=structuredClone(raw);unknownKind.attribution.price_table.malformed=1;expect(()=>parseScenario(unknownKind)).toThrow();
+ const pricedRead=structuredClone(raw);pricedRead.attribution.price_table.read=1;expect(()=>parseScenario(pricedRead)).toThrow();
+ const noLatency=structuredClone(raw);delete noLatency.attribution.latency_ms;expect(()=>parseScenario(noLatency)).toThrow();
+});

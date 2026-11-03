@@ -11,6 +11,15 @@ function object(raw:unknown,keys:string[]):Record<string,unknown>{
  if(raw===null||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).sort().join('|')!==keys.toSorted().join('|'))throw new Error('Invalid fixture fields');
  return raw as Record<string,unknown>;
 }
+const STEP_KINDS=['read','model_decision','tool_call','effect','handoff','route','synthesis'];
+function parseAttribution(raw:unknown):void{
+ if(raw===null||raw===undefined)return;
+ const a=object(raw,['latency_ms','price_table']),latency=a.latency_ms,prices=a.price_table;
+ const ints=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=0;
+ if(latency===null||typeof latency!=='object'||Array.isArray(latency)||Object.keys(latency).length===0||Object.entries(latency).some(([k,v])=>!k||!ints(v)))throw new Error('Invalid scenario');
+ if(prices===null||typeof prices!=='object'||Array.isArray(prices)||Object.keys(prices).length===0||Object.entries(prices).some(([k,v])=>!STEP_KINDS.includes(k)||!ints(v)))throw new Error('Invalid scenario');
+ if((prices as Record<string,unknown>).read!==0)throw new Error('Invalid scenario');
+}
 function caseObject(raw:unknown):Record<string,unknown>{
  if(raw===null||typeof raw!=='object'||Array.isArray(raw))throw new Error('Invalid case fields');
  const keys=Object.keys(raw);
@@ -50,7 +59,9 @@ export function parseControls(raw:unknown,caseId:string):RecoveryControls {
  return record as RecoveryControls;
 }
 export function parseScenario(raw:unknown):Scenario {
- const s=object(raw,['schema_version','scenario_id','order_id','cases']);
+ const hasAttribution=raw!==null&&typeof raw==='object'&&!Array.isArray(raw)&&Object.keys(raw).includes('attribution');
+ const s=object(raw,['schema_version','scenario_id','order_id','cases',...(hasAttribution?['attribution']:[])]);
+ parseAttribution(s.attribution);
  if(s.schema_version!=='1.0'||s.scenario_id!=='order-closure'||typeof s.order_id!=='string'||!/^ORD-[0-9]{4}$/.test(s.order_id)||!Array.isArray(s.cases)||s.cases.length!==6)throw new Error('Invalid scenario');
  const seen=new Set<string>();const cases:CaseSpec[]=[];
  for(const rawCase of s.cases){
