@@ -1,0 +1,13 @@
+{
+  "latency_ms": {
+    "classify": 30,
+    "specialist.billing": 10,
+    "specialist.technical": 11,
+    "specialist.general": 12
+  },
+  "price_table": {
+    "read": 0,
+    "model_decision": 2,
+    "route": 0
+  }
+}
