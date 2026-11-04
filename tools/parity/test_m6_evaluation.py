@@ -142,3 +142,60 @@ class M6EvaluationSafetyTests(unittest.TestCase):
                                           "--case", "direct-order-status"]), 2)
                 self.assertEqual(ev.main(["--regenerate", "support-triage",
                                           "billing-duplicate-charge@model"]), 0)
+
+    def test_matrix_covers_every_declared_failure_class(self):
+        from tools import chaos
+        matrix = chaos.load_matrix()
+        rows = matrix["rows"]
+        self.assertEqual(matrix["schema_version"], "1.0")
+        per_lesson = {}
+        for row in rows:
+            per_lesson.setdefault(row["lesson"], []).append(row)
+        self.assertEqual({k: len(v) for k, v in sorted(per_lesson.items())},
+                         {0: 1, 1: 4, 2: 3, 3: 4, 4: 5, 5: 4})
+        discovered = {scenario: {spec["key"] for spec in ev.scenario_cases(scenario)}
+                      for scenario in ev.SCENARIOS}
+        for row in rows:
+            if row.get("case_key") is not None:
+                self.assertIn(row["case_key"], discovered[row["scenario"]],
+                              f"{row['failure_id']} case key must be canonical")
+        for row in rows:
+            for language in ("python", "typescript"):
+                self.assertTrue(
+                    chaos.proof_identity_exists(row["lesson"], language,
+                                                row["proof"][language]),
+                    f"{row['failure_id']} proof missing in {language} suite: "
+                    f"{row['proof'][language]}")
+
+    def test_matrix_rows_have_stable_ids(self):
+        from tools import chaos
+        rows = chaos.load_matrix()["rows"]
+        seen: dict[int, int] = {}
+        for row in rows:
+            lesson = row["lesson"]
+            seen[lesson] = seen.get(lesson, 0) + 1
+            self.assertEqual(row["failure_id"], f"M{lesson}-F{seen[lesson]}",
+                             "failure ids must be sequential per lesson")
+
+    def test_chaos_replay_matches_matrix(self):
+        from tools import chaos
+        case_rows = [row for row in chaos.load_matrix()["rows"]
+                     if row.get("case_key") is not None]
+        report = chaos.replay_matrix(rows=case_rows)
+        self.assertEqual({record["status"] for record in report["rows"]}, {"PASS"})
+        by_id = {record["failure_id"]: record for record in report["rows"]}
+        self.assertEqual(by_id["M0-F1"]["invocations"]["specialist_invoked"], False)
+        self.assertEqual(by_id["M5-F4"]["invocations"]["ledger_records"], 1)
+        self.assertEqual(by_id["M5-F1"]["invocations"]["ledger_empty"], True)
+        self.assertEqual(by_id["M4-F3"]["exit_code"], 2)
+        self.assertEqual(by_id["M1-F3"]["result"]["failure_code"], "TOOL_TIMEOUT")
+
+    def test_chaos_exercises_all_rows(self):
+        from tools import chaos
+        with tempfile.TemporaryDirectory() as directory:
+            report_path = Path(directory) / "chaos-report.json"
+            exit_code = chaos.main(["--all", "--report", str(report_path)])
+            self.assertEqual(exit_code, 0)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+        self.assertEqual(report["totals"], {"passed": 21, "failed": 0})
+        self.assertEqual({r["status"] for r in report["rows"]}, {"PASS"})

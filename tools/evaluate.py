@@ -150,6 +150,7 @@ def _phased_language_flow(scenario_id: str, case_key: str, workdir: Path,
                           language: str) -> dict:
     state_dir = workdir / f"{case_key}.{language}.state"
     events: list[dict] = []
+    phases: list[dict] = []
     result: dict | None = None
     run_id: str | None = None
     for kind, crash in PHASES[scenario_id][case_key]:
@@ -161,9 +162,11 @@ def _phased_language_flow(scenario_id: str, case_key: str, workdir: Path,
             args += ["--replay-from", str(state_dir / run_id / "checkpoints" / "step-1.json")]
         label = f"{language} CLI {kind} phase for {scenario_id}/{case_key}"
         if kind == "corrupt-resume":
-            _corrupt_resume_probe(scenario_id, case_key, workdir, language, state_dir)
+            code = _corrupt_resume_probe(scenario_id, case_key, workdir, language, state_dir)
+            phases.append({"kind": kind, "exit_code": code, "crashed": False})
             continue
         code, stdout, stderr = _spawn(_command(scenario_id, language, args))
+        phases.append({"kind": kind, "exit_code": code, "crashed": bool(crash)})
         if crash:
             if code != 2 or stdout.strip():
                 raise ToolingError(f"{label} must exit 2 without a result line: {stderr.strip()[:200]}")
@@ -174,11 +177,11 @@ def _phased_language_flow(scenario_id: str, case_key: str, workdir: Path,
             events += _read_trace(trace, label)
     if result is None:
         raise ToolingError(f"{scenario_id}/{case_key}: no phase produced a result")
-    return {"result": result, "events": events}
+    return {"result": result, "events": events, "phases": phases}
 
 
 def _corrupt_resume_probe(scenario_id: str, case_key: str, workdir: Path,
-                          language: str, state_dir: Path) -> None:
+                          language: str, state_dir: Path) -> int:
     tampered = workdir / f"{case_key}.{language}.tampered"
     shutil.copytree(state_dir, tampered)
     state_path = next((entry / "state.json" for entry in sorted(tampered.iterdir())
@@ -194,6 +197,7 @@ def _corrupt_resume_probe(scenario_id: str, case_key: str, workdir: Path,
     code, stdout, stderr = _spawn(_command(scenario_id, language, args))
     if code != 2 or stdout.strip():
         raise ToolingError(f"{label} must exit 2 without a result line: {stderr.strip()[:200]}")
+    return code
 
 
 def _run_language_flow(scenario_id: str, spec: dict, workdir: Path,
@@ -214,7 +218,9 @@ def run_flow(scenario_id: str, spec: dict, workdir: Path) -> dict:
     python_flow = _run_language_flow(scenario_id, spec, workdir, "python")
     typescript_flow = _run_language_flow(scenario_id, spec, workdir, "typescript")
     return {"result": python_flow["result"], "events": python_flow["events"],
-            "ts_result": typescript_flow["result"], "ts_events": typescript_flow["events"]}
+            "ts_result": typescript_flow["result"], "ts_events": typescript_flow["events"],
+            "phases": python_flow.get("phases"),
+            "ts_phases": typescript_flow.get("phases")}
 
 
 def project_result(result: dict) -> dict:
