@@ -1,7 +1,7 @@
 # M8 Framework Mapping Design (LangGraph × M3)
 
 - **Date:** 2026-11-05
-- **Status:** Proposed — awaiting owner review and written-design approval
+- **Status:** Accepted by the owner on 2026-11-05; implementation planning follows
 - **Milestone:** M8 — Framework mappings
 - **Project:** BoundRelay
 - **Baseline:** merged M7 at `ee2d2e9d80a086ea2e1862dab1babc0ce13225f0`
@@ -85,5 +85,7 @@ M8 does not map additional frameworks (OpenAI Agents SDK, Google ADK, Mastra, Ei
 
 ## 9. Written-design review gate
 
-This design is **Proposed**. The owner's written-design approval — covering the single-mapping scope, the dependency-isolation policy, the business-result-only parity boundary, and the D-008 four-question deliverable — is required before the implementation plan is drafted. Design acceptance alone does not authorize product implementation.
+The owner approved this written design and D-019 on 2026-11-05, covering the single-mapping scope, the dependency-isolation policy, the business-result-only parity boundary, and the D-008 four-question deliverable.
+
+The implementation plan is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product implementation.
 

@@ -1,6 +1,6 @@
 # D-019 — M8 LangGraph × M3 Mapping
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-05
 
 ## Context
@@ -34,4 +34,4 @@ The other four frameworks, other lessons, LangGraph-checkpointing-as-M4-semantic
 
 ## Acceptance gate
 
-This decision is proposed together with the written design. Owner approval of both is required before detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
+The owner approved the written design and this decision on 2026-11-05. Detailed implementation planning is the next artifact; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
