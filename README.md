@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M6 observability, evaluation, and fault injection implemented; certify the checked-out revision with `python scripts/verify_m6.py`.
+**Phase:** M7 Go parity implemented for the showcase pair; certify the checked-out revision with `python scripts/verify_m7.py`.
+
+M7 adds Go as the third language per D-003: a zero-dependency Go module (`go/`, stdlib only) implements the M0 (`support-triage`) and M3 (`order-brief`) runtimes idiomatically — strict JSON decoding, sentinel failure codes, `context.Context` fatal-drain, bounded semaphore admission with instrumented overlap proof. All 13 M0/M3 case keys now reach three-language golden parity (TS == PY == Go against the unchanged goldens); the M6 evaluator gains `--languages`, the failure matrix gains Go proof identities, and `verify_m7.py` chains M6→M0 plus `go vet`/`go test`/`gofmt` gates. M1/M2/M4/M5 remain TS/PY-only, deferred to later decisions.
 
 M6 is the first cross-cutting milestone: it adds deterministic attribution (clock-injected latency, fixture-priced cost, multi-phase attempt reconciliation) to every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases, the independent fail-closed regression evaluator `tools/evaluate.py`, the machine-readable failure matrix `fixtures/failure-matrix.yaml` (21 declared failure classes), and `tools/chaos.py` which replays every declared fault live through the lessons' scripted controls. M6 certification invokes M5 once, retaining the M5→M4→M3→M2→M1→M0 chain.
 
@@ -107,6 +109,18 @@ python scripts/verify_m6.py             # full authority: M5 chain + evaluator +
 ```
 
 The gate requires a clean Git worktree, runs M5 (including M4→M0), audits every case's event surface, evaluates all 38 canonical cases against goldens in both languages, replays all 21 failure-matrix rows, runs the verifier-safety suite (normal and `python -O`), and publishes `.boundrelay/m6/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m6-verification-<revision>`. See [docs/observability.md](docs/observability.md) for attribution semantics, golden mechanics, and the failure matrix.
+
+## Verify M7 locally
+
+The M7 authority requires the lessons of M0–M5 installed (see the sections above) plus a Go toolchain >= 1.25 (`go version`), then:
+
+```bash
+cd go && go vet ./... && go test ./... && cd ..
+python tools/evaluate.py --all --languages ts,py,go   # 38 cases; 13 three-language
+python scripts/verify_m7.py                           # full authority: M6 chain + Go gates + 13 Go flows
+```
+
+The gate requires a clean Git worktree, runs M6 (including M5→M0), validates the JSON projections against their YAML sources, runs `go vet`/`go test`/`gofmt` gates, evaluates the 13 showcase keys in three languages against the unchanged goldens, evaluates all 38 cases, replays the 21 failure-matrix rows, and publishes `.boundrelay/m7/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m7-verification-<revision>`. See [D-018](docs/decisions/D-018-m7-go-parity-stable-lessons.md) for the showcase-pair scope and `go/` module layout.
 
 ## Verify M3 locally
 
