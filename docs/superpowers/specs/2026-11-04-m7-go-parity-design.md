@@ -1,7 +1,7 @@
 # M7 Go Parity Design
 
 - **Date:** 2026-11-04
-- **Status:** Proposed — awaiting owner review and written-design approval
+- **Status:** Accepted by the owner on 2026-11-04; implementation planning follows
 - **Milestone:** M7 — Go parity
 - **Project:** BoundRelay
 - **Baseline:** merged M6 at `bbc39ef6ab8fb5b72f5105e0f272e33125e92d05`
@@ -84,5 +84,7 @@ M7 does not port M1, M2, M4, M5, the evaluator, or chaos to Go; no cgo, no third
 
 ## 8. Written-design review gate
 
-This design is **Proposed**. The owner's written-design approval — covering the M0+M3 scope, the `go/` module layout, the attribution-fixture projection, the evaluator's language-set extension, and the M7 authority — is required before the implementation plan is drafted. Design acceptance alone does not authorize product implementation.
+The owner approved this written design and D-018 on 2026-11-04, covering the M0+M3 scope, the `go/` module layout, the attribution-fixture projection, the evaluator's language-set extension, and the M7 authority.
+
+The implementation plan is the next review artifact. Review that plan and select its execution method before product implementation. Design acceptance alone does not authorize product code, fixture, dependency, or workflow implementation.
 

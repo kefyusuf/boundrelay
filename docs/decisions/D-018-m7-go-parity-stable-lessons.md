@@ -1,6 +1,6 @@
 # D-018 — M7 Go Parity for the Contract-Stable Showcase Pair
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-04
 
 ## Context
@@ -36,4 +36,4 @@ M1, M2, M4, M5, the evaluator, and chaos remain TypeScript/Python-only; their Go
 
 ## Acceptance gate
 
-This decision is proposed together with the written design. Owner approval of both is required before detailed implementation planning; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
+The owner approved the written design and this decision on 2026-11-04. Detailed implementation planning is the next artifact; reviewed-plan approval and execution-method selection are required before product implementation. No lower-milestone boundary is changed by this decision.
