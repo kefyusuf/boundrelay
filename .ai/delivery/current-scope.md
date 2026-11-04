@@ -2,11 +2,11 @@
 
 ## Active phase
 
-M6 — Observability, evaluation, and fault injection implemented and revision-verifiable.
+M7 — Go parity for the showcase pair (M0 + M3) implemented and revision-verifiable.
 
-Accepted scope: D-017 and `docs/superpowers/specs/2026-11-03-m6-observability-evaluation-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-03-m6-observability-evaluation.md`, approved for Native execution.
+Accepted scope: D-018 and `docs/superpowers/specs/2026-11-04-m7-go-parity-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-04-m7-go-parity.md`, approved for Native execution.
 
-M6 is the first cross-cutting milestone: deterministic attribution (clock-injected latency, fixture-priced cost, multi-phase attempt reconciliation) on every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases (`fixtures/goldens/`), the independent fail-closed regression evaluator (`tools/evaluate.py`), the machine-readable failure matrix (21 declared failure classes, `fixtures/failure-matrix.yaml`), and `tools/chaos.py` replaying every fault live through existing scripted controls. The M6 authority chains the M5→M0 gates plus the evaluator, chaos, and safety suites. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+M7 adds Go as the third language: a zero-dependency `go/` module (stdlib only) implements the M0 and M3 runtimes idiomatically (strict decode, sentinel errors, `context` fatal-drain, bounded semaphore admission). All 13 M0/M3 case keys reach three-language golden parity against the unchanged goldens; the evaluator gains `--languages`, the failure matrix gains Go proof identities, and the M7 authority chains the M6→M0 gates plus projection validation, `go vet`/`go test`/`gofmt`, and the 13 Go flows. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,17 +14,17 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M6 observability and evaluation design](../../docs/superpowers/specs/2026-11-03-m6-observability-evaluation-design.md), D-017, and the [implementation plan](../../docs/superpowers/plans/2026-11-03-m6-observability-evaluation.md) on 2026-11-03, selecting Native execution. Rulings recorded in the plan ledger (Ruling 5): step-name conventions per lesson, per-step latency = table×attempts, adoption counts the original attempt, rejection omits the effect record. The complete authority must be rerun on every changed candidate. No M7 work is included.
+The owner accepted [the written M7 Go parity design](../../docs/superpowers/specs/2026-11-04-m7-go-parity-design.md), D-018, and the [implementation plan](../../docs/superpowers/plans/2026-11-04-m7-go-parity.md) on 2026-11-04, selecting Native execution. Rulings recorded in the plan ledger: Ruling 6 — Go fixture access via reviewed JSON projections (no YAML in Go); `go run` wrapper exits replaced by session-built exes in the evaluator's Go flow runner. The complete authority must be rerun on every changed candidate. No M8 work is included.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m6.py` (runs M5, which runs M4→M3→M2→M1→M0)
-- CI workflow: `.github/workflows/m6.yml`
-- Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m6-verification-<revision>`
-- Evidence root: `.boundrelay/m6/`
+- Local gate: `python scripts/verify_m7.py` (runs M6, which runs M5→M0)
+- CI workflow: `.github/workflows/m7.yml`
+- Runtime floor: Node.js 24, Python 3.14, Go >= 1.25
+- CI artifact: `m7-verification-<revision>`
+- Evidence root: `.boundrelay/m7/`
 
-M6 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence: 38 evaluated cases × 2 languages, the full 21-row chaos matrix, and probe identities. It requires lower PASSED proofs on the same revision. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M7 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence: 38 evaluated cases (13 three-language), the full 21-row chaos matrix, Go gate results, and projection validation. It requires lower PASSED proofs on the same revision. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 

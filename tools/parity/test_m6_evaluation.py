@@ -40,7 +40,9 @@ M0_EVENTS = [
 
 def canned_flow(**overrides):
     flow = {"result": deepcopy(M0_RESULT), "ts_result": deepcopy(M0_RESULT),
-            "events": deepcopy(M0_EVENTS), "ts_events": deepcopy(M0_EVENTS)}
+            "go_result": deepcopy(M0_RESULT),
+            "events": deepcopy(M0_EVENTS), "ts_events": deepcopy(M0_EVENTS),
+            "go_events": deepcopy(M0_EVENTS)}
     flow.update(overrides)
     return flow
 
@@ -199,3 +201,143 @@ class M6EvaluationSafetyTests(unittest.TestCase):
             report = json.loads(report_path.read_text(encoding="utf-8"))
         self.assertEqual(report["totals"], {"passed": 21, "failed": 0})
         self.assertEqual({r["status"] for r in report["rows"]}, {"PASS"})
+
+
+class M7LanguageExtensionTests(unittest.TestCase):
+    """M7 probes: the Go language dispatch, the --languages flag semantics,
+    and the matrix's Go proof identities."""
+
+    def setUp(self):
+        ev._go_cli_cache.clear()
+        self.addCleanup(ev._go_cli_cache.clear)
+
+    def _fake_build(self, builds):
+        def build(command, cwd=None, text=None, capture_output=None):
+            builds.append(command)
+            exe = Path(command[command.index("-o") + 1])
+            exe.write_bytes(b"fake")
+            return type("Completed", (), {"returncode": 0, "stdout": "", "stderr": ""})()
+        return build
+
+    def test_go_flow_runner_builds_once_and_reuses(self):
+        builds = []
+        with patch.object(ev.subprocess, "run", side_effect=self._fake_build(builds)):
+            first = ev._go_cli_exe("support-triage")
+            second = ev._go_cli_exe("support-triage")
+        self.assertEqual(first, second)
+        self.assertEqual(len(builds), 1)
+        self.assertIn("./internal/m0/cmd", builds[0])
+        first.unlink(missing_ok=True)
+
+    def test_go_flow_runner_build_failure_is_a_tooling_error(self):
+        def failing_build(*args, **kwargs):
+            return type("Completed", (), {
+                "returncode": 1, "stdout": "", "stderr": "go: cannot find main module"})()
+        with patch.object(ev.subprocess, "run", side_effect=failing_build):
+            with self.assertRaises(ev.ToolingError) as caught:
+                ev._go_cli_exe("support-triage")
+        self.assertIn("go build failed", str(caught.exception))
+
+    def test_go_flow_runner_runs_real_m0_and_m3_cases(self):
+        with tempfile.TemporaryDirectory() as directory:
+            workdir = Path(directory)
+            spec = next(s for s in ev.scenario_cases("support-triage")
+                        if s["key"] == "billing-duplicate-charge@model")
+            flow = ev.run_flow("support-triage", spec, workdir,
+                               languages=("ts", "py", "go"))
+            evidence = ev.flow_evidence(flow)
+            self.assertEqual(evidence["languages"], ["typescript", "python", "go"])
+            self.assertEqual(evidence["result_projection"]["status"], "SUCCEEDED")
+            m3spec = next(s for s in ev.scenario_cases("order-brief")
+                          if s["key"] == "parallel-out-of-order")
+            m3flow = ev.run_flow("order-brief", m3spec, workdir,
+                                 languages=("ts", "py", "go"))
+            m3evidence = ev.flow_evidence(m3flow)
+            self.assertEqual(m3evidence["result_projection"]["status"], "SUCCEEDED")
+            self.assertEqual(len(m3evidence["event_sequence"]), 11)
+
+    def test_go_flow_runner_divergence_is_a_tooling_error(self):
+        diverged = deepcopy(M0_RESULT)
+        diverged["status"] = "FAILED"
+        with self.assertRaises(ev.ToolingError) as caught:
+            ev.flow_evidence(canned_flow(
+                languages=["typescript", "python", "go"], go_result=diverged))
+        self.assertIn("typescript and go", str(caught.exception))
+
+    def test_evaluate_languages_flag_semantics(self):
+        self.assertEqual(ev.parse_languages(None), ("ts", "py"))
+        self.assertEqual(ev.parse_languages("go,ts"), ("ts", "go"))
+        with self.assertRaises(ev.ToolingError):
+            ev.parse_languages("ts,rust")
+        with self.assertRaises(ev.ToolingError):
+            ev.parse_languages("")
+        with tempfile.TemporaryDirectory() as directory:
+            def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
+                return canned_flow(
+                    languages=[ev.LANGUAGE_NAMES[token] for token in languages])
+            with patch.object(ev, "GOLDEN_ROOT", Path(directory) / "goldens"), \
+                 patch.object(ev, "_git_status", return_value=""), \
+                 patch.object(ev, "run_flow", side_effect=fake_flow) as fake:
+                ev.regenerate("support-triage", "billing-duplicate-charge@model")
+                report = ev.evaluate(["support-triage"],
+                                     only_case="billing-duplicate-charge@model")
+                self.assertEqual(report["cases"][0]["languages"], ["typescript", "python"])
+                self.assertEqual(fake.call_args.kwargs.get("languages"), ("ts", "py"))
+                report = ev.evaluate(["support-triage"],
+                                     only_case="billing-duplicate-charge@model",
+                                     languages=("ts", "py", "go"))
+                self.assertEqual(report["cases"][0]["languages"],
+                                 ["typescript", "python", "go"])
+
+    def test_go_for_non_go_scenario_is_a_tooling_error(self):
+        # --languages go leaves nothing for a non-Go scenario: tooling error.
+        self.assertEqual(ev.main(["--scenario", "order-investigation",
+                                  "--languages", "go"]), 2)
+
+    def test_non_go_scenarios_forced_down_to_ts_py(self):
+        # --all --languages ts,py,go forces M1/M2/M4/M5 to ts,py and runs the
+        # showcase pair three-language (the 38-PASS full run's semantics).
+        with tempfile.TemporaryDirectory() as directory:
+            def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
+                return canned_flow(
+                    languages=[ev.LANGUAGE_NAMES[token] for token in languages])
+            with patch.object(ev, "_git_status", return_value=""), \
+                 patch.object(ev, "compare_with_golden", return_value=None), \
+                 patch.object(ev, "validate_attribution", return_value=None), \
+                 patch.object(ev, "run_flow", side_effect=fake_flow):
+                report = ev.evaluate(languages=("ts", "py", "go"))
+            by_scenario = {}
+            for case in report["cases"]:
+                by_scenario.setdefault(case["scenario_id"], set()).add(
+                    tuple(case["languages"]))
+            self.assertEqual(by_scenario["support-triage"],
+                             {("typescript", "python", "go")})
+            self.assertEqual(by_scenario["order-brief"],
+                             {("typescript", "python", "go")})
+            self.assertEqual(by_scenario["order-investigation"],
+                             {("typescript", "python")})
+            self.assertEqual(by_scenario["order-closure"],
+                             {("typescript", "python")})
+            self.assertEqual(report["totals"], {"passed": 38, "failed": 0})
+
+    def test_matrix_go_proofs(self):
+        from tools import chaos
+        rows = chaos.load_matrix()["rows"]
+        for row in rows:
+            if row["lesson"] in (0, 3):
+                self.assertIn("go", row["proof"],
+                              f"{row['failure_id']} must carry a Go proof identity")
+                self.assertTrue(
+                    chaos.proof_identity_exists(row["lesson"], "go", row["proof"]["go"]),
+                    f"{row['failure_id']} Go proof missing in the Go suite: "
+                    f"{row['proof']['go']}")
+            else:
+                self.assertNotIn("go", row.get("proof") or {},
+                                 f"{row['failure_id']} must stay ts,py-only")
+
+    def test_matrix_go_unit_row_replay(self):
+        from tools import chaos
+        unit = next(row for row in chaos.load_matrix()["rows"]
+                    if row["failure_id"] == "M3-F4")
+        report = chaos.replay_matrix(rows=[unit])
+        self.assertEqual(report["rows"][0]["status"], "PASS")

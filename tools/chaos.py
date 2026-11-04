@@ -31,6 +31,7 @@ MATRIX_PATH = ROOT / "fixtures/failure-matrix.yaml"
 LESSON_DIRS = {0: "lessons/00-workflow-or-agent", 1: "lessons/01-bounded-tool-loop",
                2: "lessons/02-routing-handoff", 3: "lessons/03-parallel-fanout-fanin",
                4: "lessons/04-durable-state-recovery", 5: "lessons/05-side-effects-approval"}
+GO_TEST_DIRS = {0: ROOT / "go/internal/m0", 3: ROOT / "go/internal/m3"}
 
 
 class ChaosError(RuntimeError):
@@ -45,6 +46,14 @@ def load_matrix() -> dict:
 
 
 def proof_identity_exists(lesson: int, language: str, identity: str) -> bool:
+    if language == "go":
+        # M7: the Go proof identities live in the Go module's test suites
+        # for the ported lessons only (m0, m3).
+        base = GO_TEST_DIRS.get(int(lesson))
+        if base is None:
+            return False
+        return any(identity in path.read_text(encoding="utf-8")
+                   for path in base.rglob("*_test.go"))
     subpath = "python/tests" if language == "python" else "typescript/test"
     pattern = "*.py" if language == "python" else "*.ts"
     base = ROOT / LESSON_DIRS[int(lesson)] / subpath
