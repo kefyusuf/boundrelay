@@ -59,3 +59,19 @@ const (
 	EventApprovalGranted    EventType = "approval.granted"
 	EventApprovalRejected   EventType = "approval.rejected"
 )
+
+// eventTypeEnum is the closed set behind EventType.Valid.
+var eventTypeEnum = map[EventType]bool{
+	EventRunCreated: true, EventRunStarted: true, EventRunCompleted: true,
+	EventRunFailed: true, EventRunCancelled: true, EventStepStarted: true,
+	EventStepCompleted: true, EventStepFailed: true, EventModelRequested: true,
+	EventModelCompleted: true, EventModelFailed: true, EventRouteSelected: true,
+	EventRouteRejected: true, EventToolRequested: true, EventToolCompleted: true,
+	EventToolFailed: true, EventBudgetConsumed: true, EventBudgetExceeded: true,
+	EventHandoffRequested: true, EventHandoffAccepted: true, EventHandoffRejected: true,
+	EventCheckpointSaved: true, EventCheckpointRestored: true,
+	EventApprovalRequested: true, EventApprovalGranted: true, EventApprovalRejected: true,
+}
+
+// Valid reports whether the event type is inside the envelope enum.
+func (t EventType) Valid() bool { return eventTypeEnum[t] }
