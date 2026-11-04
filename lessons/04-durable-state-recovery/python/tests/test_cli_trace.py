@@ -41,7 +41,7 @@ class CliTests(unittest.TestCase):
 
 class MultiPhaseTests(unittest.TestCase):
     def test_crash_resume_two_phase_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,stdout,_=spawn(['--case','parallel-crash-resume','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,2);self.assertEqual(stdout,'')
@@ -61,7 +61,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(result['run_state_status'],'SUCCEEDED')
             self.assertEqual(load_run_state(state_dir,binding('parallel-crash-resume'))['document']['status'],'SUCCEEDED')
     def test_cancel_resume_two_phase_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,stdout,_=spawn(['--case','parallel-cancel-resume','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,0)
@@ -79,7 +79,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(second['restored_cursor'],2)
             self.assertEqual(second['restored_worker_ids'],['order-details','payment-status'])
     def test_replay_from_checkpoint_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,stdout,_=spawn(['--case','parallel-replay-from-checkpoint','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,0)
@@ -94,7 +94,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual((run_dir/'state.json').read_text(encoding='utf-8'),before_state)
             self.assertEqual(snapshot.read_text(encoding='utf-8'),before_snapshot)
     def test_corrupt_state_resume_fails_closed_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,_,_=spawn(['--case','parallel-crash-resume','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,2)
