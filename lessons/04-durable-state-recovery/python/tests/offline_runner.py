@@ -17,7 +17,7 @@ async def main():
     from boundrelay_m4.scenario import load_scenario
     statuses=[]
     def crash():raise CrashSignal('crash')
-    with tempfile.TemporaryDirectory() as tmp:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
         for c in load_scenario().cases:
             try:
                 result=await run_case(case_id=c.case_id,trace_path=str(Path(tmp)/(c.case_id+'.jsonl')),state_dir=str(Path(tmp)/c.case_id),on_crash=crash)
