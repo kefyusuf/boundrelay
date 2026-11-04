@@ -84,7 +84,7 @@ else: print('accepted')
             with self.assertRaises(AssertionError): verifier.assert_case_behavior({**r,'specialist_invoked':True},e,c,'/trace.jsonl')
 
     def test_evidence_requires_clean_same_revision_and_clears_stale(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             target=Path(directory)/'verification-evidence.json'
             with patch.object(verifier,'assert_clean_worktree'),patch.object(verifier,'_revision',return_value='same'):
                 verifier.publish_evidence({'revision':'same'},'same',target)

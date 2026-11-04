@@ -33,7 +33,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             return WorkerDefinition(i,handle)
         d.resolve=resolve
     async def test_synthesis_waits_for_all_outcomes(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             p,d=self.fixture('parallel-clean-complete');entered=asyncio.Event();gate=asyncio.Event();calls=[]
             self.wrap_gate(d,'delivery-status',entered=entered,gate=gate)
             def synthesize(order_id,outcomes):calls.append(outcomes);return synthesize_brief(order_id,outcomes)
@@ -42,7 +42,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result['status'],'SUCCEEDED');self.assertEqual(len(calls),1)
             self.assertEqual([o['worker_id'] for o in calls[0]],['order-details','payment-status','delivery-status'])
     async def test_trace_rejects_raw_private_payload(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             p,d=self.fixture('parallel-clean-complete')
             self.wrap_gate(d,'payment-status',mutate=lambda value:{**value,'private':'PRIVATE-PAYLOAD'})
             path=Path(tmp)/'private.jsonl'
@@ -51,7 +51,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(r['brief']['missing_workers'],['payment-status']);self.assertNotIn('PRIVATE-PAYLOAD',path.read_text())
 
     async def test_fatal_run_flushes_prefix_without_result(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             p,d=self.fixture('parallel-clean-complete')
             self.wrap_gate(d,'order-details',mutate=lambda value:(_ for _ in ()).throw(RuntimeError('unexpected')))
             path=Path(tmp)/'fatal.jsonl'
@@ -61,7 +61,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertFalse(any(e['type'] in ('run.completed','run.failed','run.cancelled') for e in events))
             self.assertFalse(any(e['data'].get('worker_id')=='delivery-status' for e in events))
     async def test_cancelled_run_is_domain_outcome(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             path=Path(tmp)/'cancel.jsonl';state_dir=str(Path(tmp)/'state')
             r=await run_case(case_id='parallel-cancel-resume',trace_path=str(path),state_dir=state_dir)
             self.assertEqual(r['status'],'CANCELLED');self.assertIsNone(r['failure_code'])
@@ -77,7 +77,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(document['status'],'CANCELLED')
             self.assertEqual([step['status'] for step in document['steps']],['SUCCEEDED','SUCCEEDED','CANCELLED'])
     async def test_crash_phase_flushes_prefix_without_terminal(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             path=Path(tmp)/'crash.jsonl';state_dir=str(Path(tmp)/'state');crashes=[]
             def crash():
                 crashes.append(True);raise CrashSignal('crash')

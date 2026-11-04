@@ -40,7 +40,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             return WorkerDefinition(i,handle)
         d.resolve=resolve
     async def test_granted_run_emits_approval_and_tool_events_in_order(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             path=str(Path(tmp)/'run.jsonl');state_dir=str(Path(tmp)/'state')
             result=await run_case(case_id='approval-granted-effect-once',trace_path=path,state_dir=state_dir)
             self.assertEqual(result['status'],'SUCCEEDED');self.assertIsNone(result['failure_code'])
@@ -67,7 +67,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(terminal['data'],{'status':'SUCCEEDED','worker_outcomes':result['worker_outcomes'],'synthesis_invoked':False,'brief':None,'failure_code':None,'peak_concurrency':2,'reconciled':False,'approval_decision':'granted','effect_status':'EFFECT_COMPLETED','idempotency_key':KEY})
             self.assertEqual(len(EffectLedger(state_dir).records()),1)
     async def test_rejected_run_has_zero_submissions_and_records_rejection(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             path=str(Path(tmp)/'rejected.jsonl');state_dir=str(Path(tmp)/'state')
             result=await run_case(case_id='approval-rejected-no-effect',trace_path=path,state_dir=state_dir)
             self.assertEqual(result['status'],'FAILED');self.assertEqual(result['failure_code'],'APPROVAL_REJECTED')
@@ -83,7 +83,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             document=load_run_state(state_dir,binding_for('approval-rejected-no-effect'))['document']
             self.assertEqual(document['status'],'FAILED');self.assertIsNone(document['submit_marker'])
     async def test_failed_reads_stop_before_approval_events(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             p,d=self.fixture('approval-granted-effect-once')
             self.wrap_gate(d,'payment-status',mutate=lambda value:{**value,'private':'PRIVATE-PAYLOAD'})
             path=str(Path(tmp)/'partial.jsonl');state_dir=str(Path(tmp)/'state')
@@ -97,7 +97,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertNotIn('PRIVATE-PAYLOAD',Path(path).read_text(encoding='utf-8'))
             self.assertEqual(EffectLedger(state_dir).records(),[])
     async def test_crash_phase_flushes_prefix_without_terminal(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             path=str(Path(tmp)/'crash.jsonl');state_dir=str(Path(tmp)/'state');crashes=[]
             def on_crash():
                 crashes.append(1);raise CrashSignal('crash')
@@ -114,7 +114,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(document['submit_marker'],{'key':KEY,'payload_digest':DIGEST})
             self.assertIsNone(document['effect'])
     async def test_resume_completes_with_reconciled_adoption(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state')
             def on_crash():raise CrashSignal('crash')
             with self.assertRaises(CrashSignal):
@@ -131,7 +131,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             resume=events(str(Path(tmp)/'resume.jsonl'))
             self.assertEqual(resume[-1]['type'],'run.completed')
     async def test_resume_unknown_stays_unknown_with_sink_unavailable(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state')
             def on_crash():raise CrashSignal('crash')
             with self.assertRaises(CrashSignal):
@@ -147,7 +147,7 @@ class RunnerTests(unittest.IsolatedAsyncioTestCase):
             resume=events(str(Path(tmp)/'resume.jsonl'))
             self.assertEqual(resume[-1]['type'],'run.completed')
     async def test_resume_before_submit_reruns_the_effect_pipeline(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state')
             def on_crash():raise CrashSignal('crash')
             with self.assertRaises(CrashSignal):

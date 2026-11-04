@@ -39,7 +39,7 @@ def write_golden(root,golden):
 
 def evaluation(flow=None,golden=None):
     """Run the real evaluator with the subprocess boundary faked."""
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
         root=Path(directory)
         with patch.object(ev,'GOLDEN_ROOT',root/'goldens'), \
              patch.object(ev,'run_flow',return_value=flow or canned_flow()):
@@ -53,7 +53,7 @@ def full_report():
 
 class M6VerificationSafetyTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory()
+        self.tmp=tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name).resolve()
         self.path=str(self.root/'trace.jsonl')

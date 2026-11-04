@@ -45,7 +45,7 @@ def probe_report():
 
 class M7VerificationSafetyTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory()
+        self.tmp=tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name).resolve()
         self.path=str(self.root/'trace.jsonl')
@@ -250,7 +250,7 @@ class M7VerificationSafetyTests(unittest.TestCase):
         refused(projections='drift')       # Go projection drift blocks publication
 
     def test_lower_evidence_must_be_m6_passed_on_revision(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             evidence=Path(directory)/'.boundrelay/m6/verification-evidence.json'
             evidence.parent.mkdir(parents=True)
             with patch.object(gate,'ROOT',Path(directory)):
