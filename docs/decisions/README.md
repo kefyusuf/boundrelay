@@ -21,3 +21,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-015](D-015-m4-durable-state-and-recovery.md) | Bound M4 to file-backed run state with fail-closed checkpoints, resume, cancellation, and replay | Accepted | 2026-11-01 |
 | [D-016](D-016-m5-idempotent-approved-effects.md) | Bound M5 to approved, idempotent effects with audit records and an explicit UNKNOWN outcome | Accepted | 2026-11-02 |
 | [D-017](D-017-m6-observability-evaluation-faults.md) | Bound M6 to deterministic attribution, golden trajectories, a regression evaluator, and a proven failure matrix | Accepted | 2026-11-03 |
+| [D-018](D-018-m7-go-parity-stable-lessons.md) | Bound M7 to Go parity for the contract-stable showcase pair (M0 + M3) with zero dependencies | Accepted | 2026-11-04 |
