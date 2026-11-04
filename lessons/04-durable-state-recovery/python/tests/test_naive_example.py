@@ -19,7 +19,7 @@ class NaiveExampleTests(unittest.IsolatedAsyncioTestCase):
     async def test_retry_without_state_duplicates_every_invocation(self):
         scenario=load_scenario();spec=next(c for c in scenario.cases if c.case_id=='parallel-clean-complete')
         binding=StateBinding(case_id=spec.case_id,execution_mode='parallel',requested_order_id=scenario.order_id,concurrency_limit=2)
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             store=StateStore.create(tmp,binding,list(WORKER_IDS))
             store.record_step_terminal('order-details',{'worker_id':'order-details','status':'SUCCEEDED','output':deepcopy(OUTPUTS['order-details']),'failure_code':None})
             counts={worker_id:0 for worker_id in WORKER_IDS}

@@ -150,7 +150,7 @@ class M1VerificationSafetyTests(unittest.TestCase):
             verifier._run(["fake-cli"])
 
     def test_previous_m1_evidence_is_removed_before_gate(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory) / ".boundrelay/m1"
             root.mkdir(parents=True)
             (root / "verification-evidence.json").write_text('{}\n', encoding="utf-8")
@@ -166,7 +166,7 @@ class M1VerificationSafetyTests(unittest.TestCase):
         self.assertEqual(run_command.call_count, 7)
 
     def test_evidence_records_scenario_identifier(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             output = Path(directory) / ".boundrelay/m1"
             with (
                 patch.object(verifier, "OUTPUT_ROOT", output),
@@ -184,7 +184,7 @@ class M1VerificationSafetyTests(unittest.TestCase):
         self.assertEqual(evidence["status"], "PASSED")
 
     def test_passing_evidence_rechecks_same_clean_revision_before_publish(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             output = Path(directory) / ".boundrelay/m1"
             with (
                 patch.object(verifier, "OUTPUT_ROOT", output),

@@ -16,7 +16,7 @@ WORKER_STEPS = [
 
 class AttributionProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_rejected_approval_omits_the_effect_step_record(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             result = await run_case(case_id='approval-rejected-no-effect',
                                     trace_path=str(Path(directory) / 't.jsonl'),
                                     state_dir=str(Path(directory) / 'state'))
@@ -25,7 +25,7 @@ class AttributionProbeTests(unittest.IsolatedAsyncioTestCase):
             'totals': {'latency_ms': 33, 'cost_cents': 0, 'attempts': 3}})
 
     async def test_submit_window_resume_counts_the_original_attempt_once(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def on_crash():
                 raise CrashSignal('crash')
             with self.assertRaises(CrashSignal):
@@ -44,7 +44,7 @@ class AttributionProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_attribution_absent_rejected_by_schema(self):
         from jsonschema import Draft202012Validator
         validator = Draft202012Validator(RESULT_SCHEMA)
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             result = await run_case(case_id='approval-granted-effect-once',
                                     trace_path=str(Path(directory) / 't.jsonl'),
                                     state_dir=str(Path(directory) / 'state'))

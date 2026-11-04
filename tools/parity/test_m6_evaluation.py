@@ -49,7 +49,7 @@ def canned_flow(**overrides):
 
 class M6EvaluationSafetyTests(unittest.TestCase):
     def test_missing_golden_is_a_tooling_error(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             with patch.object(ev, "GOLDEN_ROOT", Path(directory)):
                 actual = ev.flow_evidence(canned_flow())
                 with self.assertRaises(ev.ToolingError) as caught:
@@ -93,7 +93,7 @@ class M6EvaluationSafetyTests(unittest.TestCase):
         self.assertIn("Golden", message)
 
     def test_report_shape_on_success(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             golden_root = root / "goldens"
             with patch.object(ev, "GOLDEN_ROOT", golden_root), \
@@ -132,7 +132,7 @@ class M6EvaluationSafetyTests(unittest.TestCase):
         self.assertIn("specialist.billing", str(caught.exception))
 
     def test_main_exit_semantics(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             root = Path(directory)
             with patch.object(ev, "GOLDEN_ROOT", root / "goldens"), \
                  patch.object(ev, "_git_status", return_value=""), \
@@ -194,7 +194,7 @@ class M6EvaluationSafetyTests(unittest.TestCase):
 
     def test_chaos_exercises_all_rows(self):
         from tools import chaos
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             report_path = Path(directory) / "chaos-report.json"
             exit_code = chaos.main(["--all", "--report", str(report_path)])
             self.assertEqual(exit_code, 0)
@@ -239,7 +239,7 @@ class M7LanguageExtensionTests(unittest.TestCase):
         self.assertIn("go build failed", str(caught.exception))
 
     def test_go_flow_runner_runs_real_m0_and_m3_cases(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             workdir = Path(directory)
             spec = next(s for s in ev.scenario_cases("support-triage")
                         if s["key"] == "billing-duplicate-charge@model")
@@ -271,7 +271,7 @@ class M7LanguageExtensionTests(unittest.TestCase):
             ev.parse_languages("ts,rust")
         with self.assertRaises(ev.ToolingError):
             ev.parse_languages("")
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
                 return canned_flow(
                     languages=[ev.LANGUAGE_NAMES[token] for token in languages])
@@ -297,7 +297,7 @@ class M7LanguageExtensionTests(unittest.TestCase):
     def test_non_go_scenarios_forced_down_to_ts_py(self):
         # --all --languages ts,py,go forces M1/M2/M4/M5 to ts,py and runs the
         # showcase pair three-language (the 38-PASS full run's semantics).
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
                 return canned_flow(
                     languages=[ev.LANGUAGE_NAMES[token] for token in languages])

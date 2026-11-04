@@ -28,7 +28,7 @@ class SpyLedger:
 
 class NaiveExampleTests(unittest.TestCase):
     def test_naive_retry_refires_the_effect(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             root=Path(tmp)
             store=StateStore(root,BINDING,WORKER_IDS)
             spec=CaseSpec(case_id='seed',execution_mode='parallel',worker_fixture='fixtures/workers/order-brief/complete.yaml',completion_order=WORKER_IDS,approval={'decision':'granted','approver':'approver-primary'})

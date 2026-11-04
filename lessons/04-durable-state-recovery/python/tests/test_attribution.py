@@ -12,7 +12,7 @@ RESULT_SCHEMA = json.loads((ROOT / "contracts/results/order-brief-recovery-resul
 
 class AttributionProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_crash_resume_reconciles_attempts_across_phases(self):
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def crash():
                 raise CrashSignal('crash')
             with self.assertRaises(CrashSignal):
@@ -35,7 +35,7 @@ class AttributionProbeTests(unittest.IsolatedAsyncioTestCase):
     async def test_fresh_run_counts_single_attempts_and_schema_rejects_absent_attribution(self):
         from jsonschema import Draft202012Validator
         validator = Draft202012Validator(RESULT_SCHEMA)
-        with tempfile.TemporaryDirectory() as directory:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             result = await run_case(case_id='parallel-clean-complete',
                                     trace_path=str(Path(directory) / 't.jsonl'),
                                     state_dir=str(Path(directory) / 'state'))

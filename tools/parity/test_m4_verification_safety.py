@@ -27,7 +27,7 @@ def crash():
 
 class M4VerificationSafetyTests(unittest.TestCase):
     def setUp(self):
-        self.tmp=tempfile.TemporaryDirectory()
+        self.tmp=tempfile.TemporaryDirectory(ignore_cleanup_errors=True)
         self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name).resolve()
         self.path=str(self.root/'trace.jsonl')
