@@ -2,11 +2,11 @@
 
 ## Active phase
 
-M5 — Side effects, idempotency, and human approval implemented and revision-verifiable.
+M6 — Observability, evaluation, and fault injection implemented and revision-verifiable.
 
-Accepted scope: D-016 and `docs/superpowers/specs/2026-11-02-m5-side-effects-approval-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-02-m5-side-effects-approval.md`, approved for Native execution.
+Accepted scope: D-017 and `docs/superpowers/specs/2026-11-03-m6-observability-evaluation-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-03-m6-observability-evaluation.md`, approved for Native execution.
 
-M5 reuses the three M3 workers as read-only preconditions and adds the first mutating operation: a payload-digest-bound approval gate, a deterministic idempotency key (`cancel-and-refund:ORD-1001`), a scripted file-backed effect ledger with once-per-key enforcement, append-only audit never read back, write-ahead submit markers, and an explicit UNKNOWN terminal when reality cannot be proven. Six paired multi-phase cases cover effect-once, rejection, pre-submit retry, submit-window reconciliation, UNKNOWN, and duplicate-key suppression. The new authority includes ledger/audit parity and the M4→M3→M2→M1→M0 chain. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+M6 is the first cross-cutting milestone: deterministic attribution (clock-injected latency, fixture-priced cost, multi-phase attempt reconciliation) on every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases (`fixtures/goldens/`), the independent fail-closed regression evaluator (`tools/evaluate.py`), the machine-readable failure matrix (21 declared failure classes, `fixtures/failure-matrix.yaml`), and `tools/chaos.py` replaying every fault live through existing scripted controls. The M6 authority chains the M5→M0 gates plus the evaluator, chaos, and safety suites. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,17 +14,17 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M5 side effects and approval design](../../docs/superpowers/specs/2026-11-02-m5-side-effects-approval-design.md), D-016, and the [implementation plan](../../docs/superpowers/plans/2026-11-02-m5-side-effects-approval.md) on 2026-11-02, selecting Native execution. Rulings recorded in the plan ledger: Ruling 4 — order-closure has no synthesis step; the result carries brief null + synthesis_invoked false in every status. The complete authority must be rerun on every changed candidate. No M6 work is included.
+The owner accepted [the written M6 observability and evaluation design](../../docs/superpowers/specs/2026-11-03-m6-observability-evaluation-design.md), D-017, and the [implementation plan](../../docs/superpowers/plans/2026-11-03-m6-observability-evaluation.md) on 2026-11-03, selecting Native execution. Rulings recorded in the plan ledger (Ruling 5): step-name conventions per lesson, per-step latency = table×attempts, adoption counts the original attempt, rejection omits the effect record. The complete authority must be rerun on every changed candidate. No M7 work is included.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m5.py` (runs M4, which runs M3→M2→M1→M0)
-- CI workflow: `.github/workflows/m5.yml`
+- Local gate: `python scripts/verify_m6.py` (runs M5, which runs M4→M3→M2→M1→M0)
+- CI workflow: `.github/workflows/m6.yml`
 - Runtime floor: Node.js 24 and Python 3.14
-- CI artifact: `m5-verification-<revision>`
-- Evidence root: `.boundrelay/m5/`
+- CI artifact: `m6-verification-<revision>`
+- Evidence root: `.boundrelay/m6/`
 
-M5 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence for six cases and all phase traces. It requires lower PASSED proofs on the same revision and passed identities of the independent executor and recovery probes. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M6 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence: 38 evaluated cases × 2 languages, the full 21-row chaos matrix, and probe identities. It requires lower PASSED proofs on the same revision. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 
