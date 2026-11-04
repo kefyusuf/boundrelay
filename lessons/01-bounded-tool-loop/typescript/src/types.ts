@@ -63,6 +63,8 @@ export interface ToolObservation {
   output: Record<string, unknown>;
 }
 
+import type {AttributionBlock, AttributionTables} from "./attribution.js";
+
 export interface RunResult {
   schema_version: "1.0";
   run_id: string;
@@ -76,6 +78,7 @@ export interface RunResult {
   tokens_used: number;
   tool_invocations: number;
   trace_path: string;
+  attribution: AttributionBlock;
 }
 
 export interface RunEvent {
@@ -124,6 +127,7 @@ export interface ScenarioDefinition {
   schema_version: "1.0";
   scenario_id: "order-investigation";
   cases: ScenarioCase[];
+  attribution: AttributionTables | null;
 }
 
 export interface ModelInput {

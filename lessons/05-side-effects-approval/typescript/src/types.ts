@@ -11,7 +11,8 @@ export type ResultStatus='SUCCEEDED'|'PARTIAL'|'FAILED'|'CANCELLED'|'UNKNOWN';
 export type ApprovalDecision='granted'|'rejected'|'none';
 export type FailureCode='ALL_WORKERS_FAILED'|'APPROVAL_REJECTED'|null;
 export type EffectStatus='EFFECT_COMPLETED'|'EFFECT_REJECTED'|'EFFECT_UNPROVABLE'|null;
-export interface RunResult {schema_version:'1.0';run_id:string;scenario_id:'order-closure';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;peak_concurrency:number;order_id:string;status:ResultStatus;worker_outcomes:CanonicalOutcomes;synthesis_invoked:boolean;brief:Brief|null;failure_code:FailureCode;approval_decision:ApprovalDecision;effect_status:EffectStatus;idempotency_key:string|null;reconciled:boolean;trace_path:string;resumed:boolean;restored_cursor:number|null;restored_worker_ids:WorkerId[];state_dir:string;run_state_status:RunStateStatus}
+import type {AttributionBlock,AttributionTables} from './attribution.js';
+export interface RunResult {schema_version:'1.0';run_id:string;scenario_id:'order-closure';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;peak_concurrency:number;order_id:string;status:ResultStatus;worker_outcomes:CanonicalOutcomes;synthesis_invoked:boolean;brief:Brief|null;failure_code:FailureCode;approval_decision:ApprovalDecision;effect_status:EffectStatus;idempotency_key:string|null;reconciled:boolean;trace_path:string;resumed:boolean;restored_cursor:number|null;restored_worker_ids:WorkerId[];state_dir:string;run_state_status:RunStateStatus;attribution:AttributionBlock}
 export class WorkerExecutionError extends Error {}
 export type StepStatus='PENDING'|'RUNNING'|'SUCCEEDED'|'FAILED'|'CANCELLED';
 export type RunStateStatus='RUNNING'|'SUCCEEDED'|'PARTIAL'|'FAILED'|'CANCELLED'|'UNKNOWN';
@@ -46,7 +47,7 @@ export interface StateStore {markRunning(worker:WorkerId):void;recordStepTermina
 export interface ExecutorOptions {mode:ExecutionMode;input:WorkerInput;directory:WorkerDirectory;control:WorkerControl;observer:WorkerObserver;store?:StateStore;completion_order?:WorkerId[];queue?:readonly WorkerId[];effect?:EffectWiring}
 export interface ExecutionSummary {reads:WorkerOutcome[];effect:EffectConfirmation|null;rejected:boolean;peakConcurrency:number}
 export interface CaseSpec {case_id:string;execution_mode:ExecutionMode;worker_fixture:string;completion_order:WorkerId[];approval:ApprovalMetadata;controls?:RecoveryControls;duplicate_key?:boolean}
-export interface Scenario {schema_version:'1.0';scenario_id:'order-closure';order_id:string;cases:CaseSpec[]}
+export interface Scenario {schema_version:'1.0';scenario_id:'order-closure';order_id:string;cases:CaseSpec[];attribution:AttributionTables|null}
 export type WorkerInstruction={operation:'return';output:unknown}|{operation:'raise';failure_code:'WORKER_EXECUTION_FAILED'};
 export type WorkerInstructions=Record<WorkerId,WorkerInstruction>;
 

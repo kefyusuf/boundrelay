@@ -1,0 +1,89 @@
+{
+  "scenario_id": "support-handoff",
+  "case_key": "code-billing-handoff",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "support-handoff",
+    "case_id": "code-billing-handoff",
+    "router_mode": "code",
+    "status": "SUCCEEDED",
+    "proposed_route": "billing",
+    "selected_route": "billing",
+    "receiver": "billing-specialist",
+    "fallback_applied": false,
+    "specialist_invoked": true,
+    "failure_code": null,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "classify",
+          "latency_ms": 30,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "receiver.billing-specialist",
+          "latency_ms": 10,
+          "cost_cents": 0,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 40,
+        "cost_cents": 0,
+        "attempts": 2
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "route.selected",
+      "step_name": null
+    },
+    {
+      "type": "handoff.requested",
+      "step_name": null
+    },
+    {
+      "type": "handoff.accepted",
+      "step_name": null
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "classify",
+        "latency_ms": 30,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "receiver.billing-specialist",
+        "latency_ms": 10,
+        "cost_cents": 0,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 40,
+      "cost_cents": 0,
+      "attempts": 2
+    }
+  }
+}

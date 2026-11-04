@@ -112,3 +112,4 @@ class Scenario:
     scenario_id:str
     order_id:str
     cases:tuple[CaseSpec,...]
+    attribution:dict|None=None

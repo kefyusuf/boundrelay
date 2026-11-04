@@ -3,9 +3,19 @@ import {resolve,relative,isAbsolute} from 'node:path';
 import {parse} from 'yaml';
 import {ROOT,SCENARIO_PATH} from './paths.js';
 import {WORKER_IDS,type WorkerId,type Scenario,type WorkerInstructions} from './types.js';
+import {STEP_KINDS,type AttributionTables} from './attribution.js';
 function object(raw:unknown,keys:string[]):Record<string,unknown>{
  if(raw===null||typeof raw!=='object'||Array.isArray(raw)||Object.keys(raw).sort().join('|')!==keys.toSorted().join('|'))throw new Error('Invalid fixture fields');
  return raw as Record<string,unknown>;
+}
+function parseAttribution(raw:unknown):AttributionTables|null{
+ if(raw===null||raw===undefined)return null;
+ const a=object(raw,['latency_ms','price_table']),latency=a.latency_ms,prices=a.price_table;
+ const ints=(v:unknown)=>typeof v==='number'&&Number.isInteger(v)&&v>=0;
+ if(latency===null||typeof latency!=='object'||Array.isArray(latency)||Object.keys(latency).length===0||Object.entries(latency).some(([k,v])=>!k||!ints(v)))throw new Error('Invalid scenario');
+ if(prices===null||typeof prices!=='object'||Array.isArray(prices)||Object.keys(prices).length===0||Object.entries(prices).some(([k,v])=>!(STEP_KINDS as readonly string[]).includes(k)||!ints(v)))throw new Error('Invalid scenario');
+ if('read' in prices&&(prices as Record<string,unknown>).read!==0)throw new Error('Invalid scenario');
+ return {latency_ms:{...(latency as Record<string,number>)},price_table:{...(prices as Record<string,number>)}};
 }
 export function loadWorkerFixture(path:string):WorkerInstructions {
  const base=realpathSync(resolve(ROOT,'fixtures/workers/order-brief')),target=realpathSync(resolve(ROOT,path)),rel=relative(base,target);
@@ -19,7 +29,9 @@ export function loadWorkerFixture(path:string):WorkerInstructions {
  return raw as unknown as WorkerInstructions;
 }
 export function parseScenario(raw:unknown):Scenario {
- const s=object(raw,['schema_version','scenario_id','order_id','cases']);
+ const hasAttribution=raw!==null&&typeof raw==='object'&&!Array.isArray(raw)&&Object.keys(raw).includes('attribution');
+ const s=object(raw,['schema_version','scenario_id','order_id','cases',...(hasAttribution?['attribution']:[])]);
+ const attribution=parseAttribution(s.attribution);
  if(s.schema_version!=='1.0'||s.scenario_id!=='order-brief'||typeof s.order_id!=='string'||!/^ORD-[0-9]{4}$/.test(s.order_id)||!Array.isArray(s.cases)||s.cases.length!==6)throw new Error('Invalid scenario');
  const seen=new Set<string>();
  for(const rawCase of s.cases){const c=object(rawCase,['case_id','execution_mode','worker_fixture','completion_order']);
@@ -29,6 +41,6 @@ export function parseScenario(raw:unknown):Scenario {
   const active=new Set<WorkerId>(),pending=[...WORKER_IDS];const limit=c.execution_mode==='sequential'?1:2;
   for(const next of c.completion_order){while(active.size<limit&&pending.length)active.add(pending.shift()!);if(!active.delete(next))throw new Error('Infeasible completion schedule');}
  }
- return structuredClone(s) as unknown as Scenario;
+ return structuredClone({...s,attribution}) as unknown as Scenario;
 }
 export function loadScenario():Scenario {return parseScenario(parse(readFileSync(SCENARIO_PATH,'utf8')));}

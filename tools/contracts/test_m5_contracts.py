@@ -67,7 +67,16 @@ def m5_result(status='SUCCEEDED'):
             'trace_path': 'trace.jsonl', 'resumed': False,
             'restored_cursor': None, 'restored_worker_ids': [],
             'state_dir': 'state',
-            'run_state_status': 'UNKNOWN' if unknown else run_status}
+            'run_state_status': 'UNKNOWN' if unknown else run_status,
+            'attribution': {
+                'steps': [
+                    {'step_name': 'worker.order-details', 'latency_ms': 10, 'cost_cents': 0, 'attempts': 1},
+                    {'step_name': 'worker.payment-status', 'latency_ms': 11, 'cost_cents': 0, 'attempts': 1},
+                    {'step_name': 'worker.delivery-status', 'latency_ms': 12, 'cost_cents': 0, 'attempts': 1},
+                    *([{'step_name': 'effect.submit', 'latency_ms': 40, 'cost_cents': 25, 'attempts': 1}]
+                      if key is not None else [])],
+                'totals': ({'latency_ms': 73, 'cost_cents': 25, 'attempts': 4} if key is not None
+                           else {'latency_ms': 33, 'cost_cents': 0, 'attempts': 3})}}
 
 class M5ContractsTests(unittest.TestCase):
     def test_six_cases_and_closed_effect_contract(self):
@@ -199,7 +208,7 @@ class M5ContractsTests(unittest.TestCase):
         granted['approval_decision'] = 'none'
         negatives.append(granted)
         for field in ['reconciled', 'approval_decision', 'idempotency_key',
-                      'effect_status', 'synthesis_invoked', 'trace_path']:
+                      'effect_status', 'synthesis_invoked', 'trace_path', 'attribution']:
             stale = m5_result('SUCCEEDED')
             del stale[field]
             negatives.append(stale)

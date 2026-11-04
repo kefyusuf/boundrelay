@@ -48,3 +48,13 @@ class ScenarioTests(unittest.TestCase):
     def test_reject_worker_fixture_paths_escaping_the_reused_directory(self):
         with self.assertRaisesRegex(ValueError,'Worker fixture escapes root'):
             load_worker_fixture('fixtures/workers/order-brief/../../../../outside.yaml')
+    def test_attribution_table_is_optional_and_validated(self):
+        parse_scenario(raw())
+        missing=raw();del missing['attribution']
+        parse_scenario(missing)
+        unknown_kind=raw();unknown_kind['attribution']['price_table']['malformed']=1
+        with self.assertRaises(ValueError):parse_scenario(unknown_kind)
+        priced_read=raw();priced_read['attribution']['price_table']['read']=1
+        with self.assertRaises(ValueError):parse_scenario(priced_read)
+        no_latency=raw();del no_latency['attribution']['latency_ms']
+        with self.assertRaises(ValueError):parse_scenario(no_latency)

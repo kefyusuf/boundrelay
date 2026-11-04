@@ -1,4 +1,4 @@
-import {loadScenario} from './scenario.js';import {ScriptedWorkers} from './scripted-workers.js';import {createWorkerDirectory} from './workers.js';import {executeWorkers} from './executor.js';import {canonicalizeOutcomes} from './collector.js';import {synthesizeBrief} from './synthesizer.js';import {TraceSink} from './trace.js';import {validateRunResult} from './schemas.js';import {StateStore,loadRunState,loadRunStateDocument} from './state-store.js';import {resumeRun,replayFrom,recordedOutcomes,derivePending,type RunOptions,type RecoverySink} from './recovery.js';
+import {loadScenario} from './scenario.js';import {buildAttribution,workerRecords} from './attribution.js';import {ScriptedWorkers} from './scripted-workers.js';import {createWorkerDirectory} from './workers.js';import {executeWorkers} from './executor.js';import {canonicalizeOutcomes} from './collector.js';import {synthesizeBrief} from './synthesizer.js';import {TraceSink} from './trace.js';import {validateRunResult} from './schemas.js';import {StateStore,loadRunState,loadRunStateDocument} from './state-store.js';import {resumeRun,replayFrom,recordedOutcomes,derivePending,type RunOptions,type RecoverySink} from './recovery.js';
 export type {RunOptions} from './recovery.js';
 import {WORKER_IDS} from './types.js';
 import type {Brief,CaseSpec,Scenario,StateBinding,WorkerControl,WorkerDirectory,WorkerObserver,WorkerOutcome} from './types.js';
@@ -22,13 +22,16 @@ function observerFor(sink:EventSink,binding:StateBinding,store:StateStore):Worke
  };
 }
 async function freshRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,binding:StateBinding,store:StateStore,sink:EventSink):Promise<RunResult> {
+ const tables=scenario.attribution;
+ if(tables===null)throw new Error('Scenario is missing attribution tables');
+ const attribute=(outcomes:readonly WorkerOutcome[],synthesisInvoked:boolean):RunResult['attribution']=>buildAttribution([...workerRecords(outcomes),...(synthesisInvoked?[['synthesize',1] as const]:[])],tables.price_table,tables.latency_ms);
  const provider=options.directory===undefined?new ScriptedWorkers(spec,scenario.order_id):undefined;
  const execution=await executeWorkers({mode:spec.execution_mode,input:{order_id:scenario.order_id},directory:options.directory??createWorkerDirectory(provider!),control:options.control??provider!,observer:observerFor(sink,binding,store),store,completion_order:[...spec.completion_order],on_crash:options.on_crash??(()=>{sink.flush();process.exit(2);}),...(spec.controls?{controls:spec.controls}:{})});
  if(execution.cancelled_before!==undefined){
   store.markCancelledFrom(execution.cancelled_before);
   sink.emit('run.cancelled',{case_id:binding.case_id,execution_mode:binding.execution_mode,requested_order_id:binding.requested_order_id,concurrency_limit:binding.concurrency_limit,cancelled_before:execution.cancelled_before,code:'CANCELLED_BEFORE_STEP'});
   store.markTerminal('CANCELLED');
-  const result=assemble(options,binding,store.state().run_id,execution.peakConcurrency,'CANCELLED',recordedOutcomes(store.state()),false,null,null);
+  const result=assemble(options,binding,store.state().run_id,execution.peakConcurrency,'CANCELLED',recordedOutcomes(store.state()),false,null,null,attribute(recordedOutcomes(store.state()),false));
   if(!validateRunResult(result))throw new Error('Invalid run result');
   return result;
  }
@@ -38,12 +41,12 @@ async function freshRun(options:RunOptions,spec:CaseSpec,scenario:Scenario,bindi
  if(successes)sink.emit('step.completed',{step_name:'synthesize',brief});
  const status=successes===3?'SUCCEEDED':successes?'PARTIAL':'FAILED',failureCode=successes?null:'ALL_WORKERS_FAILED';
  if(failureCode===null)store.markTerminal(status);else store.markTerminal(status,failureCode);
- const result=assemble(options,binding,store.state().run_id,execution.peakConcurrency,status,outcomes,successes>0,brief,failureCode);
+ const result=assemble(options,binding,store.state().run_id,execution.peakConcurrency,status,outcomes,successes>0,brief,failureCode,attribute(outcomes,successes>0));
  if(!validateRunResult(result))throw new Error('Invalid run result');
  return result;
 }
-function assemble(options:RunOptions,binding:StateBinding,runId:string,peak:number,status:'SUCCEEDED'|'PARTIAL'|'FAILED'|'CANCELLED',outcomes:readonly WorkerOutcome[],synthesisInvoked:boolean,brief:Brief|null,failureCode:'ALL_WORKERS_FAILED'|null):RunResult {
- return {schema_version:'1.0',run_id:runId,scenario_id:'order-brief-recovery',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(peak,1),order_id:binding.requested_order_id,status,worker_outcomes:outcomes as RunResult['worker_outcomes'],synthesis_invoked:synthesisInvoked,brief,failure_code:failureCode,trace_path:options.tracePath,resumed:false,restored_cursor:null,restored_worker_ids:[],state_dir:options.stateDir,run_state_status:status};
+function assemble(options:RunOptions,binding:StateBinding,runId:string,peak:number,status:'SUCCEEDED'|'PARTIAL'|'FAILED'|'CANCELLED',outcomes:readonly WorkerOutcome[],synthesisInvoked:boolean,brief:Brief|null,failureCode:'ALL_WORKERS_FAILED'|null,attribution:RunResult['attribution']):RunResult {
+ return {schema_version:'1.0',run_id:runId,scenario_id:'order-brief-recovery',case_id:binding.case_id,execution_mode:binding.execution_mode,concurrency_limit:binding.concurrency_limit,peak_concurrency:Math.max(peak,1),order_id:binding.requested_order_id,status,worker_outcomes:outcomes as RunResult['worker_outcomes'],synthesis_invoked:synthesisInvoked,brief,failure_code:failureCode,trace_path:options.tracePath,resumed:false,restored_cursor:null,restored_worker_ids:[],state_dir:options.stateDir,run_state_status:status,attribution};
 }
 export async function runCase(options:RunOptions):Promise<RunResult>{
  const scenario=loadScenario(),spec=scenario.cases.find(c=>c.case_id===options.caseId);

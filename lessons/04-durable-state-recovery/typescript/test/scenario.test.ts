@@ -48,3 +48,11 @@ test('rejects_combined_replay_and_tamper_metadata',()=>{
  expect(()=>parseScenario(both)).toThrow('Invalid control combination');
 });
 
+test('attribution_table_is_optional_and_validated',()=>{
+ parseScenario(raw());
+ const missing=raw();delete missing.attribution;parseScenario(missing);
+ const unknownKind=raw();unknownKind.attribution.price_table.malformed=1;expect(()=>parseScenario(unknownKind)).toThrow();
+ const pricedRead=raw();pricedRead.attribution.price_table.read=1;expect(()=>parseScenario(pricedRead)).toThrow();
+ const noLatency=raw();delete noLatency.attribution.latency_ms;expect(()=>parseScenario(noLatency)).toThrow();
+});
+

@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M5 side effects, idempotency, and approval implemented; certify the checked-out revision with `python scripts/verify_m5.py`.
+**Phase:** M6 observability, evaluation, and fault injection implemented; certify the checked-out revision with `python scripts/verify_m6.py`.
+
+M6 is the first cross-cutting milestone: it adds deterministic attribution (clock-injected latency, fixture-priced cost, multi-phase attempt reconciliation) to every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases, the independent fail-closed regression evaluator `tools/evaluate.py`, the machine-readable failure matrix `fixtures/failure-matrix.yaml` (21 declared failure classes), and `tools/chaos.py` which replays every declared fault live through the lessons' scripted controls. M6 certification invokes M5 once, retaining the M5→M4→M3→M2→M1→M0 chain.
 
 M5 adds the project's first mutating operation: the `order-closure` scenario runs the three M3 workers as read-only preconditions, gates one idempotent `cancel-and-refund` effect behind a payload-digest-bound approval, enforces once-per-key through a scripted file-backed ledger, records append-only audit, and terminates `UNKNOWN` when reality cannot be proven. Six paired multi-phase cases cover effect-once, rejection, pre-submit retry, submit-window crash reconciliation, unprovable UNKNOWN, and duplicate-key suppression. M5 certification invokes M4 once, retaining the M4→M3→M2→M1→M0 chain.
 
@@ -93,6 +95,18 @@ python scripts/verify_m5.py
 ```
 
 The gate requires a clean Git worktree, runs M4 (including M3→M0), verifies both M5 implementations and six multi-phase case flows with real subprocess exits, validates traces, state documents, ledgers, and audit logs, and publishes `.boundrelay/m5/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m5-verification-<revision>`. See [Lesson 05](lessons/05-side-effects-approval/README.md) for approval binding, idempotency keys, the UNKNOWN boundary, and exercises.
+
+## Verify M6 locally
+
+The M6 authority requires the lessons of M0–M5 installed (see the sections above), then:
+
+```bash
+python tools/evaluate.py --all          # 38 canonical cases × 2 languages vs goldens
+python tools/chaos.py --all             # 21 failure-matrix rows replayed live
+python scripts/verify_m6.py             # full authority: M5 chain + evaluator + chaos + safety
+```
+
+The gate requires a clean Git worktree, runs M5 (including M4→M0), audits every case's event surface, evaluates all 38 canonical cases against goldens in both languages, replays all 21 failure-matrix rows, runs the verifier-safety suite (normal and `python -O`), and publishes `.boundrelay/m6/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m6-verification-<revision>`. See [docs/observability.md](docs/observability.md) for attribution semantics, golden mechanics, and the failure matrix.
 
 ## Verify M3 locally
 

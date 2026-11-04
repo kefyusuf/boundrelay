@@ -7,7 +7,8 @@ export type WorkerOutcome={worker_id:WorkerId;status:'SUCCEEDED';output:WorkerOu
 export type CanonicalOutcomes=readonly [WorkerOutcome,WorkerOutcome,WorkerOutcome];
 export type ValidationResult<T>={valid:true;value:T}|{valid:false};
 export interface Brief {order_id:string;sections:{worker_id:WorkerId;output:WorkerOutput}[];missing_workers:WorkerId[];complete:boolean}
-export interface RunResult {schema_version:'1.0';run_id:string;scenario_id:'order-brief';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;peak_concurrency:number;order_id:string;status:'SUCCEEDED'|'PARTIAL'|'FAILED';worker_outcomes:CanonicalOutcomes;synthesis_invoked:boolean;brief:Brief|null;failure_code:'ALL_WORKERS_FAILED'|null;trace_path:string}
+import type {AttributionBlock,AttributionTables} from './attribution.js';
+export interface RunResult {schema_version:'1.0';run_id:string;scenario_id:'order-brief';case_id:string;execution_mode:ExecutionMode;concurrency_limit:number;peak_concurrency:number;order_id:string;status:'SUCCEEDED'|'PARTIAL'|'FAILED';worker_outcomes:CanonicalOutcomes;synthesis_invoked:boolean;brief:Brief|null;failure_code:'ALL_WORKERS_FAILED'|null;trace_path:string;attribution:AttributionBlock}
 export class WorkerExecutionError extends Error {}
 export interface WorkerControl {acknowledgeOutcome(id:WorkerId):void;beginDrain():void}
 export interface WorkerProvider extends WorkerControl {read(id:WorkerId,input:WorkerInput):Promise<unknown>}
@@ -18,6 +19,6 @@ export type WorkerObserver=(event:WorkerLifecycle)=>void;
 export interface ExecutorOptions {mode:ExecutionMode;input:WorkerInput;directory:WorkerDirectory;control:WorkerControl;observer:WorkerObserver}
 export interface ExecutionSummary {outcomes:WorkerOutcome[];peakConcurrency:number}
 export interface CaseSpec {case_id:string;execution_mode:ExecutionMode;worker_fixture:string;completion_order:WorkerId[]}
-export interface Scenario {schema_version:'1.0';scenario_id:'order-brief';order_id:string;cases:CaseSpec[]}
+export interface Scenario {schema_version:'1.0';scenario_id:'order-brief';order_id:string;cases:CaseSpec[];attribution:AttributionTables|null}
 export type WorkerInstruction={operation:'return';output:unknown}|{operation:'raise';failure_code:'WORKER_EXECUTION_FAILED'};
 export type WorkerInstructions=Record<WorkerId,WorkerInstruction>;

@@ -1,0 +1,140 @@
+{
+  "scenario_id": "order-investigation",
+  "case_key": "agent-delayed-shipment",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-investigation",
+    "case_id": "agent-delayed-shipment",
+    "mode": "agent",
+    "status": "SUCCEEDED",
+    "answer": "Order ORD-1001 is delayed because shipment SHP-1001 is delayed by weather.",
+    "failure_code": null,
+    "model_steps": 3,
+    "tokens_used": 129,
+    "tool_invocations": 2,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "model",
+          "latency_ms": 90,
+          "cost_cents": 6,
+          "attempts": 3
+        },
+        {
+          "step_name": "tool.lookup_order",
+          "latency_ms": 8,
+          "cost_cents": 1,
+          "attempts": 1
+        },
+        {
+          "step_name": "tool.lookup_shipment",
+          "latency_ms": 9,
+          "cost_cents": 1,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 107,
+        "cost_cents": 8,
+        "attempts": 5
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "tool.requested",
+      "step_name": null
+    },
+    {
+      "type": "tool.completed",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "tool.requested",
+      "step_name": null
+    },
+    {
+      "type": "tool.completed",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "model",
+        "latency_ms": 90,
+        "cost_cents": 6,
+        "attempts": 3
+      },
+      {
+        "step_name": "tool.lookup_order",
+        "latency_ms": 8,
+        "cost_cents": 1,
+        "attempts": 1
+      },
+      {
+        "step_name": "tool.lookup_shipment",
+        "latency_ms": 9,
+        "cost_cents": 1,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 107,
+      "cost_cents": 8,
+      "attempts": 5
+    }
+  }
+}

@@ -2,6 +2,14 @@ import unittest
 
 from boundrelay_m0.schemas import validate_route_decision, validate_run_event, validate_run_result
 
+ATTRIBUTION = {
+    "steps": [
+        {"step_name": "classify", "latency_ms": 30, "cost_cents": 0, "attempts": 1},
+        {"step_name": "specialist.billing", "latency_ms": 10, "cost_cents": 0, "attempts": 1},
+    ],
+    "totals": {"latency_ms": 40, "cost_cents": 0, "attempts": 2},
+}
+
 
 class SchemaAdapterTests(unittest.TestCase):
     def test_accepts_valid_shared_contract_values(self) -> None:
@@ -26,6 +34,13 @@ class SchemaAdapterTests(unittest.TestCase):
             "selected_route": "billing",
             "specialist_invoked": True,
             "failure_code": None,
+            "trace_path": ".boundrelay/m0/trace.jsonl",
+            "attribution": ATTRIBUTION,
+        }).ok)
+        self.assertFalse(validate_run_result({
+            "schema_version": "1.0", "run_id": "run-1", "scenario_id": "support-triage",
+            "case_id": "billing-duplicate-charge", "mode": "deterministic", "status": "SUCCEEDED",
+            "selected_route": "billing", "specialist_invoked": True, "failure_code": None,
             "trace_path": ".boundrelay/m0/trace.jsonl",
         }).ok)
 

@@ -4,6 +4,7 @@ from datetime import datetime
 from uuid import uuid4
 
 from .bounded_router import RejectedRoute, route_decision
+from .attribution import build_attribution
 from .deterministic_router import classify_deterministically
 from .fake_decision_provider import ScriptedDecisionProvider
 from .scenario import find_scenario_case, load_scenario
@@ -32,10 +33,16 @@ def run_scenario_case(
 ) -> RunResult:
     scenario = load_scenario()
     scenario_case = find_scenario_case(scenario, case_id)
+    tables = scenario.attribution
+    if tables is None:
+        raise ValueError("Scenario is missing attribution tables")
     next_id = id_factory or _new_id
     run_id = next_id()
     sink = MemoryEventSink(run_id=run_id, source="python", clock=clock, id_factory=next_id)
     dispatcher = specialist_dispatcher or RecordingSpecialistDispatcher()
+
+    def attribute(step_records):
+        return build_attribution(step_records, tables["price_table"], tables["latency_ms"], mode)
 
     sink.emit("run.created", {
         "scenario_id": scenario.scenario_id,
@@ -73,6 +80,7 @@ def run_scenario_case(
             False,
             routed.failure_code,
             trace_path,
+            attribute([("classify", 1)]),
         )
         validation = validate_run_result(result.to_dict())
         if not validation.ok:
@@ -99,6 +107,7 @@ def run_scenario_case(
         True,
         None,
         trace_path,
+        attribute([("classify", 1), (f"specialist.{decision.route}", 1)]),
     )
     validation = validate_run_result(result.to_dict())
     if not validation.ok:

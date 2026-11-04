@@ -1,6 +1,7 @@
 import {randomUUID} from "node:crypto";
 
 import {ToolExecutionError, ToolTimeoutError, invokeTool} from "./executor.js";
+import {buildAttribution} from "./attribution.js";
 import {findScenarioCase, loadScenario} from "./scenario.js";
 import {validateModelTurn, validateRunResult} from "./schemas.js";
 import {ScriptedModelProvider} from "./scripted-model.js";
@@ -37,9 +38,22 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
   const runId = idFactory();
   const sink = new MemoryEventSink({runId, source: "typescript", clock: options.clock, idFactory});
   const registry = options.toolRegistry ?? createFakeToolRegistry();
+  const tables = scenario.attribution;
+  if (tables === null) {
+    throw new Error("Scenario is missing attribution tables");
+  }
+  const attribute = (
+    modelSteps: number,
+    toolCounts: ReadonlyMap<string, number>,
+  ): RunResult["attribution"] => {
+    const model = options.mode === "direct" ? [] : [["model", modelSteps] as const];
+    const tools = [...toolCounts.entries()].map(([name, count]) => [`tool.${name}`, count] as const);
+    return buildAttribution([...model, ...tools], tables.price_table, tables.latency_ms);
+  };
   let modelSteps = 0;
   let tokensUsed = 0;
   let toolInvocations = 0;
+  const toolCounts = new Map<string, number>();
 
   sink.emit("run.created", {scenario_id: scenario.scenario_id, case_id: scenarioCase.id, mode: options.mode});
   sink.emit("run.started", {case_id: scenarioCase.id, mode: options.mode});
@@ -65,6 +79,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
       tokens_used: tokensUsed,
       tool_invocations: toolInvocations,
       trace_path: options.tracePath,
+      attribution: attribute(modelSteps, toolCounts),
     };
     const validation = validateRunResult(result);
     if (!validation.ok) throw new Error(`Invalid run result: ${validation.errors.join("; ")}`);
@@ -93,6 +108,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
       tokens_used: tokensUsed,
       tool_invocations: toolInvocations,
       trace_path: options.tracePath,
+      attribution: attribute(modelSteps, toolCounts),
     };
     const validation = validateRunResult(result);
     if (!validation.ok) throw new Error(`Invalid run result: ${validation.errors.join("; ")}`);
@@ -111,6 +127,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
     if (!argumentsValidation.ok) return finishFailure("INVALID_TOOL_ARGUMENTS");
     sink.emit("tool.requested", {call_id: call.call_id, tool: call.tool, arguments: argumentsValidation.value});
     toolInvocations += 1;
+    toolCounts.set(call.tool, (toolCounts.get(call.tool) ?? 0) + 1);
     try {
       const output = await invokeTool(definition, argumentsValidation.value);
       const observation: ToolObservation = {call_id: call.call_id, tool: definition.name, output};
@@ -184,6 +201,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
 
     sink.emit("tool.requested", {call_id: turn.decision.call_id, tool: definition.name, arguments: argumentsValidation.value});
     toolInvocations += 1;
+    toolCounts.set(definition.name, (toolCounts.get(definition.name) ?? 0) + 1);
     try {
       const output = await invokeTool(definition, argumentsValidation.value);
       const observation: ToolObservation = {call_id: turn.decision.call_id, tool: definition.name, output};

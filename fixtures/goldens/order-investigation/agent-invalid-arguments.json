@@ -1,0 +1,76 @@
+{
+  "scenario_id": "order-investigation",
+  "case_key": "agent-invalid-arguments",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "order-investigation",
+    "case_id": "agent-invalid-arguments",
+    "mode": "agent",
+    "status": "FAILED",
+    "answer": null,
+    "failure_code": "INVALID_TOOL_ARGUMENTS",
+    "model_steps": 1,
+    "tokens_used": 25,
+    "tool_invocations": 0,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "model",
+          "latency_ms": 30,
+          "cost_cents": 2,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "model.requested",
+      "step_name": null
+    },
+    {
+      "type": "model.completed",
+      "step_name": null
+    },
+    {
+      "type": "budget.consumed",
+      "step_name": null
+    },
+    {
+      "type": "run.failed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "model",
+        "latency_ms": 30,
+        "cost_cents": 2,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 30,
+      "cost_cents": 2,
+      "attempts": 1
+    }
+  }
+}

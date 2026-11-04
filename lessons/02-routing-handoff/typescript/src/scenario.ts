@@ -1,6 +1,7 @@
 import {readFileSync} from "node:fs";
 import {parse} from "yaml";
 import {FAILURES_PATH, SCENARIO_PATH} from "./paths.js";
+import {STEP_KINDS, type AttributionTables} from "./attribution.js";
 import {
   FAILURE_CODES, RECEIVER_NAMES, ROUTES,
   type FailureCode, type FailureFixture, type FailureFixtures,
@@ -117,7 +118,18 @@ export function loadScenario(path: unknown = SCENARIO_PATH, failurePath: string 
     const expectedRef = item.id.startsWith("handoff-") ? item.id : undefined;
     if (item.failure_ref !== expectedRef) throw new Error(`${item.id} has an invalid M2 failure reference.`);
   }
-  return {schema_version:"1.0", scenario_id:"support-handoff", confidence_threshold:raw.confidence_threshold, route_receivers:expectedMapping, cases};
+  return {schema_version:"1.0", scenario_id:"support-handoff", confidence_threshold:raw.confidence_threshold, route_receivers:expectedMapping, cases, attribution:parseAttribution(raw.attribution)};
+}
+
+export function parseAttribution(raw: unknown): AttributionTables | null {
+  if (raw === undefined || raw === null) return null;
+  if (!isRecord(raw) || Object.keys(raw).sort().join("|") !== "latency_ms|price_table") throw new Error("Invalid attribution tables.");
+  const latency = raw.latency_ms, prices = raw.price_table;
+  const nonNegativeInt = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0;
+  if (!isRecord(latency) || Object.keys(latency).length === 0 || Object.entries(latency).some(([key, value]) => !key || !nonNegativeInt(value))) throw new Error("Invalid attribution latency table.");
+  if (!isRecord(prices) || Object.keys(prices).length === 0 || Object.entries(prices).some(([key, value]) => !(STEP_KINDS as readonly string[]).includes(key) || !nonNegativeInt(value))) throw new Error("Invalid attribution price table.");
+  if ("read" in prices && prices.read !== 0) throw new Error("Attribution reads must price zero.");
+  return {latency_ms:{...latency} as Record<string, number>, price_table:{...prices} as Record<string, number>};
 }
 export function findScenarioCase(scenario: ScenarioDefinition, caseId: string): ScenarioCase {
   const item = scenario.cases.find((candidate) => candidate.id === caseId);

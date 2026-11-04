@@ -5,6 +5,7 @@ from typing import Mapping, cast
 import yaml
 
 from .paths import FAILURES_PATH, SCENARIO_PATH
+from .attribution import STEP_KINDS
 from .types import (
     FAILURE_CODES,
     RECEIVER_NAMES,
@@ -206,7 +207,26 @@ def load_scenario(path: Path | Mapping[str, object] = SCENARIO_PATH, failure_pat
         expected_ref = case.id if case.id.startswith("handoff-") else None
         if case.failure_ref != expected_ref:
             raise ValueError(f"{case.id} has an invalid M2 failure reference.")
-    return ScenarioDefinition("1.0", "support-handoff", 0.80, expected_mapping, parsed)
+    return ScenarioDefinition("1.0", "support-handoff", 0.80, expected_mapping, parsed, parse_attribution(raw.get("attribution")))
+
+
+def parse_attribution(raw: object) -> dict[str, object] | None:
+    if raw is None:
+        return None
+    if not isinstance(raw, Mapping) or set(raw) != {"latency_ms", "price_table"}:
+        raise ValueError("Invalid attribution tables.")
+    latency, prices = raw["latency_ms"], raw["price_table"]
+    if not isinstance(latency, Mapping) or not latency or any(
+        not key or type(value) is not int or value < 0 for key, value in latency.items()
+    ):
+        raise ValueError("Invalid attribution latency table.")
+    if not isinstance(prices, Mapping) or not prices or any(
+        key not in STEP_KINDS or type(value) is not int or value < 0 for key, value in prices.items()
+    ):
+        raise ValueError("Invalid attribution price table.")
+    if "read" in prices and prices["read"] != 0:
+        raise ValueError("Attribution reads must price zero.")
+    return {"latency_ms": dict(latency), "price_table": dict(prices)}
 
 
 def find_scenario_case(scenario: ScenarioDefinition, case_id: str) -> ScenarioCase:

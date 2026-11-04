@@ -1,6 +1,16 @@
 schema_version: "1.0"
 scenario_id: support-triage
 routes: [billing, technical, general]
+attribution:
+  latency_ms:
+    classify: 30
+    specialist.billing: 10
+    specialist.technical: 11
+    specialist.general: 12
+  price_table:
+    read: 0
+    model_decision: 2
+    route: 0
 cases:
   - id: billing-duplicate-charge
     request: I was charged twice for the same invoice.

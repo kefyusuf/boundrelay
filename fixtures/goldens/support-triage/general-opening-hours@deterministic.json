@@ -1,0 +1,94 @@
+{
+  "scenario_id": "support-triage",
+  "case_key": "general-opening-hours@deterministic",
+  "languages": [
+    "typescript",
+    "python"
+  ],
+  "result_projection": {
+    "schema_version": "1.0",
+    "scenario_id": "support-triage",
+    "case_id": "general-opening-hours",
+    "mode": "deterministic",
+    "status": "SUCCEEDED",
+    "selected_route": "general",
+    "specialist_invoked": true,
+    "failure_code": null,
+    "attribution": {
+      "steps": [
+        {
+          "step_name": "classify",
+          "latency_ms": 30,
+          "cost_cents": 0,
+          "attempts": 1
+        },
+        {
+          "step_name": "specialist.general",
+          "latency_ms": 12,
+          "cost_cents": 0,
+          "attempts": 1
+        }
+      ],
+      "totals": {
+        "latency_ms": 42,
+        "cost_cents": 0,
+        "attempts": 2
+      }
+    }
+  },
+  "event_sequence": [
+    {
+      "type": "run.created",
+      "step_name": null
+    },
+    {
+      "type": "run.started",
+      "step_name": null
+    },
+    {
+      "type": "step.started",
+      "step_name": "classify"
+    },
+    {
+      "type": "route.selected",
+      "step_name": null
+    },
+    {
+      "type": "step.completed",
+      "step_name": "classify"
+    },
+    {
+      "type": "step.started",
+      "step_name": "specialist.general"
+    },
+    {
+      "type": "step.completed",
+      "step_name": "specialist.general"
+    },
+    {
+      "type": "run.completed",
+      "step_name": null
+    }
+  ],
+  "attribution": {
+    "steps": [
+      {
+        "step_name": "classify",
+        "latency_ms": 30,
+        "cost_cents": 0,
+        "attempts": 1
+      },
+      {
+        "step_name": "specialist.general",
+        "latency_ms": 12,
+        "cost_cents": 0,
+        "attempts": 1
+      }
+    ],
+    "totals": {
+      "latency_ms": 42,
+      "cost_cents": 0,
+      "attempts": 2
+    }
+  }
+}

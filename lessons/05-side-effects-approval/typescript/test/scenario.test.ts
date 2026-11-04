@@ -53,3 +53,11 @@ test('rejects_duplicate_key_misuse_and_fixture_escapes',()=>{
  expect(()=>parseScenario({schema_version:'2.0'})).toThrow();
 });
 
+test('attribution_table_is_optional_and_validated',()=>{
+ parseScenario(raw());
+ const missing=raw();delete missing.attribution;parseScenario(missing);
+ const unknownKind=raw();unknownKind.attribution.price_table.malformed=1;expect(()=>parseScenario(unknownKind)).toThrow();
+ const pricedRead=raw();pricedRead.attribution.price_table.read=1;expect(()=>parseScenario(pricedRead)).toThrow();
+ const noLatency=raw();delete noLatency.attribution.latency_ms;expect(()=>parseScenario(noLatency)).toThrow();
+});
+

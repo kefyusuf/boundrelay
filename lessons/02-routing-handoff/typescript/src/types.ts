@@ -52,6 +52,8 @@ export interface HandoffEnvelope {
   receiver_input: ReceiverInput;
 }
 
+import type {AttributionBlock, AttributionTables} from "./attribution.js";
+
 export interface HandoffResult {
   schema_version: "1.0";
   run_id: string;
@@ -66,6 +68,7 @@ export interface HandoffResult {
   specialist_invoked: boolean;
   failure_code: FailureCode | null;
   trace_path: string;
+  attribution: AttributionBlock;
 }
 
 export interface RunEvent {
@@ -102,6 +105,7 @@ export interface ScenarioDefinition {
   confidence_threshold: number;
   route_receivers: Record<Route, ReceiverName>;
   cases: ScenarioCase[];
+  attribution: AttributionTables | null;
 }
 
 export type ReceiverInputField = keyof ReceiverInput;

@@ -52,12 +52,23 @@ class CanonicalAssetTests(unittest.TestCase):
             "case_id": "billing-duplicate-charge", "mode": "deterministic", "status": "SUCCEEDED",
             "selected_route": "billing", "specialist_invoked": True, "failure_code": None,
             "trace_path": ".boundrelay/m0/trace.jsonl",
+            "attribution": {
+                "steps": [
+                    {"step_name": "classify", "latency_ms": 30, "cost_cents": 0, "attempts": 1},
+                    {"step_name": "specialist.billing", "latency_ms": 10, "cost_cents": 0, "attempts": 1},
+                ],
+                "totals": {"latency_ms": 40, "cost_cents": 0, "attempts": 2},
+            },
         })))
         self.assertTrue(list(result_validator.iter_errors({
             "schema_version": "1.0", "run_id": "run-1", "scenario_id": "support-triage",
             "case_id": "invalid-model-route", "mode": "model", "status": "FAILED",
             "selected_route": "billing", "specialist_invoked": True, "failure_code": None,
             "trace_path": ".boundrelay/m0/trace.jsonl",
+            "attribution": {
+                "steps": [{"step_name": "classify", "latency_ms": 30, "cost_cents": 2, "attempts": 1}],
+                "totals": {"latency_ms": 30, "cost_cents": 2, "attempts": 1},
+            },
         })))
 
     def test_m0_workflow_uses_documented_gate_and_current_actions(self) -> None:

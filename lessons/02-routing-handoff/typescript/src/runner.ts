@@ -2,6 +2,7 @@ import {randomUUID} from "node:crypto";
 
 import {applyConfidencePolicy, classifyWithCode} from "./policy.js";
 import {createReceiverDirectory} from "./receivers.js";
+import {buildAttribution} from "./attribution.js";
 import {findScenarioCase, loadFailureFixtures, loadScenario} from "./scenario.js";
 import {validateHandoff, validateHandoffResult, validateRouteDecision} from "./schemas.js";
 import {ScriptedRouteProvider} from "./scripted-router.js";
@@ -35,6 +36,10 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
   const scenario = loadScenario();
   const scenarioCase = findScenarioCase(scenario, options.caseId);
   if (scenarioCase.router_mode !== options.mode) throw new Error(`Requested mode ${options.mode} does not match canonical case mode ${scenarioCase.router_mode}.`);
+  const tables = scenario.attribution;
+  if (tables === null) throw new Error("Scenario is missing attribution tables");
+  const attribute = (stepRecords: ReadonlyArray<readonly [string, number]>): HandoffResult["attribution"] =>
+    buildAttribution(stepRecords, tables.price_table, tables.latency_ms, options.mode);
 
   const idFactory = options.idFactory ?? randomUUID;
   const runId = idFactory();
@@ -61,6 +66,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
       router_mode:options.mode, status:"FAILED", proposed_route:proposedRoute, selected_route:selectedRoute,
       receiver, fallback_applied:fallbackApplied, specialist_invoked:false, failure_code:failureCode,
       trace_path:options.tracePath,
+      attribution:attribute([["classify", 1]]),
     };
     const validation = validateHandoffResult(result);
     if (!validation.ok) throw new Error(`Invalid handoff result: ${validation.errors.join("; ")}`);
@@ -78,6 +84,7 @@ export async function runScenarioCase(options: RunScenarioCaseOptions): Promise<
       router_mode:options.mode, status:"SUCCEEDED", proposed_route:proposedRoute, selected_route:selectedRoute,
       receiver, fallback_applied:fallbackApplied, specialist_invoked:true, failure_code:null,
       trace_path:options.tracePath,
+      attribution:attribute([["classify", 1], [`receiver.${receiver}`, 1]]),
     };
     const validation = validateHandoffResult(result);
     if (!validation.ok) throw new Error(`Invalid handoff result: ${validation.errors.join("; ")}`);
