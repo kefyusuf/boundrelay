@@ -1,5 +1,7 @@
-"""M6 regression evaluator: run canonical cases through both language CLIs,
-normalize the evidence, and compare it against the recorded goldens.
+"""M6/M7 regression evaluator: run canonical cases through the language CLIs
+(ts,py by default; Go joins the support-triage/order-brief showcase pair via
+--languages), normalize the evidence, and compare it against the recorded
+goldens.
 
 Fail-closed: a missing golden, a failed language run, a cross-language
 divergence, or a golden divergence is a tooling error (exit 2). Goldens are
@@ -27,6 +29,20 @@ ROOT = Path(__file__).resolve().parents[1]
 SCENARIOS = ("support-triage", "order-investigation", "support-handoff",
              "order-brief", "order-brief-recovery", "order-closure")
 GOLDEN_ROOT = ROOT / "fixtures/goldens"
+# M7 three-language extension: --languages selects a subset of ts,py,go; Go
+# covers the showcase pair only and is a tooling error elsewhere.
+LANGUAGE_NAMES = {"ts": "typescript", "py": "python", "go": "go"}
+LANGUAGE_ORDER = ("ts", "py", "go")
+DEFAULT_LANGUAGES = ("ts", "py")
+GO_SCENARIOS = ("support-triage", "order-brief")
+GO_MODULE_ROOT = ROOT / "go"
+GO_CLI_TARGETS = {"support-triage": "./internal/m0/cmd",
+                  "order-brief": "./internal/m3/cmd"}
+FLOW_KEYS = {"python": ("result", "events"),
+             "typescript": ("ts_result", "ts_events"),
+             "go": ("go_result", "go_events")}
+PHASES_KEY = {"python": "phases", "typescript": "ts_phases", "go": "go_phases"}
+_go_cli_cache: dict[str, Path] = {}
 TS_ROOTS = {
     "support-triage": "lessons/00-workflow-or-agent/typescript",
     "order-investigation": "lessons/01-bounded-tool-loop/typescript",
@@ -88,6 +104,38 @@ def _spawn(command: list[str]) -> tuple[int, str, str]:
     return process.returncode, process.stdout, process.stderr
 
 
+def parse_languages(raw: str | None) -> tuple[str, ...]:
+    """A non-empty comma-separated subset of ts,py,go in canonical order."""
+    if raw is None:
+        return DEFAULT_LANGUAGES
+    tokens = [token.strip() for token in raw.split(",") if token.strip()]
+    unknown = [token for token in tokens if token not in LANGUAGE_NAMES]
+    if not tokens or unknown:
+        raise ToolingError(
+            f"--languages must be a comma-separated subset of ts,py,go; "
+            f"unknown tokens: {unknown}")
+    return tuple(token for token in LANGUAGE_ORDER if token in tokens)
+
+
+def _go_cli_exe(scenario_id: str) -> Path:
+    """Build the scenario's Go CLI once per session into a session temp exe
+    and reuse it: avoids `go run`'s exit-code wrapping and temp-exe AV
+    flakiness on Windows."""
+    exe = _go_cli_cache.get(scenario_id)
+    if exe is not None:
+        return exe
+    target = GO_CLI_TARGETS[scenario_id]
+    suffix = ".exe" if os.name == "nt" else ""
+    exe = Path(tempfile.gettempdir()) / f"boundrelay-{scenario_id}-go-cli{suffix}"
+    build = subprocess.run(["go", "build", "-o", str(exe), target],
+                           cwd=str(GO_MODULE_ROOT), text=True, capture_output=True)
+    if build.returncode != 0:
+        raise ToolingError(
+            f"go build failed for {target}: {build.stderr.strip()[:400]}")
+    _go_cli_cache[scenario_id] = exe
+    return exe
+
+
 def _git_status() -> str:
     return subprocess.run(
         ["git", "status", "--porcelain", "--untracked-files=no"],
@@ -97,6 +145,8 @@ def _git_status() -> str:
 def _command(scenario_id: str, language: str, args: list[str]) -> list[str]:
     if language == "python":
         return [sys.executable, "-m", PY_MODULES[scenario_id], *args]
+    if language == "go":
+        return [str(_go_cli_exe(scenario_id)), *args]
     return [shutil.which("npm") or "npm", "--silent",
             "--prefix", str(ROOT / TS_ROOTS[scenario_id]), "run", "run", "--", *args]
 
@@ -214,13 +264,18 @@ def _run_language_flow(scenario_id: str, spec: dict, workdir: Path,
     return {"result": result, "events": _read_trace(trace, label)}
 
 
-def run_flow(scenario_id: str, spec: dict, workdir: Path) -> dict:
-    python_flow = _run_language_flow(scenario_id, spec, workdir, "python")
-    typescript_flow = _run_language_flow(scenario_id, spec, workdir, "typescript")
-    return {"result": python_flow["result"], "events": python_flow["events"],
-            "ts_result": typescript_flow["result"], "ts_events": typescript_flow["events"],
-            "phases": python_flow.get("phases"),
-            "ts_phases": typescript_flow.get("phases")}
+def run_flow(scenario_id: str, spec: dict, workdir: Path,
+             languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:
+    flow: dict = {"languages": [LANGUAGE_NAMES[token] for token in languages]}
+    for token in languages:
+        name = LANGUAGE_NAMES[token]
+        language_flow = _run_language_flow(scenario_id, spec, workdir, name)
+        result_key, events_key = FLOW_KEYS[name]
+        flow[result_key] = language_flow["result"]
+        flow[events_key] = language_flow["events"]
+        if language_flow.get("phases") is not None:
+            flow[PHASES_KEY[name]] = language_flow["phases"]
+    return flow
 
 
 def project_result(result: dict) -> dict:
@@ -275,21 +330,30 @@ def _canonical_worker_windows(sequence: list[dict]) -> list[dict]:
 
 
 def flow_evidence(flow: dict) -> dict:
-    """Cross-language parity, then the normalized golden evidence."""
-    projections = (project_result(flow["result"]), project_result(flow["ts_result"]))
-    if projections[0] != projections[1]:
-        raise ToolingError(
-            f"typescript and python result projections diverge: "
-            f"{json.dumps(projections[0])} vs {json.dumps(projections[1])}")
-    sequences = (event_sequence(flow["events"]), event_sequence(flow["ts_events"]))
-    if sequences[0] != sequences[1]:
-        raise ToolingError("typescript and python event sequences diverge: "
-                           f"{json.dumps(sequences[0])} vs {json.dumps(sequences[1])}")
-    if flow["result"].get("attribution") != flow["ts_result"].get("attribution"):
-        raise ToolingError("typescript and python attributions diverge")
-    return {"result_projection": projections[0],
+    """Cross-language parity, then the normalized golden evidence. Every
+    language the flow ran must agree on the result projection, the
+    canonical event sequence, and the attribution."""
+    languages = flow.get("languages") or ["typescript", "python"]
+    result_keys = [FLOW_KEYS[name][0] for name in languages]
+    events_keys = [FLOW_KEYS[name][1] for name in languages]
+    projections = [project_result(flow[key]) for key in result_keys]
+    sequences = [event_sequence(flow[key]) for key in events_keys]
+    for index in range(1, len(languages)):
+        if projections[index] != projections[0]:
+            raise ToolingError(
+                f"{languages[0]} and {languages[index]} result projections diverge: "
+                f"{json.dumps(projections[index])[:300]} vs {json.dumps(projections[0])[:300]}")
+        if sequences[index] != sequences[0]:
+            raise ToolingError(
+                f"{languages[0]} and {languages[index]} event sequences diverge: "
+                f"{json.dumps(sequences[index])[:300]} vs {json.dumps(sequences[0])[:300]}")
+        if flow[result_keys[index]].get("attribution") != flow[result_keys[0]].get("attribution"):
+            raise ToolingError(
+                f"{languages[0]} and {languages[index]} attributions diverge")
+    return {"languages": list(languages),
+            "result_projection": projections[0],
             "event_sequence": sequences[0],
-            "attribution": flow["result"]["attribution"]}
+            "attribution": flow[result_keys[0]]["attribution"]}
 
 
 def _latency_table(scenario_id: str) -> dict:
@@ -411,24 +475,44 @@ def regenerate(scenario_id: str, case_key: str) -> str:
         else f"Golden written (new): {scenario_id}/{case_key}"
 
 
+def scenario_languages(scenario_id: str,
+                       languages: tuple[str, ...]) -> tuple[str, ...]:
+    """The scenario's effective languages: the requested subset intersected
+    with what the scenario can run. Non-Go scenarios are forced down to
+    ts,py; requesting a language the scenario cannot run at all (nothing
+    left, e.g. --languages go for M1) fails closed."""
+    available = ("ts", "py", "go") if scenario_id in GO_SCENARIOS else ("ts", "py")
+    effective = tuple(token for token in languages if token in available)
+    if not effective:
+        raise ToolingError(
+            f"--languages {list(languages)} cannot run {scenario_id}: "
+            f"available languages are {list(available)}")
+    return effective
+
+
 def evaluate(scenarios: list[str] | None = None, report_path: Path | None = None,
-             only_case: str | None = None) -> dict:
+             only_case: str | None = None,
+             languages: tuple[str, ...] = DEFAULT_LANGUAGES) -> dict:
     selected = [name for name in SCENARIOS
                 if scenarios is None or name in scenarios]
+    effective_languages = {name: scenario_languages(name, languages)
+                           for name in selected}
     records = []
     for scenario_id in selected:
+        scenario_language_set = effective_languages[scenario_id]
         for spec in scenario_cases(scenario_id):
             if only_case is not None and spec["key"] != only_case:
                 continue
             record: dict = {"scenario_id": scenario_id, "case_key": spec["key"]}
             try:
                 with tempfile.TemporaryDirectory() as directory:
-                    flow = run_flow(scenario_id, spec, Path(directory))
+                    flow = run_flow(scenario_id, spec, Path(directory),
+                                    languages=scenario_language_set)
                 actual = flow_evidence(flow)
                 validate_attribution(scenario_id, actual["attribution"],
                                      actual["event_sequence"])
                 compare_with_golden(scenario_id, spec["key"], actual)
-                record.update({"status": "PASS", "languages": ["typescript", "python"]})
+                record.update({"status": "PASS", "languages": actual["languages"]})
             except ToolingError as error:
                 record.update({"status": "FAIL", "error": str(error)})
             records.append(record)
@@ -449,6 +533,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--scenario", action="append", default=[],
                         help="limit the scope (repeatable)")
     parser.add_argument("--case", help="single case key (requires exactly one --scenario)")
+    parser.add_argument("--languages", default=None,
+                        help="comma-separated subset of ts,py,go (default ts,py)")
     parser.add_argument("--regenerate", nargs=2, metavar=("SCENARIO", "CASE_KEY"),
                         help="record a golden for the case from current behavior")
     parser.add_argument("--report", type=Path, help="write evaluation-report.json here")
@@ -459,12 +545,14 @@ def main(argv: list[str] | None = None) -> int:
             print(diff if diff else
                   f"Golden written (new): {options.regenerate[0]}/{options.regenerate[1]}")
             return 0
+        languages = parse_languages(options.languages)
         if not options.all and not options.scenario:
             parser.error("one of --all, --scenario or --regenerate is required")
         if options.case and len(options.scenario) != 1:
             raise ToolingError("--case requires exactly one --scenario")
         report = evaluate(options.scenario or list(SCENARIOS),
-                          report_path=options.report, only_case=options.case)
+                          report_path=options.report, only_case=options.case,
+                          languages=languages)
     except ToolingError as error:
         print(f"tooling error: {error}", file=sys.stderr)
         return 2
