@@ -40,7 +40,7 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code,2);self.assertEqual(stdout,[]);self.assertTrue(stderr)
 class MultiPhaseTests(unittest.TestCase):
     def test_approval_granted_effect_once_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace=str(Path(tmp)/'run.jsonl')
             code,stdout,_=spawn(['--case','approval-granted-effect-once','--trace',trace,'--state-dir',state_dir])
             self.assertEqual(code,0);self.assertEqual(len(stdout.strip().splitlines()),1)
@@ -51,7 +51,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertLess(order.index('approval.granted'),order.index('tool.requested'))
             self.assertLess(order.index('tool.completed'),order.index('run.completed'))
     def test_approval_rejected_no_effect_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace=str(Path(tmp)/'run.jsonl')
             code,stdout,_=spawn(['--case','approval-rejected-no-effect','--trace',trace,'--state-dir',state_dir])
             self.assertEqual(code,0)
@@ -62,7 +62,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(len(audit),1);self.assertEqual(audit[0]['kind'],'approval');self.assertEqual(audit[0]['decision'],'rejected')
             self.assertFalse(any(e['type'].startswith('tool.') for e in trace_events(trace)))
     def test_retry_before_submit_two_phase_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,stdout,_=spawn(['--case','retry-before-submit','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,2);self.assertEqual(stdout,'')
@@ -77,7 +77,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(result['status'],'SUCCEEDED');self.assertFalse(result['reconciled']);self.assertTrue(result['resumed'])
             self.assertEqual(len(EffectLedger(state_dir).records()),1)
     def test_crash_submit_window_resolved_two_phase_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,stdout,_=spawn(['--case','crash-submit-window-resolved','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,2);self.assertEqual(stdout,'')
@@ -88,7 +88,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(result['status'],'SUCCEEDED');self.assertTrue(result['reconciled']);self.assertTrue(result['resumed'])
             self.assertEqual(len(EffectLedger(state_dir).records()),1)
     def test_sink_unavailable_unknown_two_phase_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'phase1.jsonl');trace2=str(Path(tmp)/'phase2.jsonl')
             code,_,_=spawn(['--case','sink-unavailable-unknown','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,2)
@@ -101,7 +101,7 @@ class MultiPhaseTests(unittest.TestCase):
             self.assertEqual(len(EffectLedger(state_dir).records()),1)
             self.assertTrue(any(e['type'] in ('run.completed','run.failed') for e in trace_events(trace2)))
     def test_duplicate_key_suppressed_two_runs_subprocess(self):
-        with tempfile.TemporaryDirectory() as tmp:
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmp:
             state_dir=str(Path(tmp)/'state');trace1=str(Path(tmp)/'run1.jsonl');trace2=str(Path(tmp)/'run2.jsonl')
             code,stdout,_=spawn(['--case','duplicate-key-suppressed','--trace',trace1,'--state-dir',state_dir])
             self.assertEqual(code,0)
