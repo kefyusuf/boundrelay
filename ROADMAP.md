@@ -109,3 +109,17 @@ Mappings must show what the framework provides, what remains application respons
 - Fault-injection exercises.
 - Cross-language parity CI.
 - Production checklist covering state, recovery, side effects, permissions, observability, evaluation, and cost controls.
+
+## v1.0 track — sequenced work packages
+
+The milestone track (M0–M8) is complete and certified. The v1.0 exit criteria are delivered through five sequenced packages; each keeps the established discipline (design → plan → implementation → revision-bound evidence), scoped to stay reviewable.
+
+| Package | Deliverable | Scope | Depends on |
+|---|---|---|---|
+| **P1 — Production checklist** | `docs/production-checklist.md` + executable linkage test | Maps every checklist claim (state, recovery, side effects, permissions, observability, evaluation, cost) to its proving gate/invariant; residual gaps explicit | — |
+| **P2 — Trace inspector** | `tools/inspector.py` + self-contained offline HTML viewer | Renders any lesson's JSONL trace (event lifecycle, state transitions, attribution); zero runtime deps | P1 |
+| **P3 — Fault-injection labs** | Per-lesson exercise packs (`docs/labs/`) | Each lesson's declared faults as runnable exercises with commands, expected responses, and discussion questions; reuses the M6 matrix | P2 |
+| **P4 — Remaining Go ports** | Go runtimes for M1, M2, M4, M5 | Extends D-018's showcase-pair decision; three-language parity for 25 more case keys; `verify_m9.py`-style authority extension | P2 |
+| **P5 — Framework mappings** | LangGraph×M4, OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go) | Extends D-019's single-mapping pattern; one mapping per package increment, same isolation rules | P1, P4 (for Eino) |
+
+Package order is by effort-per-value: P1 documents what exists, P2/P3 make it inspectable and teachable, P4/P5 expand language and framework coverage. Each package lands as its own reviewed PR series; nothing in the track changes the certified M0–M8 behavior.
