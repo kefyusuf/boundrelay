@@ -1,7 +1,7 @@
 """M6/M7 regression evaluator: run canonical cases through the language CLIs
-(ts,py by default; Go joins the support-triage/order-brief showcase pair via
---languages), normalize the evidence, and compare it against the recorded
-goldens.
+(ts,py by default; Go joins the support-triage/order-brief/order-investigation
+cases via --languages), normalize the evidence, and compare it against the
+recorded goldens.
 
 Fail-closed: a missing golden, a failed language run, a cross-language
 divergence, or a golden divergence is a tooling error (exit 2). Goldens are
@@ -30,14 +30,16 @@ SCENARIOS = ("support-triage", "order-investigation", "support-handoff",
              "order-brief", "order-brief-recovery", "order-closure")
 GOLDEN_ROOT = ROOT / "fixtures/goldens"
 # M7 three-language extension: --languages selects a subset of ts,py,go; Go
-# covers the showcase pair only and is a tooling error elsewhere.
+# covers the M0/M3 showcase pair and the M1 bounded-tool-loop lesson and is a
+# tooling error elsewhere.
 LANGUAGE_NAMES = {"ts": "typescript", "py": "python", "go": "go"}
 LANGUAGE_ORDER = ("ts", "py", "go")
 DEFAULT_LANGUAGES = ("ts", "py")
-GO_SCENARIOS = ("support-triage", "order-brief")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
 GO_MODULE_ROOT = ROOT / "go"
 GO_CLI_TARGETS = {"support-triage": "./internal/m0/cmd",
-                  "order-brief": "./internal/m3/cmd"}
+                  "order-brief": "./internal/m3/cmd",
+                  "order-investigation": "./internal/m1/cmd"}
 FLOW_KEYS = {"python": ("result", "events"),
              "typescript": ("ts_result", "ts_events"),
              "go": ("go_result", "go_events")}
@@ -480,7 +482,7 @@ def scenario_languages(scenario_id: str,
     """The scenario's effective languages: the requested subset intersected
     with what the scenario can run. Non-Go scenarios are forced down to
     ts,py; requesting a language the scenario cannot run at all (nothing
-    left, e.g. --languages go for M1) fails closed."""
+    left, e.g. --languages go for the handoff lesson) fails closed."""
     available = ("ts", "py", "go") if scenario_id in GO_SCENARIOS else ("ts", "py")
     effective = tuple(token for token in languages if token in available)
     if not effective:

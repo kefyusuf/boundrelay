@@ -1,11 +1,16 @@
 """M7 contracts: Go fixture projections, the 13 canonical M0/M3 case keys,
-and the Go module pins.
+the 8 canonical M1 (order-investigation) case keys, and the Go module pins.
 
-Projections (fixtures/goprojections/<scenario>/{scenario,workers,attribution}
-.json) must deep-equal the YAML sources they were generated from. The Go
-module pins Go >= 1.25 in go.mod, and GO_VERSION must carry that directive.
-M0 keys are '<case_id>@<mode>' per the verify_m0 rule (success routes in both
-modes, the INVALID_ROUTE_DECISION case in model mode only).
+Projections (fixtures/goprojections/<scenario>/...) must deep-equal the YAML
+sources they were generated from: scenario.json and attribution.json for
+every Go scenario, plus per-scenario scripts — workers.json for M0/M3 (the
+referenced worker fixtures) and fake-model.json/fake-tools.json for M1 (the
+scripted fake-model turns exactly as the TS/Py provider replays them, i.e.
+each trajectory entry's `return` value, and the orders/shipments data behind
+the fake tool registry). The Go module pins Go >= 1.25 in go.mod, and
+GO_VERSION must carry that directive. M0 keys are '<case_id>@<mode>' per the
+verify_m0 rule (success routes in both modes, the INVALID_ROUTE_DECISION
+case in model mode only).
 """
 from pathlib import Path
 import json
@@ -17,11 +22,11 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 GO_PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 GO_ROOT = ROOT / "go"
-GO_SCENARIOS = ("support-triage", "order-brief")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
 MIN_GO_PARTS = (1, 25)
 EXPECTED_MODULE = "module github.com/kefyusuf/boundrelay/go"
-# The canonical three-language evaluation set (M6's EXPECTED_EVENT_SURFACE
-# covers the same 13 M0/M3 keys).
+# The canonical M0/M3 three-language evaluation set (M6's
+# EXPECTED_EVENT_SURFACE covers the same 13 M0/M3 keys).
 EXPECTED_CASE_KEYS = (
     "billing-duplicate-charge@deterministic",
     "billing-duplicate-charge@model",
@@ -36,6 +41,18 @@ EXPECTED_CASE_KEYS = (
     "parallel-partial-failure",
     "parallel-all-failed",
     "parallel-invalid-output",
+)
+# The canonical M1 case keys (goldens are named by case id; the mode is
+# canonical per case — direct for direct-order-status, agent otherwise).
+EXPECTED_M1_CASE_KEYS = (
+    "direct-order-status",
+    "agent-delayed-shipment",
+    "agent-unknown-tool",
+    "agent-invalid-arguments",
+    "agent-tool-timeout",
+    "agent-tool-failure",
+    "agent-step-budget",
+    "agent-token-budget",
 )
 
 
@@ -92,6 +109,35 @@ def go_directive(text):
     return version, tuple(int(part) for part in version.split("."))
 
 
+def fake_model_document(scenario_id):
+    path = ROOT / f"fixtures/fake-model/{scenario_id}.yaml"
+    if not path.exists():
+        raise AssertionError(f"Missing fake-model fixture: {path}")
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def fake_tool_document(scenario_id):
+    path = ROOT / f"fixtures/fake-tools/{scenario_id}.yaml"
+    if not path.exists():
+        raise AssertionError(f"Missing fake-tools fixture: {path}")
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def projected_model_turns(document):
+    """The fake-model turns exactly as the TS/Py ScriptedModelProvider
+    replays them: each trajectory entry's `return` value."""
+    turns = {}
+    for case_id, entries in document["trajectories"].items():
+        projected = []
+        for entry in entries:
+            if not isinstance(entry, dict) or "return" not in entry:
+                raise AssertionError(
+                    f"trajectory {case_id} entries must carry return values")
+            projected.append(entry["return"])
+        turns[case_id] = projected
+    return turns
+
+
 class M7ProjectionContractTests(unittest.TestCase):
     def test_projections_match_yaml_sources(self):
         for name in GO_SCENARIOS:
@@ -102,6 +148,20 @@ class M7ProjectionContractTests(unittest.TestCase):
             self.assertEqual(
                 load_projection(name, "attribution.json"), source["attribution"],
                 f"{name}: attribution projection drifts from the YAML source")
+            if name == "order-investigation":
+                fake_model = load_projection(name, "fake-model.json")
+                model_source = fake_model_document(name)
+                self.assertEqual(fake_model["schema_version"], "1.0",
+                                 "fake-model projection must carry the 1.0 header")
+                self.assertEqual(fake_model["scenario_id"], name,
+                                 "fake-model projection must carry the scenario id")
+                self.assertEqual(
+                    fake_model["trajectories"], projected_model_turns(model_source),
+                    "fake-model turns projection drifts from the YAML source")
+                self.assertEqual(
+                    load_projection(name, "fake-tools.json"), fake_tool_document(name),
+                    f"{name}: fake-tools projection drifts from the YAML source")
+                continue
             workers = load_projection(name, "workers.json")
             refs = worker_fixture_refs(name)
             self.assertEqual(
@@ -112,6 +172,22 @@ class M7ProjectionContractTests(unittest.TestCase):
                 self.assertEqual(
                     content, fixture,
                     f"{name}: worker projection {ref} drifts from the YAML source")
+
+    def test_m1_case_keys_enumerated(self):
+        scenario = scenario_document("order-investigation")
+        keys = tuple(case["id"] for case in scenario["cases"])
+        self.assertEqual(len(keys), 8, "the canonical M1 set is 8 case keys")
+        self.assertEqual(keys, EXPECTED_M1_CASE_KEYS,
+                         "M1 case keys drifted from the canonical set")
+        modes = {case["id"]: case["mode"] for case in scenario["cases"]}
+        self.assertEqual(modes["direct-order-status"], "direct",
+                         "direct-order-status is the canonical direct case")
+        for key in keys[1:]:
+            self.assertEqual(modes[key], "agent", f"{key} must be an agent case")
+        for key in keys:
+            golden_path = ROOT / f"fixtures/goldens/order-investigation/{key}.json"
+            self.assertTrue(golden_path.exists(),
+                            f"missing golden for pinned M1 key {key}")
 
 
 class M7CaseKeyEnumerationTests(unittest.TestCase):

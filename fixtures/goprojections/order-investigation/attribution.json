@@ -1,0 +1,11 @@
+{
+  "latency_ms": {
+    "model": 30,
+    "tool.lookup_order": 8,
+    "tool.lookup_shipment": 9
+  },
+  "price_table": {
+    "model_decision": 2,
+    "tool_call": 1
+  }
+}
