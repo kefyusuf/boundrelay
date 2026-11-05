@@ -2,11 +2,11 @@
 
 ## Active phase
 
-M7 — Go parity for the showcase pair (M0 + M3) implemented and revision-verifiable.
+M8 — Framework mapping (LangGraph × M3) implemented and revision-verifiable.
 
-Accepted scope: D-018 and `docs/superpowers/specs/2026-11-04-m7-go-parity-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-04-m7-go-parity.md`, approved for Native execution.
+Accepted scope: D-019 and `docs/superpowers/specs/2026-11-05-m8-framework-mapping-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-05-m8-langgraph-m3.md`, approved for Native execution.
 
-M7 adds Go as the third language: a zero-dependency `go/` module (stdlib only) implements the M0 and M3 runtimes idiomatically (strict decode, sentinel errors, `context` fatal-drain, bounded semaphore admission). All 13 M0/M3 case keys reach three-language golden parity against the unchanged goldens; the evaluator gains `--languages`, the failure matrix gains Go proof identities, and the M7 authority chains the M6→M0 gates plus projection validation, `go vet`/`go test`/`gofmt`, and the 13 Go flows. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+M8 adds the first framework mapping per D-008: a non-authoritative LangGraph (Python) rebuild of the M3 `order-brief` fan-out/fan-in under `mappings/langgraph-m3/` (langgraph 1.2.20, exactly pinned), with business-result parity for all six M3 cases against the unchanged goldens, dependency isolation proven by a fail-closed scan, a canonical-tree snapshot re-validated after the mapping suite, and D-008's four questions answered with executable proof (centerpiece: bounded admission is not a first-class LangGraph primitive). The M8 authority chains M7→M0 plus the mapping suite. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,17 +14,17 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M7 Go parity design](../../docs/superpowers/specs/2026-11-04-m7-go-parity-design.md), D-018, and the [implementation plan](../../docs/superpowers/plans/2026-11-04-m7-go-parity.md) on 2026-11-04, selecting Native execution. Rulings recorded in the plan ledger: Ruling 6 — Go fixture access via reviewed JSON projections (no YAML in Go); `go run` wrapper exits replaced by session-built exes in the evaluator's Go flow runner. The complete authority must be rerun on every changed candidate. No M8 work is included.
+The owner accepted [the written M8 LangGraph mapping design](../../docs/superpowers/specs/2026-11-05-m8-framework-mapping-design.md), D-019, and the [implementation plan](../../docs/superpowers/plans/2026-11-05-m8-langgraph-m3.md) on 2026-11-05, selecting Native execution. Rulings recorded in the plan ledger: Ruling 7 — the corrected graph's bounded wrapper enforces canonical-priority slot admission plus completion-order release gates (mirroring M3's executor + ScriptedWorkers pair) rather than a bare semaphore, making peak_concurrency deterministic; the fake-model turns live in the mapping as test-pinned literals. The complete authority must be rerun on every changed candidate. With M8, all planned milestones (M0–M8) are complete; the v1.0 exit criteria (trace inspector, expanded fault-injection labs, production checklist) remain future work.
 
 ## Verification authority
 
-- Local gate: `python scripts/verify_m7.py` (runs M6, which runs M5→M0)
-- CI workflow: `.github/workflows/m7.yml`
-- Runtime floor: Node.js 24, Python 3.14, Go >= 1.25
-- CI artifact: `m7-verification-<revision>`
-- Evidence root: `.boundrelay/m7/`
+- Local gate: `python scripts/verify_m8.py` (runs M7, which runs M6→M0)
+- CI workflow: `.github/workflows/m8.yml`
+- Runtime floor: Node.js 24, Python 3.14, Go >= 1.25, LangGraph 1.2.20 (pinned)
+- CI artifact: `m8-verification-<revision>`
+- Evidence root: `.boundrelay/m8/`
 
-M7 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence: 38 evaluated cases (13 three-language), the full 21-row chaos matrix, Go gate results, and projection validation. It requires lower PASSED proofs on the same revision. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
+M8 captures the candidate revision before the regression chain and rechecks clean worktree plus unchanged HEAD before publishing evidence: the 38-test mapping suite, isolation scan, canonical-tree snapshot validation, and probe identities. It requires lower PASSED proofs on the same revision. Generated evidence remains ignored. Run the gate again after any affected change; a status description is not certification evidence.
 
 ## Preserved M0 baseline
 
