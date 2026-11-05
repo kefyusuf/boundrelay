@@ -46,7 +46,7 @@ Proof columns: `Gate` = the `scripts/verify_m*.py` authority whose PASSED eviden
 | V1-O1 | Every canonical case's event surface matches its declared contract (fail-closed audit) | scripts/verify_m6.py | M6 event-surface audit |
 | V1-O2 | Deterministic attribution (clock-injected latency, fixture-priced cost, attempt reconciliation) on every run result | scripts/verify_m6.py | M6 attribution invariants |
 | V1-O3 | Golden trajectories pin behavior for all cases; three languages where ported | scripts/verify_m7.py | M6/M7 golden parity |
-| V1-O4 | Shared JSONL traces are schema-valid, inspectable, and normalized for cross-language comparison | scripts/verify_m6.py | M0–M5 trace contracts |
+| V1-O4 | Shared JSONL traces are schema-valid, inspectable via the offline trace inspector, and normalized for cross-language comparison | scripts/verify_m6.py | M0–M5 trace contracts; inspector probes (tools/parity/test_v1_inspector.py) |
 
 ## Evaluation
 
