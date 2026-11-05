@@ -1,6 +1,6 @@
 # M8 LangGraph × M3 Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Plan review and execution-method selection precede product implementation.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. The owner selected Native execution on 2026-11-05.
 
 **Goal:** Deliver the single LangGraph (Python) × M3 mapping: a non-authoritative artifact under `mappings/langgraph-m3/` with an exactly-pinned LangGraph dependency, business-result parity for all six M3 cases, dependency isolation proven, D-008's four questions answered with executable proof, and an M8 authority chaining M7→M0 plus the mapping suite.
 
@@ -10,7 +10,7 @@
 
 **Spec:** [Accepted M8 design](../specs/2026-11-05-m8-framework-mapping-design.md), [D-019](../../decisions/D-019-m8-langgraph-m3-mapping.md), accepted 2026-11-05.
 
-**Status:** Written design accepted on 2026-11-05 (PR #29). This plan is the next review artifact; reviewed-plan approval and execution-method selection are required before product implementation. No product code is included in this planning change.
+**Status:** Written design and implementation plan accepted on 2026-11-05. The owner selected Native execution; implementation proceeds on the feature branch. Exact-revision certification, independent review, CI, merge, and release remain separate observed states; consult PR evidence for their current status.
 
 **Implementation note:** the plan pins outcomes, not LangGraph API calls — the exact API usage (graph construction, parallel dispatch, state reducer, stream format) is resolved empirically in Task 2 after installing the pinned version.
 
@@ -107,6 +107,6 @@ Tasks 1–3 build the isolated mapping with parity; Task 4 the authority; Task 5
 
 ## Execution Handoff
 
-This plan awaits review. On the owner's plan approval and execution-method selection (expected **Native**), implementation may begin. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
+The owner approved this written plan and selected **Native** on 2026-11-05: implement the five tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.
 
 
