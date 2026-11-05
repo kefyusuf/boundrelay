@@ -31,6 +31,7 @@ rows:
     proof:
       python: test_canonical_failures_have_exact_counters
       typescript: "fails canonical %s with %s"
+      go: TestCanonicalFailureCodesHaveExactCounters
   - failure_id: M1-F2
     lesson: 1
     fault: invalid-tool-arguments
@@ -44,6 +45,7 @@ rows:
     proof:
       python: test_canonical_failures_have_exact_counters
       typescript: "fails canonical %s with %s"
+      go: TestCanonicalFailureCodesHaveExactCounters
   - failure_id: M1-F3
     lesson: 1
     fault: tool-timeout
@@ -57,6 +59,7 @@ rows:
     proof:
       python: test_canonical_failures_have_exact_counters
       typescript: "fails canonical %s with %s"
+      go: TestCanonicalFailureCodesHaveExactCounters
   - failure_id: M1-F4
     lesson: 1
     fault: tool-execution-failure
@@ -70,6 +73,7 @@ rows:
     proof:
       python: test_canonical_failures_have_exact_counters
       typescript: "fails canonical %s with %s"
+      go: TestCanonicalFailureCodesHaveExactCounters
   - failure_id: M2-F1
     lesson: 2
     fault: context-loss

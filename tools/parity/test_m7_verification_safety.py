@@ -26,7 +26,7 @@ from tools.parity.test_m6_evaluation import canned_flow
 SCENARIO='support-triage';CASE_KEY='billing-duplicate-charge@model'
 COUNTS={'support-triage':7,'order-investigation':8,'support-handoff':5,
         'order-brief':6,'order-brief-recovery':6,'order-closure':6}
-THREE_LANGUAGE={'support-triage','order-brief'}
+THREE_LANGUAGE={'support-triage','order-brief','order-investigation'}
 
 def full_report():
     cases=[{'scenario_id':name,'case_key':f'{name}-{index}','status':'PASS',
@@ -68,12 +68,16 @@ class M7VerificationSafetyTests(unittest.TestCase):
             'scenario':('fixtures/goprojections/support-triage/scenario.json',
                         lambda d:d.update(routes=['billing'])),
             'attribution':('fixtures/goprojections/order-brief/attribution.json',
-                           lambda d:d['latency_ms'].update(synthesize=99)),
+                            lambda d:d['latency_ms'].update(synthesize=99)),
             'workers':('fixtures/goprojections/order-brief/workers.json',
                        lambda d:d['fixtures/workers/order-brief/complete.yaml']
                                 ['order-details'].update(operation='raise')),
             'worker-set':('fixtures/goprojections/order-brief/workers.json',
-                          lambda d:d.pop('fixtures/workers/order-brief/all-failed.yaml'))}
+                          lambda d:d.pop('fixtures/workers/order-brief/all-failed.yaml')),
+            'fake-model':('fixtures/goprojections/order-investigation/fake-model.json',
+                          lambda d:d['trajectories'].pop('agent-delayed-shipment')),
+            'fake-tools':('fixtures/goprojections/order-investigation/fake-tools.json',
+                          lambda d:d['orders'].pop('ORD-9001'))}
         for name,(relative,mutate) in mutations.items():
             with self.subTest(name=name):
                 temp=self.projection_root()
@@ -138,7 +142,8 @@ class M7VerificationSafetyTests(unittest.TestCase):
     def test_gate_helpers_reject_incomplete_reports(self):
         with patch.object(ev,'evaluate',side_effect=self.fake_evaluate):
             self.assertEqual(gate.run_evaluator()['totals'],{'passed':38,'failed':0})
-            self.assertEqual(gate.run_go_flows()['totals'],{'passed':13,'failed':0})
+            self.assertEqual(gate.run_go_flows()['totals'],
+                             {'passed':gate.THREE_LANGUAGE_CASES,'failed':0})
         for totals in ({'passed':37,'failed':1},{'passed':39,'failed':0}):
             with patch.object(ev,'evaluate',return_value={'totals':totals,'cases':[]}):
                 with self.assertRaises(AssertionError):gate.run_evaluator()
@@ -178,7 +183,8 @@ class M7VerificationSafetyTests(unittest.TestCase):
     def evidence(self,revision='start'):
         return {'schema_version':'1.0','milestone':'m7','status':'PASSED','revision':revision,
                 'command':'python scripts/verify_m7.py',
-                'projections':{'scenarios':['support-triage','order-brief'],'status':'matched'},
+                'projections':{'scenarios':['support-triage','order-brief','order-investigation'],
+                               'status':'matched'},
                 'go_gates':{'vet':'clean','test':'ok','gofmt':'clean'},
                 'go_flows':{'totals':{'passed':gate.THREE_LANGUAGE_CASES,'failed':0}},
                 'evaluation_report':{'totals':{'passed':gate.TOTAL_CASES,'failed':0},

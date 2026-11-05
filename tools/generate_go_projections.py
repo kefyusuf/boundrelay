@@ -1,11 +1,15 @@
-"""Generate the Go fixture projections from the M0/M3 YAML sources.
+"""Generate the Go fixture projections from the M0/M3/M1 YAML sources.
 
 Go's standard library has no YAML parser, so the Go runtimes load the M0
-(support-triage) and M3 (order-brief) fixtures from checked-in JSON
-projections under fixtures/goprojections/<scenario>/: scenario.json (the
-full scenario document including the attribution tables), workers.json (the
-worker fixtures referenced by the scenario's cases, keyed by repo-relative
-path), and attribution.json (the scenario's attribution block).
+(support-triage), M3 (order-brief), and M1 (order-investigation) fixtures
+from checked-in JSON projections under fixtures/goprojections/<scenario>/:
+scenario.json (the full scenario document including the attribution tables),
+attribution.json (the scenario's attribution block), plus per-scenario
+scripts — workers.json (the M0/M3 worker fixtures referenced by the
+scenario's cases, keyed by repo-relative path) or, for M1, fake-model.json
+(the scripted fake-model turns the M1 provider replays, exactly the values
+its TS/Python consumers extract from each entry's `return`) and
+fake-tools.json (the orders/shipments data behind the fake tool registry).
 
 The generator refuses to run on top of uncommitted tracked changes and
 prints a review-visible unified diff against the previous projections.
@@ -24,7 +28,7 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-GO_SCENARIOS = ("support-triage", "order-brief")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
 PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 
 
@@ -82,8 +86,69 @@ def worker_fixtures(document: dict) -> dict[str, dict]:
     return workers
 
 
+def fake_model_turns(scenario_id: str) -> dict:
+    """Project the scripted fake-model fixture into the exact turn values its
+    consumers replay: each trajectory entry's `return` value, keyed by case
+    id (the ScriptedModelProvider contract)."""
+    path = ROOT / f"fixtures/fake-model/{scenario_id}.yaml"
+    if not path.exists():
+        raise ToolingError(f"Missing fake-model fixture: {path}")
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if (not isinstance(document, dict) or document.get("schema_version") != "1.0"
+            or document.get("scenario_id") != scenario_id
+            or not isinstance(document.get("trajectories"), dict)):
+        raise ToolingError(
+            f"{scenario_id}: fake-model document must be a 1.0 {scenario_id} "
+            "document carrying trajectories")
+    turns: dict[str, list] = {}
+    for case_id, entries in document["trajectories"].items():
+        if not isinstance(entries, list) or not entries:
+            raise ToolingError(
+                f"{scenario_id}: trajectory {case_id} must be a non-empty array")
+        projected = []
+        for entry in entries:
+            if not isinstance(entry, dict) or "return" not in entry:
+                raise ToolingError(
+                    f"{scenario_id}: trajectory {case_id} entries must carry "
+                    "return values")
+            projected.append(entry["return"])
+        turns[case_id] = projected
+    return {"schema_version": document["schema_version"],
+            "scenario_id": document["scenario_id"],
+            "trajectories": turns}
+
+
+def fake_tool_fixtures(scenario_id: str) -> dict:
+    """Project the fake-tool fixture (orders/shipments behind the M1 fake
+    tool registry) as consumed: schema header plus the orders/shipments
+    records, verbatim."""
+    path = ROOT / f"fixtures/fake-tools/{scenario_id}.yaml"
+    if not path.exists():
+        raise ToolingError(f"Missing fake-tools fixture: {path}")
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if (not isinstance(document, dict) or document.get("schema_version") != "1.0"
+            or document.get("scenario_id") != scenario_id
+            or not isinstance(document.get("orders"), dict)
+            or not isinstance(document.get("shipments"), dict)):
+        raise ToolingError(
+            f"{scenario_id}: fake-tools document must be a 1.0 {scenario_id} "
+            "document defining orders and shipments")
+    for label, records in (("order", document["orders"]),
+                           ("shipment", document["shipments"])):
+        for entry_id, entry in records.items():
+            if not isinstance(entry, dict):
+                raise ToolingError(
+                    f"{scenario_id}: {label} {entry_id} must be an object")
+    return document
+
+
 def projection_payloads(scenario_id: str) -> dict[str, dict]:
     document = scenario_document(scenario_id)
+    if scenario_id == "order-investigation":
+        return {"scenario.json": document,
+                "fake-model.json": fake_model_turns(scenario_id),
+                "fake-tools.json": fake_tool_fixtures(scenario_id),
+                "attribution.json": document["attribution"]}
     return {"scenario.json": document,
             "workers.json": worker_fixtures(document),
             "attribution.json": document["attribution"]}

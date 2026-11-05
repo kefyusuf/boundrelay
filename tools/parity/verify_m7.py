@@ -1,6 +1,7 @@
 """M7 verification gate helpers: exact-revision evidence over the M6 chain,
-the three-language evaluator (38 cases, 13 with Go), the full failure matrix,
-the Go module gates, and the checked-in Go fixture projections.
+the three-language evaluator (38 cases, 21 with Go — the M0/M3 showcase pair
+and the M1 order-investigation lesson), the full failure matrix, the Go
+module gates, and the checked-in Go fixture projections.
 
 Mirrors tools/parity/verify_m6.py: evidence under .boundrelay/m7 is cleared
 before any gate command, publication is refused on a moved HEAD, a dirty
@@ -30,7 +31,7 @@ from tools import evaluate as ev
 LESSON_SRC_PATHS=tuple(ev.PY_SRC)
 TOTAL_CASES=38
 TOTAL_ROWS=21
-THREE_LANGUAGE_CASES=13
+THREE_LANGUAGE_CASES=21
 # The M7 probe identities: the contracts projection/pin probes plus the
 # language-extension probes from tools/parity/test_m6_evaluation.py.
 M7_CONTRACT_PROBE_IDS=('tools.contracts.test_m7_contracts.M7ProjectionContractTests.test_projections_match_yaml_sources',
@@ -41,6 +42,7 @@ M7_LANGUAGE_PROBE_IDS=tuple(
         'go_flow_runner_builds_once_and_reuses',
         'go_flow_runner_build_failure_is_a_tooling_error',
         'go_flow_runner_runs_real_m0_and_m3_cases',
+        'go_flow_runner_runs_real_m1_cases',
         'go_flow_runner_divergence_is_a_tooling_error',
         'evaluate_languages_flag_semantics',
         'go_for_non_go_scenario_is_a_tooling_error',
@@ -48,7 +50,7 @@ M7_LANGUAGE_PROBE_IDS=tuple(
         'matrix_go_proofs',
         'matrix_go_unit_row_replay'))
 REQUIRED_PROBE_IDS=M7_CONTRACT_PROBE_IDS+M7_LANGUAGE_PROBE_IDS
-GO_PROJECTION_SCENARIOS=('support-triage','order-brief')
+GO_PROJECTION_SCENARIOS=('support-triage','order-brief','order-investigation')
 
 def require(condition,message):
     if not condition:raise AssertionError(message)
@@ -96,7 +98,10 @@ def run_go_gates():
 def validate_projections():
     """The checked-in Go fixture projections must deep-equal the YAML sources
     they were generated from: the reviewer-visible bridge the Go runtimes
-    consume. Drift refuses certification."""
+    consume. Drift refuses certification. M0/M3 carry scenario/attribution/
+    workers projections; M1 carries scenario/attribution/fake-model/fake-tools
+    (the fake-model projection holds the scripted turns exactly as the TS/Py
+    provider replays them — each entry's `return` value)."""
     failures=[]
     for scenario in GO_PROJECTION_SCENARIOS:
         source=yaml.safe_load(
@@ -106,6 +111,20 @@ def validate_projections():
             failures.append(f'{scenario}/scenario.json drifts from the YAML source')
         if json.loads((base/'attribution.json').read_text(encoding='utf-8'))!=source.get('attribution'):
             failures.append(f'{scenario}/attribution.json drifts from the YAML source')
+        if scenario=='order-investigation':
+            model_source=yaml.safe_load(
+                (ROOT/f'fixtures/fake-model/{scenario}.yaml').read_text(encoding='utf-8'))
+            projected=json.loads((base/'fake-model.json').read_text(encoding='utf-8'))
+            turns={case_id:[entry['return'] for entry in entries]
+                   for case_id,entries in (model_source.get('trajectories') or {}).items()}
+            if projected.get('schema_version')!='1.0' or projected.get('scenario_id')!=scenario \
+                    or projected.get('trajectories')!=turns:
+                failures.append(f'{scenario}/fake-model.json drifts from the YAML source')
+            tools_source=yaml.safe_load(
+                (ROOT/f'fixtures/fake-tools/{scenario}.yaml').read_text(encoding='utf-8'))
+            if json.loads((base/'fake-tools.json').read_text(encoding='utf-8'))!=tools_source:
+                failures.append(f'{scenario}/fake-tools.json drifts from the YAML source')
+            continue
         workers=json.loads((base/'workers.json').read_text(encoding='utf-8'))
         references=[]
         for case in source.get('cases') or []:
@@ -122,7 +141,7 @@ def validate_projections():
     return {'scenarios':list(GO_PROJECTION_SCENARIOS),'status':'matched'}
 
 def run_go_flows():
-    """The 13 canonical M0/M3 case keys through the evaluator with
+    """The 21 canonical M0/M3/M1 case keys through the evaluator with
     languages ts,py,go; every case must PASS three-language."""
     report=ev.evaluate(scenarios=list(ev.GO_SCENARIOS),languages=('ts','py','go'))
     require(report.get('totals')=={'passed':THREE_LANGUAGE_CASES,'failed':0},
@@ -136,7 +155,7 @@ def run_go_flows():
 
 def run_evaluator():
     """The full evaluator over all 38 canonical cases three-language where
-    available: 38 passed, 0 failed, exactly 13 with Go."""
+    available: 38 passed, 0 failed, exactly 21 with Go."""
     report=ev.evaluate(scenarios=None,languages=('ts','py','go'))
     require(report.get('totals')=={'passed':TOTAL_CASES,'failed':0},
             f'Evaluator must pass all {TOTAL_CASES} canonical cases, got {report.get("totals")}')
@@ -166,7 +185,7 @@ def scenario_counts(report):
 def validate_probe_reports(report):
     """Mirror of the M5/M6 probe-report proof: the ProofResult collection
     from the probe suites must be fully green and contain every required M7
-    probe identity (3 contracts probes + 9 language-extension probes)."""
+    probe identity (3 contracts probes + 10 language-extension probes)."""
     try:
         if report['successful'] is not True or report['tests_run']<=0 or report['failed'] \
                 or report['skipped'] or len(report['discovered'])!=report['tests_run'] \
@@ -195,10 +214,10 @@ def _validate_evidence_reports(evidence):
             or sum(count.get('passed',0) for count in counts.values())!=TOTAL_CASES:
         reject('Per-scenario counts must sum to 38 passed cases with zero failures')
     if report.get('three_language_cases')!=THREE_LANGUAGE_CASES:
-        reject('Evaluation report must record exactly 13 three-language cases')
+        reject('Evaluation report must record exactly 21 three-language cases')
     go_flows=evidence.get('go_flows')
     if type(go_flows) is not dict or go_flows.get('totals')!={'passed':THREE_LANGUAGE_CASES,'failed':0}:
-        reject('Go flow report must record 13 passed and 0 failed three-language cases')
+        reject('Go flow report must record 21 passed and 0 failed three-language cases')
     chaos_report=evidence.get('chaos_report')
     if type(chaos_report) is not dict or chaos_report.get('totals')!={'passed':TOTAL_ROWS,'failed':0}:
         reject('Chaos report must record 21 passed and 0 failed rows')
