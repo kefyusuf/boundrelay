@@ -1,0 +1,3 @@
+# M8 LangGraph mapping pins (exact, offline at run time).
+langgraph==1.2.20
+jsonschema[format]==4.26.0
