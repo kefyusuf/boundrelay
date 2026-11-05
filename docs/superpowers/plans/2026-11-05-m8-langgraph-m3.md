@@ -105,6 +105,10 @@
 
 Tasks 1–3 build the isolated mapping with parity; Task 4 the authority; Task 5 teaching/CI/certification. All six Review Focus rows have named tests. The plan pins outcomes, not LangGraph API calls.
 
+## Execution Ledger
+
+- **Ruling 7 (2026-11-05):** The corrected graph's bounded wrapper enforces canonical-priority slot admission plus completion-order release gates — mirroring M3's executor + ScriptedWorkers pair rather than a bare semaphore — so `peak_concurrency` is deterministic (2/1) and deadlock-free; this wrapper is the documented cost of re-establishing M3's bounded-admission invariant inside LangGraph. The naive graph records the uncapped default (peak 3, rendezvous overlap). The fake-model turns live as test-pinned literals in the mapping. Recorded during Tasks 2–3.
+
 ## Execution Handoff
 
 The owner approved this written plan and selected **Native** on 2026-11-05: implement the five tasks in this session using `superpowers:executing-plans`, then obtain one fresh whole-branch review. Keep implementation within the accepted design and record any necessary ruling in the plan's execution ledger.

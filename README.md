@@ -4,7 +4,9 @@
 
 ## Project status
 
-**Phase:** M7 Go parity implemented for the showcase pair; certify the checked-out revision with `python scripts/verify_m7.py`.
+**Phase:** M8 framework mapping (LangGraph × M3) implemented; certify the checked-out revision with `python scripts/verify_m8.py`.
+
+M8 adds the first framework mapping per D-008: a non-authoritative LangGraph (Python) rebuild of the M3 `order-brief` fan-out/fan-in under `mappings/langgraph-m3/`, with an exactly-pinned dependency (langgraph 1.2.20), business-result parity for all six M3 cases against the unchanged goldens, dependency isolation proven by a fail-closed scan, and D-008's four questions (provided / retained / hidden / exit) answered with executable proof — including the centerpiece finding that bounded admission is not a first-class LangGraph primitive. The mapping suite runs inside the M8 authority, which chains M7→M0.
 
 M7 adds Go as the third language per D-003: a zero-dependency Go module (`go/`, stdlib only) implements the M0 (`support-triage`) and M3 (`order-brief`) runtimes idiomatically — strict JSON decoding, sentinel failure codes, `context.Context` fatal-drain, bounded semaphore admission with instrumented overlap proof. All 13 M0/M3 case keys now reach three-language golden parity (TS == PY == Go against the unchanged goldens); the M6 evaluator gains `--languages`, the failure matrix gains Go proof identities, and `verify_m7.py` chains M6→M0 plus `go vet`/`go test`/`gofmt` gates. M1/M2/M4/M5 remain TS/PY-only, deferred to later decisions.
 
@@ -121,6 +123,17 @@ python scripts/verify_m7.py                           # full authority: M6 chain
 ```
 
 The gate requires a clean Git worktree, runs M6 (including M5→M0), validates the JSON projections against their YAML sources, runs `go vet`/`go test`/`gofmt` gates, evaluates the 13 showcase keys in three languages against the unchanged goldens, evaluates all 38 cases, replays the 21 failure-matrix rows, and publishes `.boundrelay/m7/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m7-verification-<revision>`. See [D-018](docs/decisions/D-018-m7-go-parity-stable-lessons.md) for the showcase-pair scope and `go/` module layout.
+
+## Verify M8 locally
+
+The M8 authority requires the lessons of M0–M5 installed (see the sections above) plus the mapping dependency (LangGraph, exactly pinned):
+
+```bash
+python -m pip install -r mappings/langgraph-m3/python/requirements-dev.txt
+python scripts/verify_m8.py   # full authority: M7 chain + the mapping suite + isolation
+```
+
+The gate requires a clean Git worktree, runs M7 (including M6→M0), snapshots the canonical tree (13,000+ files) and re-validates it after the mapping suite, proves dependency isolation (zero `langgraph` references outside `mappings/`), runs the 38-test mapping suite (six parity cases against the unchanged M3 goldens, taxonomy preservation, the naive-mode teaching regression), and publishes `.boundrelay/m8/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m8-verification-<revision>`. See [mappings/langgraph-m3/README.md](mappings/langgraph-m3/README.md) for D-008's four questions (provided / retained / hidden / exit) with the proving tests.
 
 ## Verify M3 locally
 
