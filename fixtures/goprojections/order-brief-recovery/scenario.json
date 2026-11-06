@@ -1,0 +1,90 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-brief-recovery",
+  "order_id": "ORD-1001",
+  "attribution": {
+    "latency_ms": {
+      "worker.order-details": 10,
+      "worker.payment-status": 11,
+      "worker.delivery-status": 12,
+      "synthesize": 15
+    },
+    "price_table": {
+      "read": 0,
+      "synthesis": 0
+    }
+  },
+  "cases": [
+    {
+      "case_id": "parallel-clean-complete",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ]
+    },
+    {
+      "case_id": "parallel-crash-resume",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "controls": {
+        "crash_after": "payment-status"
+      }
+    },
+    {
+      "case_id": "parallel-crash-resume-partial",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/partial-failure.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "controls": {
+        "crash_after": "delivery-status"
+      }
+    },
+    {
+      "case_id": "parallel-cancel-resume",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "controls": {
+        "cancel_before": "delivery-status"
+      }
+    },
+    {
+      "case_id": "parallel-replay-from-checkpoint",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "replay_from_step": 1
+    },
+    {
+      "case_id": "parallel-corrupt-state",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "tampered_state": "flip_payment_outcome"
+    }
+  ]
+}
