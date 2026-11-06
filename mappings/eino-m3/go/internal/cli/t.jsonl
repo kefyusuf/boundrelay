@@ -1,0 +1,8 @@
+{"component":"Graph","event":"node_start","node":"order-brief-eino-naive"}
+{"component":"Lambda","event":"node_start","node":"worker.order-details"}
+{"component":"Lambda","event":"node_start","node":"worker.payment-status"}
+{"component":"Lambda","event":"node_start","node":"worker.delivery-status"}
+{"error":"naive: declared worker failure: delivery-status","event":"node_error","node":"worker.delivery-status"}
+{"component":"Lambda","event":"node_end","node":"worker.order-details"}
+{"component":"Lambda","event":"node_end","node":"worker.payment-status"}
+{"error":"[NodeRunError] naive: declared worker failure: delivery-status\n------------------------\nnode path: [worker.delivery-status]","event":"node_error","node":"order-brief-eino-naive"}
