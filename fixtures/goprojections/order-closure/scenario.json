@@ -1,0 +1,114 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "order-closure",
+  "order_id": "ORD-1001",
+  "attribution": {
+    "latency_ms": {
+      "worker.order-details": 10,
+      "worker.payment-status": 11,
+      "worker.delivery-status": 12,
+      "effect.submit": 40
+    },
+    "price_table": {
+      "read": 0,
+      "effect": 25
+    }
+  },
+  "cases": [
+    {
+      "case_id": "approval-granted-effect-once",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "granted",
+        "approver": "approver-primary"
+      }
+    },
+    {
+      "case_id": "approval-rejected-no-effect",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "rejected",
+        "approver": "approver-primary"
+      }
+    },
+    {
+      "case_id": "retry-before-submit",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "granted",
+        "approver": "approver-primary"
+      },
+      "controls": {
+        "crash_before_submit": true
+      }
+    },
+    {
+      "case_id": "crash-submit-window-resolved",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "granted",
+        "approver": "approver-primary"
+      },
+      "controls": {
+        "crash_in_submit_window": true
+      }
+    },
+    {
+      "case_id": "sink-unavailable-unknown",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "granted",
+        "approver": "approver-primary"
+      },
+      "controls": {
+        "crash_in_submit_window": true,
+        "sink_unavailable": true
+      }
+    },
+    {
+      "case_id": "duplicate-key-suppressed",
+      "execution_mode": "parallel",
+      "worker_fixture": "fixtures/workers/order-brief/complete.yaml",
+      "completion_order": [
+        "order-details",
+        "payment-status",
+        "delivery-status"
+      ],
+      "approval": {
+        "decision": "granted",
+        "approver": "approver-primary"
+      },
+      "duplicate_key": true
+    }
+  ]
+}

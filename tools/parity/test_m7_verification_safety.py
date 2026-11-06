@@ -27,7 +27,7 @@ SCENARIO='support-triage';CASE_KEY='billing-duplicate-charge@model'
 COUNTS={'support-triage':7,'order-investigation':8,'support-handoff':5,
         'order-brief':6,'order-brief-recovery':6,'order-closure':6}
 THREE_LANGUAGE={'support-triage','order-brief','order-investigation','support-handoff',
-                'order-brief-recovery'}
+                'order-brief-recovery','order-closure'}
 
 def full_report():
     cases=[{'scenario_id':name,'case_key':f'{name}-{index}','status':'PASS',
@@ -90,7 +90,12 @@ class M7VerificationSafetyTests(unittest.TestCase):
                            lambda d:d['cases'][1]['controls'].update(crash_after='delivery-status')),
             'm4-workers':('fixtures/goprojections/order-brief-recovery/workers.json',
                           lambda d:d['fixtures/workers/order-brief/complete.yaml']
-                                   ['payment-status'].update(operation='raise'))}
+                                   ['payment-status'].update(operation='raise')),
+            'm5-scenario':('fixtures/goprojections/order-closure/scenario.json',
+                           lambda d:d['cases'][0]['approval'].update(decision='rejected')),
+            'm5-workers':('fixtures/goprojections/order-closure/workers.json',
+                          lambda d:d['fixtures/workers/order-brief/complete.yaml']
+                                   ['delivery-status'].update(operation='raise'))}
         for name,(relative,mutate) in mutations.items():
             with self.subTest(name=name):
                 temp=self.projection_root()
@@ -197,7 +202,7 @@ class M7VerificationSafetyTests(unittest.TestCase):
         return {'schema_version':'1.0','milestone':'m7','status':'PASSED','revision':revision,
                 'command':'python scripts/verify_m7.py',
                 'projections':{'scenarios':['support-triage','order-brief','order-investigation',
-                                            'support-handoff','order-brief-recovery'],
+                                            'support-handoff','order-brief-recovery','order-closure'],
                                'status':'matched'},
                 'go_gates':{'vet':'clean','test':'ok','gofmt':'clean'},
                 'go_flows':{'totals':{'passed':gate.THREE_LANGUAGE_CASES,'failed':0}},

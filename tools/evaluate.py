@@ -1,7 +1,6 @@
 """M6/M7 regression evaluator: run canonical cases through the language CLIs
-(ts,py by default; Go joins the support-triage/order-brief/order-investigation
-cases via --languages), normalize the evidence, and compare it against the
-recorded goldens.
+(ts,py by default; Go joins every canonical scenario via --languages),
+normalize the evidence, and compare it against the recorded goldens.
 
 Fail-closed: a missing golden, a failed language run, a cross-language
 divergence, or a golden divergence is a tooling error (exit 2). Goldens are
@@ -31,19 +30,21 @@ SCENARIOS = ("support-triage", "order-investigation", "support-handoff",
 GOLDEN_ROOT = ROOT / "fixtures/goldens"
 # M7 three-language extension: --languages selects a subset of ts,py,go; Go
 # covers the M0/M3 showcase pair, the M1 bounded-tool-loop lesson, the M2
-# support-handoff lesson, and the M4 order-brief-recovery lesson, and is a
-# tooling error elsewhere.
+# support-handoff lesson, the M4 order-brief-recovery lesson, and the M5
+# order-closure lesson (every canonical scenario), and is a tooling error
+# for scenarios outside the canonical set.
 LANGUAGE_NAMES = {"ts": "typescript", "py": "python", "go": "go"}
 LANGUAGE_ORDER = ("ts", "py", "go")
 DEFAULT_LANGUAGES = ("ts", "py")
 GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
-                "support-handoff", "order-brief-recovery")
+                "support-handoff", "order-brief-recovery", "order-closure")
 GO_MODULE_ROOT = ROOT / "go"
 GO_CLI_TARGETS = {"support-triage": "./internal/m0/cmd",
                   "order-brief": "./internal/m3/cmd",
                   "order-investigation": "./internal/m1/cmd",
                   "support-handoff": "./internal/m2/cmd",
-                  "order-brief-recovery": "./internal/m4/cmd"}
+                  "order-brief-recovery": "./internal/m4/cmd",
+                  "order-closure": "./internal/m5/cmd"}
 FLOW_KEYS = {"python": ("result", "events"),
              "typescript": ("ts_result", "ts_events"),
              "go": ("go_result", "go_events")}
@@ -457,7 +458,7 @@ def regenerate(scenario_id: str, case_key: str) -> str:
                  if entry["key"] == case_key), None)
     if spec is None:
         raise ToolingError(f"Unknown case key {case_key} for {scenario_id}")
-    with tempfile.TemporaryDirectory() as directory:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
         flow = run_flow(scenario_id, spec, Path(directory))
     actual = flow_evidence(flow)
     validate_attribution(scenario_id, actual["attribution"], actual["event_sequence"])
@@ -484,9 +485,9 @@ def regenerate(scenario_id: str, case_key: str) -> str:
 def scenario_languages(scenario_id: str,
                        languages: tuple[str, ...]) -> tuple[str, ...]:
     """The scenario's effective languages: the requested subset intersected
-    with what the scenario can run. Non-Go scenarios are forced down to
-    ts,py; requesting a language the scenario cannot run at all (nothing
-    left, e.g. --languages go for the handoff lesson) fails closed."""
+    with what the scenario can run. Since the M5 Go port every canonical
+    scenario accepts all three languages; the guard below remains as the
+    fail-closed defense for a requested language no scenario can run."""
     available = ("ts", "py", "go") if scenario_id in GO_SCENARIOS else ("ts", "py")
     effective = tuple(token for token in languages if token in available)
     if not effective:
@@ -511,7 +512,7 @@ def evaluate(scenarios: list[str] | None = None, report_path: Path | None = None
                 continue
             record: dict = {"scenario_id": scenario_id, "case_key": spec["key"]}
             try:
-                with tempfile.TemporaryDirectory() as directory:
+                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
                     flow = run_flow(scenario_id, spec, Path(directory),
                                     languages=scenario_language_set)
                 actual = flow_evidence(flow)

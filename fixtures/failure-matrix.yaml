@@ -252,6 +252,7 @@ rows:
     proof:
       python: rejected_run_has_zero_submissions_and_records_rejection
       typescript: rejected_run_has_zero_submissions_and_records_rejection
+      go: TestRunnerRejectedRunHasZeroSubmissions
   - failure_id: M5-F2
     lesson: 5
     fault: submit-window-crash
@@ -265,6 +266,7 @@ rows:
     proof:
       python: crash_phase_flushes_prefix_without_terminal
       typescript: crash_phase_flushes_prefix_without_terminal
+      go: TestM5CLICrashThenResume
   - failure_id: M5-F3
     lesson: 5
     fault: sink-unavailable
@@ -278,6 +280,7 @@ rows:
     proof:
       python: resume_unknown_stays_unknown_with_sink_unavailable
       typescript: resume_unknown_stays_unknown_with_sink_unavailable
+      go: TestResumeUnknownStaysUnknown
   - failure_id: M5-F4
     lesson: 5
     fault: duplicate-key
@@ -291,3 +294,4 @@ rows:
     proof:
       python: test_duplicate_key_adopts_recorded_outcome
       typescript: duplicate_key_adopts_recorded_outcome
+      go: TestDuplicateKeyAdoptsRecordedOutcome

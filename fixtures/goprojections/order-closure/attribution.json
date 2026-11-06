@@ -1,0 +1,12 @@
+{
+  "latency_ms": {
+    "worker.order-details": 10,
+    "worker.payment-status": 11,
+    "worker.delivery-status": 12,
+    "effect.submit": 40
+  },
+  "price_table": {
+    "read": 0,
+    "effect": 25
+  }
+}
