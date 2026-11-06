@@ -278,6 +278,49 @@ class M7LanguageExtensionTests(unittest.TestCase):
             self.assertEqual(agent_evidence["result_projection"]["tokens_used"], 129)
             self.assertEqual(len(agent_evidence["event_sequence"]), 16)
 
+    def test_go_flow_runner_runs_real_m2_cases(self):
+        # The v1 M2 extension: the support-handoff Go flow (code and model
+        # router modes) runs against the unchanged TS/PY goldens, including
+        # the fixed 0.80 confidence fallback and the fail-closed handoff
+        # failures.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            workdir = Path(directory)
+            code = next(s for s in ev.scenario_cases("support-handoff")
+                        if s["key"] == "code-billing-handoff")
+            code_flow = ev.run_flow("support-handoff", code, workdir,
+                                    languages=("ts", "py", "go"))
+            code_evidence = ev.flow_evidence(code_flow)
+            self.assertEqual(code_evidence["languages"],
+                             ["typescript", "python", "go"])
+            self.assertEqual(code_evidence["result_projection"]["status"], "SUCCEEDED")
+            self.assertEqual(code_evidence["result_projection"]["selected_route"], "billing")
+            fallback = next(s for s in ev.scenario_cases("support-handoff")
+                            if s["key"] == "model-low-confidence-fallback")
+            fallback_flow = ev.run_flow("support-handoff", fallback, workdir,
+                                        languages=("ts", "py", "go"))
+            fallback_evidence = ev.flow_evidence(fallback_flow)
+            self.assertEqual(fallback_evidence["result_projection"]["fallback_applied"], True)
+            self.assertEqual(fallback_evidence["result_projection"]["selected_route"], "general")
+            self.assertEqual(len(fallback_evidence["event_sequence"]), 8)
+            context_loss = next(s for s in ev.scenario_cases("support-handoff")
+                                if s["key"] == "handoff-context-loss")
+            context_flow = ev.run_flow("support-handoff", context_loss, workdir,
+                                       languages=("ts", "py", "go"))
+            context_evidence = ev.flow_evidence(context_flow)
+            self.assertEqual(context_evidence["result_projection"]["failure_code"],
+                             "HANDOFF_CONTEXT_INVALID")
+            self.assertEqual(
+                context_evidence["result_projection"]["specialist_invoked"], False)
+            unavailable = next(s for s in ev.scenario_cases("support-handoff")
+                               if s["key"] == "handoff-receiver-unavailable")
+            unavailable_flow = ev.run_flow("support-handoff", unavailable, workdir,
+                                           languages=("ts", "py", "go"))
+            unavailable_evidence = ev.flow_evidence(unavailable_flow)
+            self.assertEqual(unavailable_evidence["result_projection"]["failure_code"],
+                             "HANDOFF_RECEIVER_UNAVAILABLE")
+            self.assertEqual(
+                unavailable_evidence["result_projection"]["specialist_invoked"], False)
+
     def test_go_flow_runner_divergence_is_a_tooling_error(self):
         diverged = deepcopy(M0_RESULT)
         diverged["status"] = "FAILED"
@@ -313,13 +356,13 @@ class M7LanguageExtensionTests(unittest.TestCase):
 
     def test_go_for_non_go_scenario_is_a_tooling_error(self):
         # --languages go leaves nothing for a non-Go scenario: tooling error.
-        self.assertEqual(ev.main(["--scenario", "support-handoff",
+        self.assertEqual(ev.main(["--scenario", "order-brief-recovery",
                                   "--languages", "go"]), 2)
 
     def test_non_go_scenarios_forced_down_to_ts_py(self):
-        # --all --languages ts,py,go forces M2/M4/M5 to ts,py and runs the
-        # showcase pair and the M1 bounded-tool-loop lesson three-language
-        # (21 three-language + 17 two-language = the 38-PASS full run).
+        # --all --languages ts,py,go forces M4/M5 to ts,py and runs the
+        # showcase pair and the M1/M2 lessons three-language (26
+        # three-language + 12 two-language = the 38-PASS full run).
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
                 return canned_flow(
@@ -337,21 +380,21 @@ class M7LanguageExtensionTests(unittest.TestCase):
                 self.assertEqual(by_scenario[go_scenario],
                                  {("typescript", "python", "go")},
                                  f"{go_scenario} must run three-language")
-            self.assertEqual(by_scenario["support-handoff"],
+            self.assertEqual(by_scenario["order-brief-recovery"],
                              {("typescript", "python")})
             self.assertEqual(by_scenario["order-closure"],
                              {("typescript", "python")})
             three_language = sum(
                 1 for case in report["cases"] if "go" in case["languages"])
-            self.assertEqual(three_language, 21,
-                             "the canonical split is 21 three-language keys")
+            self.assertEqual(three_language, 26,
+                             "the canonical split is 26 three-language keys")
             self.assertEqual(report["totals"], {"passed": 38, "failed": 0})
 
     def test_matrix_go_proofs(self):
         from tools import chaos
         rows = chaos.load_matrix()["rows"]
         for row in rows:
-            if row["lesson"] in (0, 1, 3):
+            if row["lesson"] in (0, 1, 2, 3):
                 self.assertIn("go", row["proof"],
                               f"{row['failure_id']} must carry a Go proof identity")
                 self.assertTrue(

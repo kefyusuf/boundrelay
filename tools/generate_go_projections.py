@@ -1,15 +1,19 @@
-"""Generate the Go fixture projections from the M0/M3/M1 YAML sources.
+"""Generate the Go fixture projections from the M0/M3/M1/M2 YAML sources.
 
 Go's standard library has no YAML parser, so the Go runtimes load the M0
-(support-triage), M3 (order-brief), and M1 (order-investigation) fixtures
-from checked-in JSON projections under fixtures/goprojections/<scenario>/:
-scenario.json (the full scenario document including the attribution tables),
-attribution.json (the scenario's attribution block), plus per-scenario
-scripts — workers.json (the M0/M3 worker fixtures referenced by the
-scenario's cases, keyed by repo-relative path) or, for M1, fake-model.json
-(the scripted fake-model turns the M1 provider replays, exactly the values
-its TS/Python consumers extract from each entry's `return`) and
-fake-tools.json (the orders/shipments data behind the fake tool registry).
+(support-triage), M3 (order-brief), M1 (order-investigation), and M2
+(support-handoff) fixtures from checked-in JSON projections under
+fixtures/goprojections/<scenario>/: scenario.json (the full scenario document
+including the attribution tables), attribution.json (the scenario's
+attribution block), plus per-scenario scripts — workers.json (the M0/M3
+worker fixtures referenced by the scenario's cases, keyed by repo-relative
+path), fake-model.json/fake-tools.json for M1 (the scripted fake-model turns
+the M1 provider replays, exactly the values its TS/Python consumers extract
+from each entry's `return`, and the orders/shipments data behind the fake
+tool registry), or fake-model.json/failures.json for M2 (the scripted route
+decisions exactly as the TS/Py ScriptedRouteProvider replays them — each
+decision's `return` value — and the handoff failure fixtures behind the
+receivers' availability and context validation).
 
 The generator refuses to run on top of uncommitted tracked changes and
 prints a review-visible unified diff against the previous projections.
@@ -28,7 +32,8 @@ from pathlib import Path
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
+                "support-handoff")
 PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 
 
@@ -118,6 +123,51 @@ def fake_model_turns(scenario_id: str) -> dict:
             "trajectories": turns}
 
 
+def fake_route_decisions(scenario_id: str) -> dict:
+    """Project the scripted fake-model fixture into the exact decision values
+    its consumers replay: each `decisions` entry's `return` value, keyed by
+    case id (the M2 ScriptedRouteProvider contract)."""
+    path = ROOT / f"fixtures/fake-model/{scenario_id}.yaml"
+    if not path.exists():
+        raise ToolingError(f"Missing fake-model fixture: {path}")
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if (not isinstance(document, dict) or document.get("schema_version") != "1.0"
+            or document.get("scenario_id") != scenario_id
+            or not isinstance(document.get("decisions"), dict)):
+        raise ToolingError(
+            f"{scenario_id}: fake-model document must be a 1.0 {scenario_id} "
+            "document carrying decisions")
+    decisions: dict[str, object] = {}
+    for case_id, entry in document["decisions"].items():
+        if not isinstance(entry, dict) or set(entry) != {"return"}:
+            raise ToolingError(
+                f"{scenario_id}: decision {case_id} must contain exactly return")
+        decisions[case_id] = entry["return"]
+    return {"schema_version": document["schema_version"],
+            "scenario_id": document["scenario_id"],
+            "decisions": decisions}
+
+
+def handoff_failure_fixtures(scenario_id: str) -> dict:
+    """Project the handoff failure fixtures (the scripted context-loss and
+    receiver-unavailability operators behind the M2 receivers) verbatim."""
+    path = ROOT / f"fixtures/failures/{scenario_id}.yaml"
+    if not path.exists():
+        raise ToolingError(f"Missing failures fixture: {path}")
+    document = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if (not isinstance(document, dict) or document.get("schema_version") != "1.0"
+            or document.get("scenario_id") != scenario_id
+            or not isinstance(document.get("failures"), dict)):
+        raise ToolingError(
+            f"{scenario_id}: failures document must be a 1.0 {scenario_id} "
+            "document carrying failures")
+    for failure_id, entry in document["failures"].items():
+        if not isinstance(entry, dict) or not entry:
+            raise ToolingError(
+                f"{scenario_id}: failure {failure_id} must be a non-empty object")
+    return document
+
+
 def fake_tool_fixtures(scenario_id: str) -> dict:
     """Project the fake-tool fixture (orders/shipments behind the M1 fake
     tool registry) as consumed: schema header plus the orders/shipments
@@ -148,6 +198,11 @@ def projection_payloads(scenario_id: str) -> dict[str, dict]:
         return {"scenario.json": document,
                 "fake-model.json": fake_model_turns(scenario_id),
                 "fake-tools.json": fake_tool_fixtures(scenario_id),
+                "attribution.json": document["attribution"]}
+    if scenario_id == "support-handoff":
+        return {"scenario.json": document,
+                "fake-model.json": fake_route_decisions(scenario_id),
+                "failures.json": handoff_failure_fixtures(scenario_id),
                 "attribution.json": document["attribution"]}
     return {"scenario.json": document,
             "workers.json": worker_fixtures(document),

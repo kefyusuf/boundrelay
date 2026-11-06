@@ -1,0 +1,13 @@
+{
+  "latency_ms": {
+    "classify": 30,
+    "receiver.billing-specialist": 10,
+    "receiver.technical-specialist": 11,
+    "receiver.general-specialist": 12
+  },
+  "price_table": {
+    "route": 0,
+    "model_decision": 2,
+    "handoff": 0
+  }
+}

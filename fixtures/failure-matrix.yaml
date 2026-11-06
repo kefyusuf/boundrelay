@@ -87,6 +87,7 @@ rows:
     proof:
       python: test_all_canonical_lifecycles_and_actual_invocations
       typescript: rejects context loss before receiver resolution or invocation
+      go: TestHandoffFailuresFailClosed
   - failure_id: M2-F2
     lesson: 2
     fault: unavailable-receiver
@@ -100,6 +101,7 @@ rows:
     proof:
       python: test_all_canonical_lifecycles_and_actual_invocations
       typescript: rejects unavailable receiver without fallback or invocation
+      go: TestHandoffFailuresFailClosed
   - failure_id: M2-F3
     lesson: 2
     fault: low-confidence-fallback
@@ -113,6 +115,7 @@ rows:
     proof:
       python: test_all_canonical_lifecycles_and_actual_invocations
       typescript: keeps proposed billing intent while low confidence selects general receiver
+      go: TestFallbackPolicyBoundary
   - failure_id: M3-F1
     lesson: 3
     fault: declared-worker-failure

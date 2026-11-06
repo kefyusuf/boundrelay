@@ -1,16 +1,20 @@
 """M7 contracts: Go fixture projections, the 13 canonical M0/M3 case keys,
-the 8 canonical M1 (order-investigation) case keys, and the Go module pins.
+the 8 canonical M1 (order-investigation) case keys, the 5 canonical M2
+(support-handoff) case keys, and the Go module pins.
 
 Projections (fixtures/goprojections/<scenario>/...) must deep-equal the YAML
 sources they were generated from: scenario.json and attribution.json for
 every Go scenario, plus per-scenario scripts — workers.json for M0/M3 (the
-referenced worker fixtures) and fake-model.json/fake-tools.json for M1 (the
+referenced worker fixtures), fake-model.json/fake-tools.json for M1 (the
 scripted fake-model turns exactly as the TS/Py provider replays them, i.e.
 each trajectory entry's `return` value, and the orders/shipments data behind
-the fake tool registry). The Go module pins Go >= 1.25 in go.mod, and
-GO_VERSION must carry that directive. M0 keys are '<case_id>@<mode>' per the
-verify_m0 rule (success routes in both modes, the INVALID_ROUTE_DECISION
-case in model mode only).
+the fake tool registry), and fake-model.json/failures.json for M2 (the
+scripted route decisions exactly as the TS/Py ScriptedRouteProvider replays
+them, i.e. each decision entry's `return` value, and the handoff failure
+fixtures behind the receivers' availability and context validation). The Go
+module pins Go >= 1.25 in go.mod, and GO_VERSION must carry that directive.
+M0 keys are '<case_id>@<mode>' per the verify_m0 rule (success routes in both
+modes, the INVALID_ROUTE_DECISION case in model mode only).
 """
 from pathlib import Path
 import json
@@ -22,7 +26,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[2]
 GO_PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 GO_ROOT = ROOT / "go"
-GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
+                "support-handoff")
 MIN_GO_PARTS = (1, 25)
 EXPECTED_MODULE = "module github.com/kefyusuf/boundrelay/go"
 # The canonical M0/M3 three-language evaluation set (M6's
@@ -53,6 +58,16 @@ EXPECTED_M1_CASE_KEYS = (
     "agent-tool-failure",
     "agent-step-budget",
     "agent-token-budget",
+)
+# The canonical M2 case keys (goldens are named by case id; the router mode
+# is canonical per case — code for the code-*/handoff-receiver-unavailable
+# cases, model otherwise).
+EXPECTED_M2_CASE_KEYS = (
+    "code-billing-handoff",
+    "model-technical-handoff",
+    "model-low-confidence-fallback",
+    "handoff-context-loss",
+    "handoff-receiver-unavailable",
 )
 
 
@@ -123,6 +138,13 @@ def fake_tool_document(scenario_id):
     return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
+def failure_fixture_document(scenario_id):
+    path = ROOT / f"fixtures/failures/{scenario_id}.yaml"
+    if not path.exists():
+        raise AssertionError(f"Missing failures fixture: {path}")
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
 def projected_model_turns(document):
     """The fake-model turns exactly as the TS/Py ScriptedModelProvider
     replays them: each trajectory entry's `return` value."""
@@ -136,6 +158,18 @@ def projected_model_turns(document):
             projected.append(entry["return"])
         turns[case_id] = projected
     return turns
+
+
+def projected_route_decisions(document):
+    """The fake-model decisions exactly as the TS/Py ScriptedRouteProvider
+    replays them: each decision entry's `return` value."""
+    decisions = {}
+    for case_id, entry in document["decisions"].items():
+        if not isinstance(entry, dict) or set(entry) != {"return"}:
+            raise AssertionError(
+                f"decision {case_id} must contain exactly return")
+        decisions[case_id] = entry["return"]
+    return decisions
 
 
 class M7ProjectionContractTests(unittest.TestCase):
@@ -161,6 +195,20 @@ class M7ProjectionContractTests(unittest.TestCase):
                 self.assertEqual(
                     load_projection(name, "fake-tools.json"), fake_tool_document(name),
                     f"{name}: fake-tools projection drifts from the YAML source")
+                continue
+            if name == "support-handoff":
+                fake_model = load_projection(name, "fake-model.json")
+                model_source = fake_model_document(name)
+                self.assertEqual(fake_model["schema_version"], "1.0",
+                                 "fake-model projection must carry the 1.0 header")
+                self.assertEqual(fake_model["scenario_id"], name,
+                                 "fake-model projection must carry the scenario id")
+                self.assertEqual(
+                    fake_model["decisions"], projected_route_decisions(model_source),
+                    "fake-model decisions projection drifts from the YAML source")
+                self.assertEqual(
+                    load_projection(name, "failures.json"), failure_fixture_document(name),
+                    f"{name}: failures projection drifts from the YAML source")
                 continue
             workers = load_projection(name, "workers.json")
             refs = worker_fixture_refs(name)
@@ -188,6 +236,27 @@ class M7ProjectionContractTests(unittest.TestCase):
             golden_path = ROOT / f"fixtures/goldens/order-investigation/{key}.json"
             self.assertTrue(golden_path.exists(),
                             f"missing golden for pinned M1 key {key}")
+
+    def test_m2_case_keys_enumerated(self):
+        scenario = scenario_document("support-handoff")
+        keys = tuple(case["id"] for case in scenario["cases"])
+        self.assertEqual(len(keys), 5, "the canonical M2 set is 5 case keys")
+        self.assertEqual(keys, EXPECTED_M2_CASE_KEYS,
+                         "M2 case keys drifted from the canonical set")
+        modes = {case["id"]: case["router_mode"] for case in scenario["cases"]}
+        self.assertEqual(modes["code-billing-handoff"], "code",
+                         "code-billing-handoff is the canonical code case")
+        self.assertEqual(modes["handoff-receiver-unavailable"], "code",
+                         "handoff-receiver-unavailable is a canonical code case")
+        for key in ("model-technical-handoff", "model-low-confidence-fallback",
+                    "handoff-context-loss"):
+            self.assertEqual(modes[key], "model", f"{key} must be a model case")
+        self.assertEqual(scenario["confidence_threshold"], 0.80,
+                         "the M2 policy threshold is fixed at 0.80")
+        for key in keys:
+            golden_path = ROOT / f"fixtures/goldens/support-handoff/{key}.json"
+            self.assertTrue(golden_path.exists(),
+                            f"missing golden for pinned M2 key {key}")
 
 
 class M7CaseKeyEnumerationTests(unittest.TestCase):
