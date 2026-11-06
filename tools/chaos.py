@@ -33,7 +33,7 @@ LESSON_DIRS = {0: "lessons/00-workflow-or-agent", 1: "lessons/01-bounded-tool-lo
                4: "lessons/04-durable-state-recovery", 5: "lessons/05-side-effects-approval"}
 GO_TEST_DIRS = {0: ROOT / "go/internal/m0", 1: ROOT / "go/internal/m1",
                 2: ROOT / "go/internal/m2", 3: ROOT / "go/internal/m3",
-                4: ROOT / "go/internal/m4"}
+                4: ROOT / "go/internal/m4", 5: ROOT / "go/internal/m5"}
 
 
 class ChaosError(RuntimeError):
@@ -49,9 +49,9 @@ def load_matrix() -> dict:
 
 def proof_identity_exists(lesson: int, language: str, identity: str) -> bool:
     if language == "go":
-        # M7 (and the v1 M1/M2 extensions): the Go proof identities live in
-        # the Go module's test suites for the ported lessons (m0, m1, m2,
-        # m3).
+        # M7 (and the v1 M1/M2/M4/M5 extensions): the Go proof identities
+        # live in the Go module's test suites for the ported lessons (m0,
+        # m1, m2, m3, m4, m5).
         base = GO_TEST_DIRS.get(int(lesson))
         if base is None:
             return False

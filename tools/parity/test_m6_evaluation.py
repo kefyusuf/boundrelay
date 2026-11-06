@@ -358,6 +358,54 @@ class M7LanguageExtensionTests(unittest.TestCase):
                 ["fresh", "corrupt-resume"])
             self.assertEqual(corrupt_flow["go_phases"][1]["exit_code"], 2)
 
+    def test_go_flow_runner_runs_real_m5_cases(self):
+        # The v1 M5 extension: the order-closure Go flow replays the
+        # evaluator's phased choreography (fresh/crash/resume/duplicate)
+        # against the unchanged TS/PY goldens — the effect pipeline, the
+        # submit-window recovery, and the duplicate-key adoption.
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
+            workdir = Path(directory)
+            granted = next(s for s in ev.scenario_cases("order-closure")
+                           if s["key"] == "approval-granted-effect-once")
+            granted_flow = ev.run_flow("order-closure", granted, workdir,
+                                       languages=("ts", "py", "go"))
+            granted_evidence = ev.flow_evidence(granted_flow)
+            self.assertEqual(granted_evidence["languages"],
+                             ["typescript", "python", "go"])
+            self.assertEqual(granted_evidence["result_projection"]["status"], "SUCCEEDED")
+            self.assertEqual(granted_evidence["result_projection"]["effect_status"],
+                             "EFFECT_COMPLETED")
+            self.assertEqual(granted_evidence["result_projection"]["idempotency_key"],
+                             "cancel-and-refund:ORD-1001")
+            crash = next(s for s in ev.scenario_cases("order-closure")
+                         if s["key"] == "crash-submit-window-resolved")
+            crash_flow = ev.run_flow("order-closure", crash, workdir,
+                                     languages=("ts", "py", "go"))
+            crash_evidence = ev.flow_evidence(crash_flow)
+            self.assertEqual(crash_evidence["result_projection"]["status"], "SUCCEEDED")
+            self.assertEqual(crash_evidence["result_projection"]["reconciled"], True)
+            self.assertEqual(crash_evidence["result_projection"]["restored_cursor"], 3)
+            kinds = [phase["kind"] for phase in crash_flow["go_phases"]]
+            self.assertEqual(kinds, ["fresh", "resume"])
+            self.assertEqual(crash_flow["go_phases"][0]["exit_code"], 2)
+            self.assertEqual(crash_flow["go_phases"][1]["exit_code"], 0)
+            unknown = next(s for s in ev.scenario_cases("order-closure")
+                           if s["key"] == "sink-unavailable-unknown")
+            unknown_flow = ev.run_flow("order-closure", unknown, workdir,
+                                       languages=("ts", "py", "go"))
+            self.assertEqual(
+                ev.flow_evidence(unknown_flow)["result_projection"]["status"], "UNKNOWN")
+            duplicate = next(s for s in ev.scenario_cases("order-closure")
+                             if s["key"] == "duplicate-key-suppressed")
+            duplicate_flow = ev.run_flow("order-closure", duplicate, workdir,
+                                         languages=("ts", "py", "go"))
+            kinds = [phase["kind"] for phase in duplicate_flow["go_phases"]]
+            self.assertEqual(kinds, ["fresh", "duplicate"])
+            self.assertEqual(
+                ev.flow_evidence(duplicate_flow)["result_projection"]["status"], "SUCCEEDED")
+            ledger = workdir / "duplicate-key-suppressed.go.state" / "effect-ledger.json"
+            self.assertEqual(len(json.loads(ledger.read_text(encoding="utf-8"))["records"]), 1)
+
     def test_go_flow_runner_divergence_is_a_tooling_error(self):
         diverged = deepcopy(M0_RESULT)
         diverged["status"] = "FAILED"
@@ -391,15 +439,23 @@ class M7LanguageExtensionTests(unittest.TestCase):
                 self.assertEqual(report["cases"][0]["languages"],
                                  ["typescript", "python", "go"])
 
-    def test_go_for_non_go_scenario_is_a_tooling_error(self):
-        # --languages go leaves nothing for a non-Go scenario: tooling error.
-        self.assertEqual(ev.main(["--scenario", "order-closure",
-                                  "--languages", "go"]), 2)
+    def test_every_scenario_accepts_go(self):
+        # Since the M5 Go port every canonical scenario runs all three
+        # languages: the requested set is honored verbatim, and Go alone is
+        # a legal selection for every scenario.
+        self.assertEqual(set(ev.GO_SCENARIOS), set(ev.SCENARIOS),
+                         "every canonical scenario is Go-capable")
+        for scenario_id in ev.SCENARIOS:
+            self.assertEqual(ev.scenario_languages(scenario_id, ("ts", "py", "go")),
+                             ("ts", "py", "go"),
+                             f"{scenario_id} must accept all three languages")
+            self.assertEqual(ev.scenario_languages(scenario_id, ("go",)), ("go",),
+                             f"{scenario_id} must accept Go alone")
 
-    def test_non_go_scenarios_forced_down_to_ts_py(self):
-        # --all --languages ts,py,go forces M5 to ts,py and runs the
-        # showcase pair and the M1/M2/M4 lessons three-language (32
-        # three-language + 6 two-language = the 38-PASS full run).
+    def test_all_scenarios_run_three_language(self):
+        # --all --languages ts,py,go runs every canonical scenario
+        # three-language (38 three-language + 0 two-language = the
+        # 38-PASS full run).
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as directory:
             def fake_flow(scenario_id, spec, workdir, languages=ev.DEFAULT_LANGUAGES):
                 return canned_flow(
@@ -413,32 +469,26 @@ class M7LanguageExtensionTests(unittest.TestCase):
             for case in report["cases"]:
                 by_scenario.setdefault(case["scenario_id"], set()).add(
                     tuple(case["languages"]))
-            for go_scenario in ev.GO_SCENARIOS:
-                self.assertEqual(by_scenario[go_scenario],
+            for scenario_id in ev.SCENARIOS:
+                self.assertEqual(by_scenario[scenario_id],
                                  {("typescript", "python", "go")},
-                                 f"{go_scenario} must run three-language")
-            self.assertEqual(by_scenario["order-closure"],
-                             {("typescript", "python")})
+                                 f"{scenario_id} must run three-language")
             three_language = sum(
                 1 for case in report["cases"] if "go" in case["languages"])
-            self.assertEqual(three_language, 32,
-                             "the canonical split is 32 three-language keys")
+            self.assertEqual(three_language, 38,
+                             "the canonical split is 38 three-language keys")
             self.assertEqual(report["totals"], {"passed": 38, "failed": 0})
 
     def test_matrix_go_proofs(self):
         from tools import chaos
         rows = chaos.load_matrix()["rows"]
         for row in rows:
-            if row["lesson"] in (0, 1, 2, 3, 4):
-                self.assertIn("go", row["proof"],
-                              f"{row['failure_id']} must carry a Go proof identity")
-                self.assertTrue(
-                    chaos.proof_identity_exists(row["lesson"], "go", row["proof"]["go"]),
-                    f"{row['failure_id']} Go proof missing in the Go suite: "
-                    f"{row['proof']['go']}")
-            else:
-                self.assertNotIn("go", row.get("proof") or {},
-                                 f"{row['failure_id']} must stay ts,py-only")
+            self.assertIn("go", row["proof"],
+                          f"{row['failure_id']} must carry a Go proof identity")
+            self.assertTrue(
+                chaos.proof_identity_exists(row["lesson"], "go", row["proof"]["go"]),
+                f"{row['failure_id']} Go proof missing in the Go suite: "
+                f"{row['proof']['go']}")
 
     def test_matrix_go_unit_row_replay(self):
         from tools import chaos

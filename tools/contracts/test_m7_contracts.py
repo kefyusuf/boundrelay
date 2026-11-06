@@ -1,12 +1,12 @@
 """M7 contracts: Go fixture projections, the 13 canonical M0/M3 case keys,
 the 8 canonical M1 (order-investigation) case keys, the 5 canonical M2
 (support-handoff) case keys, the 6 canonical M4 (order-brief-recovery) case
-keys, and the Go module pins.
+keys, the 6 canonical M5 (order-closure) case keys, and the Go module pins.
 
 Projections (fixtures/goprojections/<scenario>/...) must deep-equal the YAML
 sources they were generated from: scenario.json and attribution.json for
-every Go scenario, plus per-scenario scripts — workers.json for M0/M3/M4 (the
-referenced worker fixtures), fake-model.json/fake-tools.json for M1 (the
+every Go scenario, plus per-scenario scripts — workers.json for M0/M3/M4/M5
+(the referenced worker fixtures), fake-model.json/fake-tools.json for M1 (the
 scripted fake-model turns exactly as the TS/Py provider replays them, i.e.
 each trajectory entry's `return` value, and the orders/shipments data behind
 the fake tool registry), and fake-model.json/failures.json for M2 (the
@@ -28,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GO_PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 GO_ROOT = ROOT / "go"
 GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
-                "support-handoff", "order-brief-recovery")
+                "support-handoff", "order-brief-recovery", "order-closure")
 MIN_GO_PARTS = (1, 25)
 EXPECTED_MODULE = "module github.com/kefyusuf/boundrelay/go"
 # The canonical M0/M3 three-language evaluation set (M6's
@@ -79,6 +79,17 @@ EXPECTED_M4_CASE_KEYS = (
     "parallel-cancel-resume",
     "parallel-replay-from-checkpoint",
     "parallel-corrupt-state",
+)
+# The canonical M5 case keys (goldens are named by case id; every case is
+# parallel, carries the fixture approval block, and at most one scripted
+# control extension).
+EXPECTED_M5_CASE_KEYS = (
+    "approval-granted-effect-once",
+    "approval-rejected-no-effect",
+    "retry-before-submit",
+    "crash-submit-window-resolved",
+    "sink-unavailable-unknown",
+    "duplicate-key-suppressed",
 )
 
 
@@ -250,6 +261,27 @@ class M7ProjectionContractTests(unittest.TestCase):
             golden_path = ROOT / f"fixtures/goldens/order-brief-recovery/{key}.json"
             self.assertTrue(golden_path.exists(),
                             f"missing golden for pinned M4 key {key}")
+
+    def test_m5_case_keys_enumerated(self):
+        scenario = scenario_document("order-closure")
+        keys = tuple(case["case_id"] for case in scenario["cases"])
+        self.assertEqual(len(keys), 6, "the canonical M5 set is 6 case keys")
+        self.assertEqual(keys, EXPECTED_M5_CASE_KEYS,
+                         "M5 case keys drifted from the canonical set")
+        for case in scenario["cases"]:
+            self.assertEqual(case["execution_mode"], "parallel",
+                             "every M5 case is a parallel case")
+            self.assertIn("approval", case,
+                          "every M5 case binds a fixture approval decision")
+            extension = sum(1 for field in ("controls", "duplicate_key")
+                            if field in case)
+            self.assertLessEqual(extension, 1,
+                                 "M5 cases carry at most one scripted extension")
+        self.assertEqual(scenario["order_id"], "ORD-1001")
+        for key in keys:
+            golden_path = ROOT / f"fixtures/goldens/order-closure/{key}.json"
+            self.assertTrue(golden_path.exists(),
+                            f"missing golden for pinned M5 key {key}")
 
     def test_m1_case_keys_enumerated(self):
         scenario = scenario_document("order-investigation")

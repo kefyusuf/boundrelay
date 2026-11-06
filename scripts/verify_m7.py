@@ -3,7 +3,7 @@ M6 chain. Raw-first: evidence is only published by this script.
 
 Sequence: clear .boundrelay/m7 -> clean worktree + starting SHA -> verify_m6
 chain -> M6 evidence validated -> Go fixture projections validated -> go
-vet/test/gofmt gates -> M7 probe suites (ProofResult collection) -> 32 Go
+vet/test/gofmt gates -> M7 probe suites (ProofResult collection) -> 38 Go
 flows three-language -> evaluator over all 38 cases three-language -> chaos
 over the full matrix -> verifier-safety suite (normal + python -O) -> recheck
 clean HEAD -> publish .boundrelay/m7/verification-evidence.json.
@@ -103,7 +103,7 @@ def main():
                                'python tools/evaluate.py --all --languages ts,py,go',
                                'python tools/chaos.py --all']}
     gate.publish_evidence(evidence,revision)
-    print(f'M7 verification PASSED at {revision}; cases38 (32 three-language); '
+    print(f'M7 verification PASSED at {revision}; cases38 (38 three-language); '
           f'matrix21; go gates clean; evidence: {gate.EVIDENCE_PATH}')
     return 0
 
