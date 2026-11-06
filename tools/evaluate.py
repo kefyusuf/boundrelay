@@ -30,16 +30,18 @@ SCENARIOS = ("support-triage", "order-investigation", "support-handoff",
              "order-brief", "order-brief-recovery", "order-closure")
 GOLDEN_ROOT = ROOT / "fixtures/goldens"
 # M7 three-language extension: --languages selects a subset of ts,py,go; Go
-# covers the M0/M3 showcase pair and the M1 bounded-tool-loop lesson and is a
-# tooling error elsewhere.
+# covers the M0/M3 showcase pair, the M1 bounded-tool-loop lesson, and the M2
+# support-handoff lesson, and is a tooling error elsewhere.
 LANGUAGE_NAMES = {"ts": "typescript", "py": "python", "go": "go"}
 LANGUAGE_ORDER = ("ts", "py", "go")
 DEFAULT_LANGUAGES = ("ts", "py")
-GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation")
+GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
+                "support-handoff")
 GO_MODULE_ROOT = ROOT / "go"
 GO_CLI_TARGETS = {"support-triage": "./internal/m0/cmd",
                   "order-brief": "./internal/m3/cmd",
-                  "order-investigation": "./internal/m1/cmd"}
+                  "order-investigation": "./internal/m1/cmd",
+                  "support-handoff": "./internal/m2/cmd"}
 FLOW_KEYS = {"python": ("result", "events"),
              "typescript": ("ts_result", "ts_events"),
              "go": ("go_result", "go_events")}

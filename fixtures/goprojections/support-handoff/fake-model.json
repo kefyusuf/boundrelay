@@ -1,0 +1,18 @@
+{
+  "schema_version": "1.0",
+  "scenario_id": "support-handoff",
+  "decisions": {
+    "model-technical-handoff": {
+      "route": "technical",
+      "confidence": 0.92
+    },
+    "model-low-confidence-fallback": {
+      "route": "billing",
+      "confidence": 0.54
+    },
+    "handoff-context-loss": {
+      "route": "billing",
+      "confidence": 0.93
+    }
+  }
+}

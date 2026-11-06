@@ -26,7 +26,7 @@ from tools.parity.test_m6_evaluation import canned_flow
 SCENARIO='support-triage';CASE_KEY='billing-duplicate-charge@model'
 COUNTS={'support-triage':7,'order-investigation':8,'support-handoff':5,
         'order-brief':6,'order-brief-recovery':6,'order-closure':6}
-THREE_LANGUAGE={'support-triage','order-brief','order-investigation'}
+THREE_LANGUAGE={'support-triage','order-brief','order-investigation','support-handoff'}
 
 def full_report():
     cases=[{'scenario_id':name,'case_key':f'{name}-{index}','status':'PASS',
@@ -77,7 +77,14 @@ class M7VerificationSafetyTests(unittest.TestCase):
             'fake-model':('fixtures/goprojections/order-investigation/fake-model.json',
                           lambda d:d['trajectories'].pop('agent-delayed-shipment')),
             'fake-tools':('fixtures/goprojections/order-investigation/fake-tools.json',
-                          lambda d:d['orders'].pop('ORD-9001'))}
+                          lambda d:d['orders'].pop('ORD-9001')),
+            'm2-fake-model':('fixtures/goprojections/support-handoff/fake-model.json',
+                             lambda d:d['decisions'].pop('handoff-context-loss')),
+            'm2-failures':('fixtures/goprojections/support-handoff/failures.json',
+                           lambda d:d['failures']['handoff-receiver-unavailable']
+                                    ['unavailable_receivers'].append('general-specialist')),
+            'm2-scenario':('fixtures/goprojections/support-handoff/scenario.json',
+                           lambda d:d.update(confidence_threshold=0.85))}
         for name,(relative,mutate) in mutations.items():
             with self.subTest(name=name):
                 temp=self.projection_root()
@@ -183,7 +190,8 @@ class M7VerificationSafetyTests(unittest.TestCase):
     def evidence(self,revision='start'):
         return {'schema_version':'1.0','milestone':'m7','status':'PASSED','revision':revision,
                 'command':'python scripts/verify_m7.py',
-                'projections':{'scenarios':['support-triage','order-brief','order-investigation'],
+                'projections':{'scenarios':['support-triage','order-brief','order-investigation',
+                                            'support-handoff'],
                                'status':'matched'},
                 'go_gates':{'vet':'clean','test':'ok','gofmt':'clean'},
                 'go_flows':{'totals':{'passed':gate.THREE_LANGUAGE_CASES,'failed':0}},
