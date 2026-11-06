@@ -6,10 +6,11 @@ Non-authoritative framework mappings per [D-008](../docs/decisions/D-008-framewo
 |---|---|---|---|---|
 | [langgraph-m3](langgraph-m3/README.md) | LangGraph `1.2.20` | M3 `order-brief` (bounded fan-out/fan-in) | `tools/contracts/test_m8_contracts.py` | M8 (merged) |
 | [openai-m1](openai-m1/README.md) | OpenAI Agents SDK (Python) `0.24.0` | M1 `order-investigation` (bounded tool loop) | `tools/contracts/test_p5_contracts.py` | P5 (v1.0 track) |
+| [adk-m2](adk-m2/README.md) | Google ADK (Python) `2.13.0` | M2 `support-handoff` (router→handoff, 0.80 confidence policy) | `tools/contracts/test_p5b_contracts.py` | P5 (v1.0 track) |
 
 ## Running a mapping
 
-Each mapping carries its own `python/` package (`boundrelay-m3-langgraph`, `boundrelay-m1-openai`), an exact-pin `requirements-dev.txt` installed at setup only, and a unittest suite. See the mapping README for the exact commands; the shared shape is:
+Each mapping carries its own `python/` package (`boundrelay-m3-langgraph`, `boundrelay-m1-openai`, `boundrelay-m2-adk`), an exact-pin `requirements-dev.txt` installed at setup only, and a unittest suite. See the mapping README for the exact commands; the shared shape is:
 
 ```bash
 PYTHONPATH=mappings/<mapping>/python/src .venv/Scripts/python.exe -m unittest discover -s mappings/<mapping>/python/tests -t mappings/<mapping>/python/tests

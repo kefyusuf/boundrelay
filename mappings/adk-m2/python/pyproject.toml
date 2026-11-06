@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=80"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "boundrelay-m2-adk"
+version = "0.0.0"
+requires-python = ">=3.14"
+# Runtime dependencies are intentionally empty: google-adk is pinned in
+# requirements-dev.txt (mapping-local venv space, installed at setup only),
+# never at run time (offline deterministic scripted model, no network).
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,3 @@
+# P5b Google ADK mapping pins (exact, offline at run time).
+google-adk==2.13.0
+jsonschema[format]==4.26.0
