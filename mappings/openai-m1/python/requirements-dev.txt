@@ -1,0 +1,3 @@
+# P5 OpenAI Agents SDK mapping pins (exact, offline at run time).
+openai-agents==0.24.0
+jsonschema[format]==4.26.0
