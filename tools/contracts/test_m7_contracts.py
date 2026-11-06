@@ -1,10 +1,11 @@
 """M7 contracts: Go fixture projections, the 13 canonical M0/M3 case keys,
 the 8 canonical M1 (order-investigation) case keys, the 5 canonical M2
-(support-handoff) case keys, and the Go module pins.
+(support-handoff) case keys, the 6 canonical M4 (order-brief-recovery) case
+keys, and the Go module pins.
 
 Projections (fixtures/goprojections/<scenario>/...) must deep-equal the YAML
 sources they were generated from: scenario.json and attribution.json for
-every Go scenario, plus per-scenario scripts — workers.json for M0/M3 (the
+every Go scenario, plus per-scenario scripts — workers.json for M0/M3/M4 (the
 referenced worker fixtures), fake-model.json/fake-tools.json for M1 (the
 scripted fake-model turns exactly as the TS/Py provider replays them, i.e.
 each trajectory entry's `return` value, and the orders/shipments data behind
@@ -27,7 +28,7 @@ ROOT = Path(__file__).resolve().parents[2]
 GO_PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 GO_ROOT = ROOT / "go"
 GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
-                "support-handoff")
+                "support-handoff", "order-brief-recovery")
 MIN_GO_PARTS = (1, 25)
 EXPECTED_MODULE = "module github.com/kefyusuf/boundrelay/go"
 # The canonical M0/M3 three-language evaluation set (M6's
@@ -68,6 +69,16 @@ EXPECTED_M2_CASE_KEYS = (
     "model-low-confidence-fallback",
     "handoff-context-loss",
     "handoff-receiver-unavailable",
+)
+# The canonical M4 case keys (goldens are named by case id; every case is
+# parallel and carries at most one scripted control/extension).
+EXPECTED_M4_CASE_KEYS = (
+    "parallel-clean-complete",
+    "parallel-crash-resume",
+    "parallel-crash-resume-partial",
+    "parallel-cancel-resume",
+    "parallel-replay-from-checkpoint",
+    "parallel-corrupt-state",
 )
 
 
@@ -220,6 +231,25 @@ class M7ProjectionContractTests(unittest.TestCase):
                 self.assertEqual(
                     content, fixture,
                     f"{name}: worker projection {ref} drifts from the YAML source")
+
+    def test_m4_case_keys_enumerated(self):
+        scenario = scenario_document("order-brief-recovery")
+        keys = tuple(case["case_id"] for case in scenario["cases"])
+        self.assertEqual(len(keys), 6, "the canonical M4 set is 6 case keys")
+        self.assertEqual(keys, EXPECTED_M4_CASE_KEYS,
+                         "M4 case keys drifted from the canonical set")
+        for case in scenario["cases"]:
+            self.assertEqual(case["execution_mode"], "parallel",
+                             "every M4 case is a parallel case")
+            extension = sum(1 for field in ("controls", "replay_from_step",
+                                            "tampered_state") if field in case)
+            self.assertLessEqual(extension, 1,
+                                 "M4 cases carry at most one scripted extension")
+        self.assertEqual(scenario["order_id"], "ORD-1001")
+        for key in keys:
+            golden_path = ROOT / f"fixtures/goldens/order-brief-recovery/{key}.json"
+            self.assertTrue(golden_path.exists(),
+                            f"missing golden for pinned M4 key {key}")
 
     def test_m1_case_keys_enumerated(self):
         scenario = scenario_document("order-investigation")

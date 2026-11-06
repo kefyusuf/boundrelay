@@ -184,6 +184,7 @@ rows:
     proof:
       python: test_crash_phase_flushes_prefix_without_terminal
       typescript: crash_phase_flushes_prefix_without_terminal
+      go: TestM4CLICrashThenResume
   - failure_id: M4-F2
     lesson: 4
     fault: recorded-failures-never-reexecuted
@@ -196,6 +197,7 @@ rows:
     proof:
       python: resume_never_reexecutes_recorded_failures
       typescript: resume_never_reexecutes_recorded_failures
+      go: TestResumeSkipsRecordedFailures
   - failure_id: M4-F3
     lesson: 4
     fault: corrupt-state
@@ -209,6 +211,7 @@ rows:
     proof:
       python: test_reject_tampered_state_document
       typescript: reject_tampered_state_document_fails_closed_with_fixed_reasons
+      go: TestM4CLICorruptResume
   - failure_id: M4-F4
     lesson: 4
     fault: cancel-resume
@@ -222,6 +225,7 @@ rows:
     proof:
       python: test_cancel_resume_completes_remaining_workers_only
       typescript: cancel_resume_completes_remaining_workers_only
+      go: TestResumeCancelledRunIsResumable
   - failure_id: M4-F5
     lesson: 4
     fault: binding-mismatch
@@ -234,6 +238,7 @@ rows:
     proof:
       python: resume_rejects_binding_mismatch_and_terminal_states_without_invocations
       typescript: resume_rejects_binding_mismatch_and_terminal_states_without_invocations
+      go: TestResumeRejectsBindingMismatch
   - failure_id: M5-F1
     lesson: 5
     fault: approval-rejection

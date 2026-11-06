@@ -26,7 +26,8 @@ from tools.parity.test_m6_evaluation import canned_flow
 SCENARIO='support-triage';CASE_KEY='billing-duplicate-charge@model'
 COUNTS={'support-triage':7,'order-investigation':8,'support-handoff':5,
         'order-brief':6,'order-brief-recovery':6,'order-closure':6}
-THREE_LANGUAGE={'support-triage','order-brief','order-investigation','support-handoff'}
+THREE_LANGUAGE={'support-triage','order-brief','order-investigation','support-handoff',
+                'order-brief-recovery'}
 
 def full_report():
     cases=[{'scenario_id':name,'case_key':f'{name}-{index}','status':'PASS',
@@ -84,7 +85,12 @@ class M7VerificationSafetyTests(unittest.TestCase):
                            lambda d:d['failures']['handoff-receiver-unavailable']
                                     ['unavailable_receivers'].append('general-specialist')),
             'm2-scenario':('fixtures/goprojections/support-handoff/scenario.json',
-                           lambda d:d.update(confidence_threshold=0.85))}
+                           lambda d:d.update(confidence_threshold=0.85)),
+            'm4-scenario':('fixtures/goprojections/order-brief-recovery/scenario.json',
+                           lambda d:d['cases'][1]['controls'].update(crash_after='delivery-status')),
+            'm4-workers':('fixtures/goprojections/order-brief-recovery/workers.json',
+                          lambda d:d['fixtures/workers/order-brief/complete.yaml']
+                                   ['payment-status'].update(operation='raise'))}
         for name,(relative,mutate) in mutations.items():
             with self.subTest(name=name):
                 temp=self.projection_root()
@@ -191,7 +197,7 @@ class M7VerificationSafetyTests(unittest.TestCase):
         return {'schema_version':'1.0','milestone':'m7','status':'PASSED','revision':revision,
                 'command':'python scripts/verify_m7.py',
                 'projections':{'scenarios':['support-triage','order-brief','order-investigation',
-                                            'support-handoff'],
+                                            'support-handoff','order-brief-recovery'],
                                'status':'matched'},
                 'go_gates':{'vet':'clean','test':'ok','gofmt':'clean'},
                 'go_flows':{'totals':{'passed':gate.THREE_LANGUAGE_CASES,'failed':0}},

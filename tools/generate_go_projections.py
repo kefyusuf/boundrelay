@@ -1,13 +1,13 @@
-"""Generate the Go fixture projections from the M0/M3/M1/M2 YAML sources.
+"""Generate the Go fixture projections from the M0/M3/M1/M2/M4 YAML sources.
 
 Go's standard library has no YAML parser, so the Go runtimes load the M0
-(support-triage), M3 (order-brief), M1 (order-investigation), and M2
-(support-handoff) fixtures from checked-in JSON projections under
-fixtures/goprojections/<scenario>/: scenario.json (the full scenario document
-including the attribution tables), attribution.json (the scenario's
-attribution block), plus per-scenario scripts — workers.json (the M0/M3
-worker fixtures referenced by the scenario's cases, keyed by repo-relative
-path), fake-model.json/fake-tools.json for M1 (the scripted fake-model turns
+(support-triage), M3 (order-brief), M1 (order-investigation), M2
+(support-handoff), and M4 (order-brief-recovery) fixtures from checked-in
+JSON projections under fixtures/goprojections/<scenario>/: scenario.json (the
+full scenario document including the attribution tables), attribution.json
+(the scenario's attribution block), plus per-scenario scripts — workers.json
+(the M0/M3/M4 worker fixtures referenced by the scenario's cases, keyed by
+repo-relative path), fake-model.json/fake-tools.json for M1 (the scripted fake-model turns
 the M1 provider replays, exactly the values its TS/Python consumers extract
 from each entry's `return`, and the orders/shipments data behind the fake
 tool registry), or fake-model.json/failures.json for M2 (the scripted route
@@ -33,7 +33,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 GO_SCENARIOS = ("support-triage", "order-brief", "order-investigation",
-                "support-handoff")
+                "support-handoff", "order-brief-recovery")
 PROJECTION_ROOT = ROOT / "fixtures/goprojections"
 
 
