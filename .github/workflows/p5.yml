@@ -1,0 +1,51 @@
+name: P5 Verification
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: mappings/mastra-m3/typescript/package-lock.json
+      - uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            requirements-dev.txt
+            mappings/openai-m1/python/requirements-dev.txt
+            mappings/adk-m2/python/requirements-dev.txt
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go/GO_VERSION
+          cache: true
+          cache-dependency-path: mappings/eino-m3/go/go.sum
+      - run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements-dev.txt
+          python -m pip install -r mappings/openai-m1/python/requirements-dev.txt
+          python -m pip install -r mappings/adk-m2/python/requirements-dev.txt
+      - run: npm ci --prefix mappings/mastra-m3/typescript
+      - run: |
+          python -m unittest tools.contracts.test_p5_contracts tools.contracts.test_p5b_contracts tools.contracts.test_p5c_contracts tools.contracts.test_p5d_contracts -v
+      - run: |
+          PYTHONPATH=mappings/openai-m1/python/src python -m unittest discover -s mappings/openai-m1/python/tests -t mappings/openai-m1/python/tests -v
+          PYTHONPATH=mappings/adk-m2/python/src python -m unittest discover -s mappings/adk-m2/python/tests -t mappings/adk-m2/python/tests -v
+      - run: npm test --prefix mappings/mastra-m3/typescript
+      - run: go test ./...
+        working-directory: mappings/eino-m3/go
