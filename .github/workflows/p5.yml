@@ -41,6 +41,8 @@ jobs:
           python -m pip install -r mappings/openai-m1/python/requirements-dev.txt
           python -m pip install -r mappings/adk-m2/python/requirements-dev.txt
       - run: npm ci --prefix mappings/mastra-m3/typescript
+      - run: go mod download
+        working-directory: mappings/eino-m3/go
       - run: |
           python -m unittest tools.contracts.test_p5_contracts tools.contracts.test_p5b_contracts tools.contracts.test_p5c_contracts tools.contracts.test_p5d_contracts -v
       - run: |
