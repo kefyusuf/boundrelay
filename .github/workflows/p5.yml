@@ -45,6 +45,9 @@ jobs:
         working-directory: mappings/eino-m3/go
       - run: |
           python -m unittest tools.contracts.test_p5_contracts tools.contracts.test_p5b_contracts tools.contracts.test_p5c_contracts tools.contracts.test_p5d_contracts -v
+      - name: v1-track linkage tests (P1–P3)
+        run: |
+          python -m unittest tools.contracts.test_v1_checklist tools.parity.test_v1_inspector tools.contracts.test_v1_labs -v
       - run: |
           PYTHONPATH=mappings/openai-m1/python/src python -m unittest discover -s mappings/openai-m1/python/tests -t mappings/openai-m1/python/tests -v
           PYTHONPATH=mappings/adk-m2/python/src python -m unittest discover -s mappings/adk-m2/python/tests -t mappings/adk-m2/python/tests -v
