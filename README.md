@@ -4,11 +4,13 @@
 
 ## Project status
 
-**Phase:** M8 framework mapping (LangGraph × M3) implemented; certify the checked-out revision with `python scripts/verify_m8.py`.
+**Phase:** v1.0 track (P1–P5) implemented on top of certified M0–M8; certify the checked-out revision with `python scripts/verify_m8.py` (M8→M0 chain) and the P5 mapping suites per [mappings/README.md](mappings/README.md).
 
 M8 adds the first framework mapping per D-008: a non-authoritative LangGraph (Python) rebuild of the M3 `order-brief` fan-out/fan-in under `mappings/langgraph-m3/`, with an exactly-pinned dependency (langgraph 1.2.20), business-result parity for all six M3 cases against the unchanged goldens, dependency isolation proven by a fail-closed scan, and D-008's four questions (provided / retained / hidden / exit) answered with executable proof — including the centerpiece finding that bounded admission is not a first-class LangGraph primitive. The mapping suite runs inside the M8 authority, which chains M7→M0.
 
-M7 adds Go as the third language per D-003: a zero-dependency Go module (`go/`, stdlib only) implements the M0 (`support-triage`) and M3 (`order-brief`) runtimes idiomatically — strict JSON decoding, sentinel failure codes, `context.Context` fatal-drain, bounded semaphore admission with instrumented overlap proof. All 13 M0/M3 case keys now reach three-language golden parity (TS == PY == Go against the unchanged goldens); the M6 evaluator gains `--languages`, the failure matrix gains Go proof identities, and `verify_m7.py` chains M6→M0 plus `go vet`/`go test`/`gofmt` gates. M1/M2/M4/M5 remain TS/PY-only, deferred to later decisions.
+The v1.0 track delivered the five sequenced packages (PRs #32–#42): P1 the production checklist with an executable linkage test, P2 the trace inspector, P3 the fault-injection labs, P4 the remaining Go ports (M1/M2/M4/M5 per [D-020](docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md) — all 38 canonical case keys now reach three-language golden parity), and P5 the framework mapping set (OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go), each isolated per D-008 with D-019's pattern). See [ROADMAP.md](ROADMAP.md) for the package table.
+
+M7 adds Go as the third language per D-003: a zero-dependency Go module (`go/`, stdlib only) implements the M0 (`support-triage`) and M3 (`order-brief`) runtimes idiomatically — strict JSON decoding, sentinel failure codes, `context.Context` fatal-drain, bounded semaphore admission with instrumented overlap proof. At M7 time the 13 M0/M3 case keys reached three-language golden parity (TS == PY == Go against the unchanged goldens); the M6 evaluator gained `--languages`, the failure matrix gained Go proof identities, and `verify_m7.py` chains M6→M0 plus `go vet`/`go test`/`gofmt` gates. The M1/M2/M4/M5 Go ports D-018 deferred landed as P4 (recorded in D-020), extending the M7 authority to all 38 case keys.
 
 M6 is the first cross-cutting milestone: it adds deterministic attribution (clock-injected latency, fixture-priced cost, multi-phase attempt reconciliation) to every lesson's run results, language-agnostic golden trajectories for all 38 canonical cases, the independent fail-closed regression evaluator `tools/evaluate.py`, the machine-readable failure matrix `fixtures/failure-matrix.yaml` (21 declared failure classes), and `tools/chaos.py` which replays every declared fault live through the lessons' scripted controls. M6 certification invokes M5 once, retaining the M5→M4→M3→M2→M1→M0 chain.
 
@@ -118,11 +120,11 @@ The M7 authority requires the lessons of M0–M5 installed (see the sections abo
 
 ```bash
 cd go && go vet ./... && go test ./... && cd ..
-python tools/evaluate.py --all --languages ts,py,go   # 38 cases; 13 three-language
-python scripts/verify_m7.py                           # full authority: M6 chain + Go gates + 13 Go flows
+python tools/evaluate.py --all --languages ts,py,go   # 38 cases; all three-language
+python scripts/verify_m7.py                           # full authority: M6 chain + Go gates + 38 Go flows
 ```
 
-The gate requires a clean Git worktree, runs M6 (including M5→M0), validates the JSON projections against their YAML sources, runs `go vet`/`go test`/`gofmt` gates, evaluates the 13 showcase keys in three languages against the unchanged goldens, evaluates all 38 cases, replays the 21 failure-matrix rows, and publishes `.boundrelay/m7/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m7-verification-<revision>`. See [D-018](docs/decisions/D-018-m7-go-parity-stable-lessons.md) for the showcase-pair scope and `go/` module layout.
+The gate requires a clean Git worktree, runs M6 (including M5→M0), validates the JSON projections against their YAML sources, runs `go vet`/`go test`/`gofmt` gates, evaluates all 38 case keys in three languages against the unchanged goldens, replays the 21 failure-matrix rows, and publishes `.boundrelay/m7/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m7-verification-<revision>`. See [D-018](docs/decisions/D-018-m7-go-parity-stable-lessons.md) for the original showcase-pair scope and [D-020](docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md) for the P4 extension to all 38 keys.
 
 ## Verify M8 locally
 
@@ -134,6 +136,23 @@ python scripts/verify_m8.py   # full authority: M7 chain + the mapping suite + i
 ```
 
 The gate requires a clean Git worktree, runs M7 (including M6→M0), snapshots the canonical tree (13,000+ files) and re-validates it after the mapping suite, proves dependency isolation (zero `langgraph` references outside `mappings/`), runs the 38-test mapping suite (six parity cases against the unchanged M3 goldens, taxonomy preservation, the naive-mode teaching regression), and publishes `.boundrelay/m8/verification-evidence.json` only if HEAD remains unchanged. GitHub Actions runs the same command and uploads `m8-verification-<revision>`. See [mappings/langgraph-m3/README.md](mappings/langgraph-m3/README.md) for D-008's four questions (provided / retained / hidden / exit) with the proving tests.
+
+## Verify the v1.0 track locally
+
+P1–P4 verification runs inside the existing authorities: `scripts/verify_m7.py` now requires all 38 case keys three-language (D-020), and the P1/P3 linkage tests (`tools/contracts/test_v1_checklist.py`, `tools/contracts/test_v1_labs.py`) ship in the contract suite. The P5 mapping suites run fully offline against the canonical fixtures — install the exactly-pinned mapping dependencies first, then:
+
+```bash
+python -m pip install -r mappings/openai-m1/python/requirements-dev.txt
+python -m pip install -r mappings/adk-m2/python/requirements-dev.txt
+python -m unittest tools.contracts.test_p5_contracts tools.contracts.test_p5b_contracts \
+  tools.contracts.test_p5c_contracts tools.contracts.test_p5d_contracts -v
+PYTHONPATH=mappings/openai-m1/python/src python -m unittest discover -s mappings/openai-m1/python/tests -t mappings/openai-m1/python/tests
+PYTHONPATH=mappings/adk-m2/python/src python -m unittest discover -s mappings/adk-m2/python/tests -t mappings/adk-m2/python/tests
+npm ci --prefix mappings/mastra-m3/typescript && npm test --prefix mappings/mastra-m3/typescript
+cd mappings/eino-m3/go && go test ./... && cd ..
+```
+
+The Python contracts tests assert the installed framework version against the exact pin, so the two `requirements-dev.txt` installs above must precede them. GitHub Actions runs the same suites via `.github/workflows/p5.yml`. See [mappings/README.md](mappings/README.md) for each mapping's D-008 four-questions record and exact commands.
 
 ## Verify M3 locally
 

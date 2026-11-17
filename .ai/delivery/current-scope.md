@@ -2,11 +2,9 @@
 
 ## Active phase
 
-M8 — Framework mapping (LangGraph × M3) implemented and revision-verifiable.
+v1.0 track (P1–P5) implemented on top of certified M0–M8; the milestone chain stays revision-verifiable via `python scripts/verify_m8.py`, and the P5 mapping suites run per `mappings/README.md` with CI wiring in `.github/workflows/p5.yml`.
 
-Accepted scope: D-019 and `docs/superpowers/specs/2026-11-05-m8-framework-mapping-design.md`. Implementation plan: `docs/superpowers/plans/2026-11-05-m8-langgraph-m3.md`, approved for Native execution.
-
-M8 adds the first framework mapping per D-008: a non-authoritative LangGraph (Python) rebuild of the M3 `order-brief` fan-out/fan-in under `mappings/langgraph-m3/` (langgraph 1.2.20, exactly pinned), with business-result parity for all six M3 cases against the unchanged goldens, dependency isolation proven by a fail-closed scan, a canonical-tree snapshot re-validated after the mapping suite, and D-008's four questions answered with executable proof (centerpiece: bounded admission is not a first-class LangGraph primitive). The M8 authority chains M7→M0 plus the mapping suite. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+Accepted scope: D-019 for M8 and [D-020](../../docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md) for the P4/P5 record (pending owner approval; status flips to Accepted at merge). The v1.0 track shipped as single reviewed PRs (#32–#42): P1 production checklist + executable linkage test, P2 trace inspector, P3 fault-injection labs, P4 Go runtimes for M1/M2/M4/M5 with the M7 authority extended to all 38 case keys three-language, and P5 the four-mapping framework set (OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go)) under D-008 isolation. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 
@@ -14,12 +12,13 @@ M2 adds exactly five offline support-handoff cases in TypeScript and Python, a f
 
 ## Next milestone design
 
-The owner accepted [the written M8 LangGraph mapping design](../../docs/superpowers/specs/2026-11-05-m8-framework-mapping-design.md), D-019, and the [implementation plan](../../docs/superpowers/plans/2026-11-05-m8-langgraph-m3.md) on 2026-11-05, selecting Native execution. Rulings recorded in the plan ledger: Ruling 7 — the corrected graph's bounded wrapper enforces canonical-priority slot admission plus completion-order release gates (mirroring M3's executor + ScriptedWorkers pair) rather than a bare semaphore, making peak_concurrency deterministic; the fake-model turns live in the mapping as test-pinned literals. The complete authority must be rerun on every changed candidate. With M8, all planned milestones (M0–M8) are complete; the v1.0 exit criteria (trace inspector, expanded fault-injection labs, production checklist) remain future work.
+The owner accepted [the written M8 LangGraph mapping design](../../docs/superpowers/specs/2026-11-05-m8-framework-mapping-design.md), D-019, and the [implementation plan](../../docs/superpowers/plans/2026-11-05-m8-langgraph-m3.md) on 2026-11-05, selecting Native execution. Rulings recorded in the plan ledger: Ruling 7 — the corrected graph's bounded wrapper enforces canonical-priority slot admission plus completion-order release gates (mirroring M3's executor + ScriptedWorkers pair) rather than a bare semaphore, making peak_concurrency deterministic; the fake-model turns live in the mapping as test-pinned literals. The complete authority must be rerun on every changed candidate. With M8, all planned milestones (M0–M8) are complete, and the v1.0 exit criteria shipped through packages P1–P5 (PRs #32–#42), recorded in D-020.
 
 ## Verification authority
 
 - Local gate: `python scripts/verify_m8.py` (runs M7, which runs M6→M0)
 - CI workflow: `.github/workflows/m8.yml`
+- P5 suites: `tools/contracts/test_p5*_contracts.py` + the per-mapping unittest/vitest/go-test suites (see `mappings/README.md`); CI workflow: `.github/workflows/p5.yml`
 - Runtime floor: Node.js 24, Python 3.14, Go >= 1.25, LangGraph 1.2.20 (pinned)
 - CI artifact: `m8-verification-<revision>`
 - Evidence root: `.boundrelay/m8/`
