@@ -139,11 +139,12 @@ The gate requires a clean Git worktree, runs M7 (including M6→M0), snapshots t
 
 ## Verify the v1.0 track locally
 
-P1–P4 verification runs inside the existing authorities: `scripts/verify_m7.py` now requires all 38 case keys three-language (D-020), and the P1/P3 linkage tests (`tools/contracts/test_v1_checklist.py`, `tools/contracts/test_v1_labs.py`) ship in the contract suite. The P5 mapping suites run fully offline against the canonical fixtures — install the exactly-pinned mapping dependencies first, then:
+P4 verification runs inside the existing M7 authority: `scripts/verify_m7.py` now requires all 38 case keys three-language (D-020). The P1–P3 linkage tests (`tools/contracts/test_v1_checklist.py`, `tools/parity/test_v1_inspector.py`, `tools/contracts/test_v1_labs.py`) run standalone and are wired into CI by the P5 workflow. The P5 mapping suites run fully offline against the canonical fixtures — install the exactly-pinned mapping dependencies first, then:
 
 ```bash
 python -m pip install -r mappings/openai-m1/python/requirements-dev.txt
 python -m pip install -r mappings/adk-m2/python/requirements-dev.txt
+python -m unittest tools.contracts.test_v1_checklist tools.parity.test_v1_inspector tools.contracts.test_v1_labs -v
 python -m unittest tools.contracts.test_p5_contracts tools.contracts.test_p5b_contracts \
   tools.contracts.test_p5c_contracts tools.contracts.test_p5d_contracts -v
 PYTHONPATH=mappings/openai-m1/python/src python -m unittest discover -s mappings/openai-m1/python/tests -t mappings/openai-m1/python/tests
