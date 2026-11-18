@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -55,7 +56,7 @@ func TestRunCLIDomainResultsExitZero(t *testing.T) {
 	} {
 		t.Run(testCase.caseID, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			tracePath := t.TempDir() + "\\trace.jsonl"
+			tracePath := filepath.Join(t.TempDir(), "trace.jsonl")
 			code := RunCLI([]string{"--case", testCase.caseID, "--trace", tracePath},
 				&stdout, &stderr)
 			if code != 0 {
@@ -80,14 +81,17 @@ func TestRunCLIDomainResultsExitZero(t *testing.T) {
 }
 
 func TestRunCLIToolingFailuresExitTwo(t *testing.T) {
+	// Trace paths must stay outside the repository: a relative path lets
+	// the naive declared-failure flow dirty the checked-in tree.
+	tracePath := filepath.Join(t.TempDir(), "failure.jsonl")
 	for _, testCase := range []struct {
 		name string
 		args []string
 	}{
-		{"unknown case", []string{"--case", "no-such-case", "--trace", "t.jsonl"}},
+		{"unknown case", []string{"--case", "no-such-case", "--trace", tracePath}},
 		{"missing trace", []string{"--case", "parallel-complete"}},
 		{"unknown option", []string{"--case", "parallel-complete", "--trace", "t", "--extra", "x"}},
-		{"naive declared failure", []string{"--mode", "naive", "--case", "parallel-partial-failure", "--trace", "t.jsonl"}},
+		{"naive declared failure", []string{"--mode", "naive", "--case", "parallel-partial-failure", "--trace", tracePath}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
@@ -107,7 +111,7 @@ func TestRunCLIToolingFailuresExitTwo(t *testing.T) {
 
 func TestRunCLINaiveDomainPath(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	code := RunCLI([]string{"--mode", "naive", "--case", "parallel-complete", "--trace", t.TempDir() + "\\naive.jsonl"},
+	code := RunCLI([]string{"--mode", "naive", "--case", "parallel-complete", "--trace", filepath.Join(t.TempDir(), "naive.jsonl")},
 		&stdout, &stderr)
 	if code != 0 {
 		t.Fatalf("exit %d, stderr: %s", code, stderr.String())
