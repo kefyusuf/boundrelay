@@ -57,7 +57,7 @@ def read_trace(path: Path) -> list[dict]:
             raise TraceError(f"line {number}: sequence must be a positive integer")
         if events and event["sequence"] != events[-1]["sequence"] + 1:
             raise TraceError(f"line {number}: sequence is not contiguous")
-        if event["run_id"] != events[0]["run_id"] if events else False:
+        if events and event["run_id"] != events[0]["run_id"]:
             raise TraceError(f"line {number}: run_id changed mid-trace")
         events.append(event)
     if not events:

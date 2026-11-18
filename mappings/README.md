@@ -23,4 +23,4 @@ cd mappings/eino-m3/go && go test ./...
 go run ./cmd --case <case-id> --trace <native-stream-file>
 ```
 
-Framework runs are fully offline: the framework's execution machinery drives deterministic, scripted model/tool boundaries rebuilt from the canonical fixtures — no LLM calls, no network.
+Framework runs are fully offline: the framework's execution machinery drives deterministic, scripted model/tool boundaries rebuilt from the canonical fixtures — no LLM calls, no network. On POSIX, use `.venv/bin/python` in place of `.venv/Scripts/python.exe` in the shared shape above.
