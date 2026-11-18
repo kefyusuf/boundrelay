@@ -4,9 +4,19 @@
 
 ## Proje durumu
 
-**Aşama:** M2 routing ve typed handoff uygulandı; mevcut revision'ı `python scripts/verify_m2.py` ile doğrulayın.
+**Aşama:** v1.0 takibi (P1–P5) sertifikalı M0–M8 üzerine uygulandı; mevcut revision'ı `python scripts/verify_m8.py` ile (M8→M0 zinciri) doğrulayın. P5 mapping suite'leri için [mappings/README.md](mappings/README.md) ve `.github/workflows/p5.yml` dosyasına bakın.
 
 M2, TypeScript ve Python'da offline support-router → deterministik specialist handoff ekler. Route kararı doğrulandıktan sonra sabit `0.80` güven eşiği uygulanır; sender intent, alıcının yalnızca `ticket_id + request_text` içeren girdisinden ayrı tutulur. Beş canonical senaryo code/model routing, düşük güven fallback, context loss ve erişilemeyen alıcıyı kapsar. Başarıda tam bir alıcı çağrılır; rejection durumunda çağrı ve retry yapılmaz. M2 doğrulaması M1'i alt milestone authority olarak korur.
+
+M3, üç bağımsız offline order-brief worker'ı, sıralı limit 1 / paralel limit 2, typed partial/all-failed sonuçları, tam canonical fan-in ve tek deterministic synthesizer ekler. M4, typed run-state dokümanı, write-ahead atomic checkpoint'ler, fail-closed resume/replay ve deterministik cancellation ekler; kaydedilen sonuçlar asla yeniden çalıştırılmaz. M5, projenin ilk mutating işlemi olan `order-closure`'u ekler: payload-digest'e bağlı approval, dosya destekli ledger ile anahtar-başına-once idempotency, append-only audit ve dış gerçeklik kanıtlanamadığında `UNKNOWN`.
+
+M6, her dersin çalışma sonuçlarına deterministik attribution (saat-enjeksiyonlu gecikme, fixture-fiyatlı maliyet, çok-fazlı deneme uzlaştırması), 38 canonical case için dil-bağımsız golden trajectory'ler, bağımsız fail-closed regression evaluator `tools/evaluate.py`, makine-okur failure matrix `fixtures/failure-matrix.yaml` (21 hata sınıfı) ve bildirilen tüm hataları canlı replay eden `tools/chaos.py` ekler.
+
+M7, D-003 gereği Go'yu üçüncü dil olarak ekler: `go/` altında sıfır-bağımlılık (yalnızca stdlib) Go modülü, strict JSON decoding, sentinel failure kodları, `context.Context` fatal-drain ve sınırlı semaphore admission ile. M7 zamanında 13 M0/M3 anahtarı üç-dilli golden parity'ye ulaştı; D-018'in ertelediği M1/M2/M4/M5 Go port'ları v1.0 takibi P4 olarak geldi ([D-020](docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md)) ve M7 authority'si 38 anahtarın tamamını kapsayacak şekilde genişledi.
+
+M8, D-008 gereği ilk framework mapping'ini ekler: `mappings/langgraph-m3/` altında LangGraph `1.2.20` (exact pin) ile M3 `order-brief` yeniden inşası; altı case için business-result parity, fail-closed dependency isolation ve D-008'in dört sorusu (provided / retained / hidden / exit) kanıtlanabilir cevaplarla.
+
+v1.0 takibi beş sıralı paket halinde teslim edildi (PR #32–#42): P1 production checklist + executable linkage test, P2 trace inspector, P3 fault-injection labs, P4 kalan Go port'ları (M1/M2/M4/M5), P5 framework mapping seti (OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go)). Milestone'ların tamamlanmış doğrulama bölümleri için İngilizce [README](README.md)'ye bakın.
 
 M0, deterministic-vs-model routing baseline'ı olarak korunuyor. M1 ise canonical `order-investigation` senaryosu için offline, deterministic ve read-only tek-agent tool loop ekliyor: direct function-call baseline, bounded model–tool–observation döngüsü, iki typed read-only tool, hard model-step/token budget, fail-closed validation, açık timeout/execution failure davranışı, strict JSONL trace ve TypeScript/Python behavioral parity.
 
