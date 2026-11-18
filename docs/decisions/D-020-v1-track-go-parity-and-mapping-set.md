@@ -1,6 +1,6 @@
 # D-020 — v1.0 Track: Full Go Parity (P4) and the Framework Mapping Set (P5)
 
-- **Status:** Proposed (pending owner approval)
+- **Status:** Accepted
 - **Date:** 2026-11-18
 
 ## Context
@@ -22,11 +22,11 @@ Record the v1.0 track's two deferred packages as one decision:
 
 ## Consequences
 
-- The decision index closes the D-018 deferral loop: "separate later decisions" is this record, and the status flip to Accepted happens at owner merge.
+- The decision index closes the D-018 deferral loop: "separate later decisions" is this record.
 - The M7 evidence semantics change meaning: `THREE_LANGUAGE_CASES` and the evaluator's three-language count are 38, not 13; the README's M7 section is corrected accordingly.
 - The P-track packages shipped as single reviewed PRs with revision-bound CI evidence rather than the full design → plan → implementation sequence used for M0–M8; this decision is the recorded retroactive scope for P4/P5 (P1–P3 shipped similarly under PRs #32–#34 with their own executable linkage tests).
 - No canonical lesson, golden, failure matrix, or lower-milestone boundary is changed by this decision.
 
 ## Acceptance gate
 
-Pending owner approval. Merging this record constitutes acceptance; its status flips to Accepted at merge. No lower-milestone boundary is changed by this decision.
+The owner approved this record on 2026-11-18. No lower-milestone boundary is changed by this decision.

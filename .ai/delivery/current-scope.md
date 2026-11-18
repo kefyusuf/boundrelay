@@ -4,7 +4,7 @@
 
 v1.0 track (P1–P5) implemented on top of certified M0–M8; the milestone chain stays revision-verifiable via `python scripts/verify_m8.py`, and the P5 mapping suites run per `mappings/README.md` with CI wiring in `.github/workflows/p5.yml`.
 
-Accepted scope: D-019 for M8 and [D-020](../../docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md) for the P4/P5 record (pending owner approval; status flips to Accepted at merge). The v1.0 track shipped as single reviewed PRs (#32–#42): P1 production checklist + executable linkage test, P2 trace inspector, P3 fault-injection labs, P4 Go runtimes for M1/M2/M4/M5 with the M7 authority extended to all 38 case keys three-language, and P5 the four-mapping framework set (OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go)) under D-008 isolation. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
+Accepted scope: D-019 for M8 and [D-020](../../docs/decisions/D-020-v1-track-go-parity-and-mapping-set.md) for the P4/P5 record (owner-approved 2026-11-18). The v1.0 track shipped as single reviewed PRs (#32–#42): P1 production checklist + executable linkage test, P2 trace inspector, P3 fault-injection labs, P4 Go runtimes for M1/M2/M4/M5 with the M7 authority extended to all 38 case keys three-language, and P5 the four-mapping framework set (OpenAI Agents SDK×M1, Google ADK×M2, Mastra×M3 (TS), Eino×M3 (Go)) under D-008 isolation. Certification, review, CI, merge and release are separate observed states; inspect candidate evidence rather than inferring success from this scope record.
 
 ## Preserved M2 boundary
 

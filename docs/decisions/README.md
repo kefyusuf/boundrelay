@@ -23,4 +23,4 @@ Accepted decisions are not edited to change their meaning. A later decision supe
 | [D-017](D-017-m6-observability-evaluation-faults.md) | Bound M6 to deterministic attribution, golden trajectories, a regression evaluator, and a proven failure matrix | Accepted | 2026-11-03 |
 | [D-018](D-018-m7-go-parity-stable-lessons.md) | Bound M7 to Go parity for the contract-stable showcase pair (M0 + M3) with zero dependencies | Accepted | 2026-11-04 |
 | [D-019](D-019-m8-langgraph-m3-mapping.md) | Bound M8 to a single non-authoritative LangGraph mapping of M3 with dependency isolation | Accepted | 2026-11-05 |
-| [D-020](D-020-v1-track-go-parity-and-mapping-set.md) | Record the v1.0 track's P4 (full Go parity, M7 authority extension to 38 keys) and P5 (four-mapping framework set) | Proposed | 2026-11-18 |
+| [D-020](D-020-v1-track-go-parity-and-mapping-set.md) | Record the v1.0 track's P4 (full Go parity, M7 authority extension to 38 keys) and P5 (four-mapping framework set) | Accepted | 2026-11-18 |
